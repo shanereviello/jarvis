@@ -1,0 +1,11 @@
+{
+  "layer": "raw",
+  "category": "notes",
+  "timestamp": "2026-05-03T20:53:42",
+  "content": {
+    "example": "test"
+  },
+  "metadata": {
+    "test": true
+  }
+}
