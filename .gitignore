@@ -1,2 +1,35 @@
+# Secrets
 .env
-.json
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Runtime memory/state
+memory/
+memories/
+vector_store/
+chroma_db/
+cache/
+sessions/
+logs/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated/model data
+*.pkl
+*.npy
+*.pt
+
+# macOS
+.DS_Store
+
+# VS Code local settings
+.vscode/
