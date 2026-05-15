@@ -3,14 +3,17 @@ import datetime
 import json
 import os
 import re
+from config import JARVIS_MEMORY_ROOT
 
-MEMORY_ROOT = "memory"
+MEMORY_ROOT = JARVIS_MEMORY_ROOT or "memory"
 RAW_DIR = os.path.join(MEMORY_ROOT, "raw")
 EPISODIC_DIR = os.path.join(MEMORY_ROOT, "episodic")
 SEMANTIC_DIR = os.path.join(MEMORY_ROOT, "semantic")
+SESSIONS_DIR = os.path.join(MEMORY_ROOT, "sessions")
 EMBEDDINGS_DIR = os.path.join(MEMORY_ROOT, "embeddings")
 INDEXES_DIR = os.path.join(MEMORY_ROOT, "indexes")
 SUMMARIES_DIR = os.path.join(MEMORY_ROOT, "summaries")
+ACTIVE_SESSION_PATH = os.path.join(SESSIONS_DIR, "active_session.json")
 
 RAW_CATEGORIES = ["conversations", "calendar", "system", "notes"]
 SEMANTIC_CATEGORIES = ["preferences", "projects", "people", "tasks"]
@@ -64,6 +67,7 @@ def ensure_memory_dirs():
 
     os.makedirs(EPISODIC_DIR, exist_ok=True)
     os.makedirs(SEMANTIC_DIR, exist_ok=True)
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
     for category in SEMANTIC_CATEGORIES:
         os.makedirs(os.path.join(SEMANTIC_DIR, category), exist_ok=True)
 
@@ -72,6 +76,184 @@ def ensure_memory_dirs():
     os.makedirs(SUMMARIES_DIR, exist_ok=True)
 
     _migrate_memory_json()
+
+
+def _default_session_id():
+    return f"session-{datetime.datetime.now().strftime('%Y-%m-%d')}"
+
+
+def _truncate_text(value, limit=300):
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
+
+
+def _is_valid_vault_path(path):
+    path = str(path or "").strip()
+    if not path:
+        return False
+    name = os.path.basename(path)
+    return not name.startswith("._")
+
+
+def _normalize_session_messages(messages):
+    normalized = []
+    for item in messages or []:
+        role = item.get("role")
+        content = str(item.get("content", "")).strip()
+        if role in {"user", "assistant"} and content:
+            normalized.append({
+                "role": role,
+                "content": content,
+                "timestamp": item.get("timestamp", _now_iso()),
+            })
+    return normalized
+
+
+def get_active_session():
+    ensure_memory_dirs()
+
+    session = _read_json_file(ACTIVE_SESSION_PATH)
+    if session:
+        session["messages"] = _normalize_session_messages(session.get("messages", []))
+        session.setdefault("session_id", _default_session_id())
+        session.setdefault("title", "Active session")
+        session.setdefault("created_at", _now_iso())
+        session.setdefault("updated_at", session["created_at"])
+        session.setdefault("working_summary", "")
+        facts = dict(session.get("active_facts", {}))
+        current_vault_file = facts.get("current_vault_file")
+        if current_vault_file and not _is_valid_vault_path(current_vault_file):
+            facts.pop("current_vault_file", None)
+        recent_vault_files = [
+            path for path in facts.get("recent_vault_files", [])
+            if _is_valid_vault_path(path)
+        ]
+        if recent_vault_files:
+            facts["recent_vault_files"] = recent_vault_files
+        else:
+            facts.pop("recent_vault_files", None)
+        session["active_facts"] = facts
+        return session
+
+    now = _now_iso()
+    session = {
+        "session_id": _default_session_id(),
+        "title": "Active session",
+        "created_at": now,
+        "updated_at": now,
+        "messages": [],
+        "working_summary": "",
+        "active_facts": {},
+    }
+    _write_json(ACTIVE_SESSION_PATH, session)
+    return session
+
+
+def save_active_session(session):
+    ensure_memory_dirs()
+    session = dict(session)
+    session["messages"] = _normalize_session_messages(session.get("messages", []))
+    session["updated_at"] = _now_iso()
+    session.setdefault("working_summary", "")
+    session.setdefault("active_facts", {})
+    _write_json(ACTIVE_SESSION_PATH, session)
+    return ACTIVE_SESSION_PATH
+
+
+def update_session_fact(key, value):
+    session = get_active_session()
+    facts = dict(session.get("active_facts", {}))
+    facts[str(key)] = value
+    session["active_facts"] = facts
+    save_active_session(session)
+    return session
+
+
+def remember_session_file(path, max_items=5):
+    if not _is_valid_vault_path(path):
+        return get_active_session()
+
+    session = get_active_session()
+    facts = dict(session.get("active_facts", {}))
+    files = list(facts.get("recent_vault_files", []))
+    path = str(path).strip()
+    if path:
+        files = [item for item in files if item != path]
+        files.insert(0, path)
+        facts["recent_vault_files"] = files[:max_items]
+    session["active_facts"] = facts
+    save_active_session(session)
+    return session
+
+
+def append_session_message(role, content, timestamp=None):
+    session = get_active_session()
+    session["messages"].append({
+        "role": role,
+        "content": str(content).strip(),
+        "timestamp": timestamp or _now_iso(),
+    })
+    save_active_session(session)
+    return session
+
+
+def compact_active_session(max_messages=20, keep_last=12, summary_limit=4000):
+    session = get_active_session()
+    messages = session.get("messages", [])
+
+    if len(messages) <= max_messages:
+        return session
+
+    archived = messages[:-keep_last]
+    kept = messages[-keep_last:]
+    archived_lines = [
+        f"{item['role'].title()}: {_truncate_text(item['content'])}"
+        for item in archived
+    ]
+    archived_summary = " | ".join(archived_lines)
+
+    existing_summary = session.get("working_summary", "").strip()
+    parts = [part for part in [existing_summary, archived_summary] if part]
+    summary = "\n".join(parts)[-summary_limit:]
+
+    session["working_summary"] = summary
+    session["messages"] = kept
+    save_active_session(session)
+    return session
+
+
+def get_session_prompt_messages(limit=12):
+    session = get_active_session()
+    summary = session.get("working_summary", "").strip()
+    facts = session.get("active_facts", {})
+    recent_messages = session.get("messages", [])[-limit:]
+
+    prompt_messages = []
+    if summary:
+        prompt_messages.append({
+            "role": "system",
+            "content": f"Current session summary:\n{summary}",
+        })
+
+    if facts:
+        fact_lines = []
+        for key, value in facts.items():
+            if isinstance(value, list):
+                fact_lines.append(f"- {key}: {', '.join(str(item) for item in value)}")
+            else:
+                fact_lines.append(f"- {key}: {value}")
+        prompt_messages.append({
+            "role": "system",
+            "content": "Current session facts:\n" + "\n".join(fact_lines),
+        })
+
+    prompt_messages.extend(
+        {"role": item["role"], "content": item["content"]}
+        for item in recent_messages
+    )
+    return prompt_messages
 
 
 def _migrate_memory_json():
