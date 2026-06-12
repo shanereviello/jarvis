@@ -15,3 +15,6 @@ async def ask(req: AskRequest):
     answer = await ask_jarvis(req.query)
     return {"answer": answer}
 
+@app.get("/ping")
+def ping():
+    return {"answer": "Jarvis API is reachable."}
