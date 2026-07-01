@@ -19,11 +19,11 @@ services:
     ports:
       - "5678:5678"
     environment:
-      N8N_HOST: 192.168.0.X
+      N8N_HOST: 192.168.0.200
       N8N_PORT: 5678
       N8N_PROTOCOL: http
-      WEBHOOK_URL: http://192.168.0.X:5678/
-      N8N_EDITOR_BASE_URL: http://192.168.0.X:5678/
+      WEBHOOK_URL: http://192.168.0.200:5678/
+      N8N_EDITOR_BASE_URL: http://192.168.0.200:5678/
       N8N_SECURE_COOKIE: "false"
     volumes:
       - n8n_data:/home/node/.n8n
