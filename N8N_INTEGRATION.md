@@ -61,32 +61,34 @@ docker rm n8n
 
 ### Verify the API after startup
 
-Health check:
+Health check from inside the `jarvis-api` container:
 
 ```bash
-curl http://localhost:8000/ping
+docker compose exec jarvis-api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/ping').read().decode())"
 ```
 
-List available tools:
+List available tools from inside the `jarvis-api` container:
 
 ```bash
-curl http://localhost:8000/tools
+docker compose exec jarvis-api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/tools').read().decode())"
 ```
 
-Search components:
+Search components from inside the `jarvis-api` container:
 
 ```bash
-curl -X POST http://localhost:8000/tools/search-components \
-  -H "Content-Type: application/json" \
-  -d '{"query":"raspberry pi"}'
+docker compose exec jarvis-api python -c "import json, urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/tools/search-components', data=json.dumps({'query': 'raspberry pi'}).encode(), headers={'Content-Type': 'application/json'}); print(urllib.request.urlopen(req).read().decode())"
 ```
 
-Read a note:
+Read a note from inside the `jarvis-api` container:
 
 ```bash
-curl -X POST http://localhost:8000/tools/read-note \
-  -H "Content-Type: application/json" \
-  -d '{"notes_path":"components/compute/rpi5.md"}'
+docker compose exec jarvis-api python -c "import json, urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/tools/read-note', data=json.dumps({'notes_path': 'components/compute/RPI4B.md'}).encode(), headers={'Content-Type': 'application/json'}); print(urllib.request.urlopen(req).read().decode())"
+```
+
+Test the same health check from the `n8n` container network path:
+
+```bash
+docker compose exec n8n sh -lc "wget -qO- http://jarvis-api:8000/ping"
 ```
 
 View container logs if something looks off:

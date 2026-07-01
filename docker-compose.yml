@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: jarvis-api
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     env_file:
       - .env.docker
     volumes:
@@ -19,9 +19,12 @@ services:
     ports:
       - "5678:5678"
     environment:
-      N8N_SECURE_COOKIE: "false"
-      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
-      N8N_RUNNERS_ENABLED: "true"
+      N8N_HOST=192.168.0.200
+      N8N_PORT=5678
+      N8N_PROTOCOL=http
+      WEBHOOK_URL=http://192.168.0.200:5678/
+      N8N_EDITOR_BASE_URL=http://192.168.0.200:5678/
+      N8N_SECURE_COOKIE=false
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
