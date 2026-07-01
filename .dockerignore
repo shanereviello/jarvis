@@ -1,0 +1,12 @@
+.git
+.gitignore
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv_jarvis/
+.env
+.env.docker
+memory/
+memory.json

@@ -1,0 +1,32 @@
+services:
+  jarvis-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jarvis-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.docker
+    volumes:
+      - /mnt/nas/engineering_vault:/mnt/nas/engineering_vault:ro
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_RUNNERS_ENABLED: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - jarvis-api
+
+volumes:
+  n8n_data:
+    external: true

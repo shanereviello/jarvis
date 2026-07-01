@@ -1,5 +1,4 @@
 import psycopg2
-from agents import function_tool
 
 from app.config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
@@ -14,21 +13,7 @@ def get_db_connection():
     )
 
 
-@function_tool
-def search_components_database(query: str) -> str:
-    """
-    Search the robot components database using fuzzy matching.
-
-    Use this when the user asks about robot parts, components, sensors,
-    controllers, compute hardware, enclosures, or related notes.
-
-    Current known table:
-    - components
-
-    Current known searchable column:
-    - name
-    """
-
+def search_components_records(query: str) -> dict:
     sql = """
     SELECT
         name,
@@ -53,20 +38,25 @@ def search_components_database(query: str) -> str:
         cur.close()
         conn.close()
     except Exception as exc:
-        return f"Database error: {exc}"
+        return {
+            "ok": False,
+            "query": query,
+            "error": str(exc),
+            "results": [],
+        }
 
-    if not rows:
-        return "No matching components found."
+    results = [
+        {
+            "component_name": name,
+            "notes_path": notes_path,
+            "match_score": round(score, 3),
+        }
+        for name, notes_path, score in rows
+    ]
 
-    results = []
-    for name, notes_path, score in rows:
-        results.append(
-            f"""
-component_name: {name}
-notes_path: {notes_path}
-match_score: {score:.3f}
-"""
-        )
-
-    return "\n---\n".join(results)
-
+    return {
+        "ok": True,
+        "query": query,
+        "count": len(results),
+        "results": results,
+    }
