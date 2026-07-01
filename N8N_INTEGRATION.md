@@ -61,6 +61,12 @@ docker rm n8n
 
 ### Verify the API after startup
 
+Health check from the Pi host or another machine on your LAN:
+
+```bash
+curl http://192.168.0.200:8001/ping
+```
+
 Health check from inside the `jarvis-api` container:
 
 ```bash
@@ -212,6 +218,10 @@ This is the intended shape for this branch.
 Base URL inside Docker Compose will usually be:
 
 `http://jarvis-api:8000`
+
+Base URL from the Pi host or another machine on your LAN will be:
+
+`http://192.168.0.200:8001`
 
 Search components:
 
