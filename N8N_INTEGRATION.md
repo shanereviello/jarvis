@@ -203,8 +203,6 @@ docker rm n8n
 
 The MCP container is now named `jarvis-mcp`.
 
-Docker is the source of truth for this runtime. The old host venv is not the primary execution path for this branch.
-
 Inside Docker Compose, the server is reachable at:
 
 `http://jarvis-mcp:8000/mcp`
@@ -215,54 +213,54 @@ From the Pi host or another machine on your LAN, it is usually:
 
 The exact endpoint path is controlled by `MCP_STREAMABLE_HTTP_PATH`.
 
-## Docker verification
+## Local verification
 
-List the registered MCP tools inside the running MCP container:
+List the registered MCP tools from your local venv:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --list-tools
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-tools
 ```
 
 List resources and resource templates:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --list-resources
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-resources
 ```
 
 List prompts:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --list-prompts
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-prompts
 ```
 
 Read the schema catalog resource:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --read-resource engineering-db://schema/catalog
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --read-resource engineering-db://schema/catalog
 ```
 
 Render the planning prompt:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --prompt engineering-db-query-planner --args-json '{"user_query":"find 18awg silicone wire"}'
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --prompt engineering-db-query-planner --args-json '{"user_query":"find 18awg silicone wire"}'
 ```
 
 Call `retrieve-engineering-db-schema-context` directly:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --tool retrieve-engineering-db-schema-context --args-json '{"query":"find 18awg silicone wire"}'
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool retrieve-engineering-db-schema-context --args-json '{"query":"find 18awg silicone wire"}'
 ```
 
 Call `engineering-db-lookup` directly without starting Docker:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --tool engineering-db-lookup --args-json '{"query":"find 18awg silicone wire","candidate_tables":["wires","cables"]}'
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool engineering-db-lookup --args-json '{"query":"find 18awg silicone wire","candidate_tables":["wires","cables"]}'
 ```
 
 Call `read-note` directly:
 
 ```bash
-docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --tool read-note --args-json '{"notes_path":"components/compute/RPI4B.md"}'
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool read-note --args-json '{"notes_path":"components/RPI4B.md"}'
 ```
 
 View container logs:
@@ -271,16 +269,6 @@ View container logs:
 docker compose logs jarvis-mcp
 docker compose logs n8n
 ```
-
-## Optional host-only verification
-
-If you intentionally want to test outside Docker, activate the environment you trust first and then run:
-
-```bash
-python -m app.servers.mcp.smoke_test --list-tools
-```
-
-This is optional developer convenience only. It is not the main runtime path for this branch.
 
 ## n8n integration direction
 
