@@ -1,9 +1,9 @@
 services:
-  jarvis-api:
+  jarvis-mcp:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: jarvis-api
+    container_name: jarvis-mcp
     restart: unless-stopped
     ports:
       - "8001:8000"
@@ -28,7 +28,7 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
-      - jarvis-api
+      - jarvis-mcp
 
 volumes:
   n8n_data:

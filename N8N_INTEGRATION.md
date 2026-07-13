@@ -1,15 +1,156 @@
-# n8n Integration
+# n8n + MCP Integration
 
-This repo now exposes a tool-oriented FastAPI surface so n8n can orchestrate Jarvis without owning the Python implementation details.
+This branch is now MCP-first.
 
-This branch is intentionally n8n-first:
+The old FastAPI endpoint layer is gone. Jarvis now exposes reusable Python services through an MCP server so you can keep adding tools without rebuilding the stack around one-off HTTP routes.
 
-- no Python `agent.py`
-- no local CLI chat loop
-- no FastAPI full-agent endpoint
-- only tool endpoints for n8n to call
+## Architecture
 
-## Docker setup
+The codebase is now split by responsibility:
+
+```text
+app/
+  core/
+    config.py
+  resources/
+    engineering_db_schema.py
+  prompts/
+    engineering_db_query_planner.py
+  services/
+    engineering_db.py
+    notes.py
+  schemas/
+    engineering_db.py
+    notes.py
+  tools/
+    retrieve_engineering_db_schema_context.py
+    engineering_db_lookup.py
+    read_note.py
+  servers/
+    mcp/
+      registry.py
+      server.py
+      smoke_test.py
+```
+
+## Mental model
+
+Think of the stack in four layers:
+
+1. `services/`
+   This is the real business logic. It talks to Postgres and the vault.
+2. `resources/`, `prompts/`, and `tools/`
+   This is the MCP surface. It decides what the AI can read, what workflow hints it can use, and what actions it can call.
+3. `servers/mcp/registry.py`
+   This is the wiring file. It registers everything with the MCP server.
+4. `servers/mcp/server.py`
+   This starts the actual MCP server process.
+
+If you remember only one thing, make it this:
+
+- `services` do the work
+- `tools/resources/prompts` expose that work to the model
+- `registry` plugs them together
+- `server` runs it
+
+Why this shape:
+
+- `core/`: shared runtime configuration
+- `resources/`: read-only MCP schema context for the model
+- `prompts/`: reusable MCP planning workflows
+- `services/`: reusable domain logic such as database and vault access
+- `schemas/`: consistent result objects shared by services and tools
+- `tools/`: MCP-facing tool registrations
+- `servers/mcp/`: server startup and tool registry wiring
+
+This keeps the protocol layer thin and makes future growth easier. Adding a new tool should mostly mean:
+
+1. add or expand a service
+2. add a schema if needed
+3. add a tool wrapper
+4. register the tool in `app/servers/mcp/registry.py`
+
+## Folder-by-folder
+
+- [app/core/config.py](/Users/shanereviello/jarvis/app/core/config.py:1)
+  Loads environment variables like DB credentials, vault root, and MCP host/port settings.
+
+- [app/services/engineering_db.py](/Users/shanereviello/jarvis/app/services/engineering_db.py:1)
+  Owns engineering DB work:
+  - introspect schema
+  - rank relevant tables for a query
+  - run scoped DB lookups
+
+- [app/services/notes.py](/Users/shanereviello/jarvis/app/services/notes.py:1)
+  Owns note-file access under `JARVIS_VAULT_ROOT`.
+
+- [app/schemas/engineering_db.py](/Users/shanereviello/jarvis/app/schemas/engineering_db.py:1)
+  Defines the Python result shapes for schema info, lookup matches, and engineering DB records.
+
+- [app/schemas/notes.py](/Users/shanereviello/jarvis/app/schemas/notes.py:1)
+  Defines the note-read result shape.
+
+- [app/resources/engineering_db_schema.py](/Users/shanereviello/jarvis/app/resources/engineering_db_schema.py:1)
+  Exposes engineering DB schema data as read-only MCP resources.
+
+- [app/prompts/engineering_db_query_planner.py](/Users/shanereviello/jarvis/app/prompts/engineering_db_query_planner.py:1)
+  Exposes a reusable MCP prompt that nudges the model to narrow the DB schema first.
+
+- [app/tools/retrieve_engineering_db_schema_context.py](/Users/shanereviello/jarvis/app/tools/retrieve_engineering_db_schema_context.py:1)
+  Tool wrapper for engineering DB table-selection guidance.
+
+- [app/tools/engineering_db_lookup.py](/Users/shanereviello/jarvis/app/tools/engineering_db_lookup.py:1)
+  Tool wrapper for structured engineering DB retrieval.
+
+- [app/tools/read_note.py](/Users/shanereviello/jarvis/app/tools/read_note.py:1)
+  Tool wrapper for reading the final note file.
+
+- [app/servers/mcp/registry.py](/Users/shanereviello/jarvis/app/servers/mcp/registry.py:1)
+  Registers all resources, prompts, and tools onto one MCP server.
+
+- [app/servers/mcp/server.py](/Users/shanereviello/jarvis/app/servers/mcp/server.py:1)
+  Creates and runs the `FastMCP` server.
+
+- [app/servers/mcp/smoke_test.py](/Users/shanereviello/jarvis/app/servers/mcp/smoke_test.py:1)
+  Local inspection helper for listing and invoking MCP primitives.
+
+## Current MCP capabilities
+
+- Resources:
+  - `engineering-db://schema/catalog`
+  - `engineering-db://schema/relationships`
+  - `engineering-db://schema/table/{table_name}`
+- Prompt:
+  - `engineering-db-query-planner`
+- Tools:
+  - `retrieve-engineering-db-schema-context`
+  - `engineering-db-lookup`
+- `read-note`: read a note file from the configured vault root
+
+## Request Flow
+
+When a user asks something like:
+
+`What does the note for XT60 connector say?`
+
+the intended flow is:
+
+1. The MCP client connects to [app/servers/mcp/server.py](/Users/shanereviello/jarvis/app/servers/mcp/server.py:1).
+2. The server exposes what is registered in [app/servers/mcp/registry.py](/Users/shanereviello/jarvis/app/servers/mcp/registry.py:1).
+3. The model narrows the database space first:
+   - read `engineering-db://schema/catalog`, or
+   - call `retrieve-engineering-db-schema-context`
+4. The model then calls `engineering-db-lookup` with likely tables.
+5. The DB result may include a `notes_path`.
+6. If the user needs the actual note contents, the model calls `read-note`.
+7. `read-note` loads the file from the vault and returns the text.
+8. The model answers using the note content.
+
+So the practical chain is:
+
+`user question -> DB schema narrowing -> engineering DB lookup -> note path -> note read -> final answer`
+
+## Environment
 
 This repo includes:
 
@@ -17,26 +158,27 @@ This repo includes:
 - [docker-compose.yml](/Users/shanereviello/jarvis/docker-compose.yml)
 - [.env.docker.example](/Users/shanereviello/jarvis/.env.docker.example)
 
-### Why a separate Docker env file
+Important environment values:
 
-Your existing local `.env` uses `DB_HOST=localhost`, which works only when Python runs on the same machine as the database.
+- `JARVIS_VAULT_ROOT`: absolute path to the mounted note vault
+- `DB_*`: PostgreSQL connection settings
+- `DB_SCHEMA`: defaults to `public`
+- `MCP_TRANSPORT`: defaults to `streamable-http`
+- `MCP_HOST`: defaults to `0.0.0.0`
+- `MCP_PORT`: defaults to `8000`
+- `MCP_STREAMABLE_HTTP_PATH`: defaults to `/mcp`
 
-For this setup, your PostgreSQL database lives on your server at:
+`read-note` is restricted to files under `JARVIS_VAULT_ROOT`. Paths outside that root are rejected.
 
-`192.168.0.231`
-
-So the containerized API should use:
-
-`DB_HOST=192.168.0.231`
-
-not `localhost`.
+## Docker setup
 
 ### First-time setup
 
 1. Copy `.env.docker.example` to `.env.docker`
-2. Set the real database password and verify `PROJECT_PATH`
-3. Make sure the host path `/mnt/nas/engineering_vault` exists on the Pi
-4. Make sure the Docker volume `n8n_data` already exists
+2. Set the real database password
+3. Verify `JARVIS_VAULT_ROOT`
+4. Make sure the host path `/mnt/nas/engineering_vault` exists on the Pi
+5. Make sure the Docker volume `n8n_data` already exists
 
 ### Start the stack
 
@@ -52,207 +194,111 @@ docker compose down
 
 ### If you already started n8n with `docker run`
 
-Stop and remove that standalone container first so the compose-managed `n8n` container can reuse the same name and port:
-
 ```bash
 docker stop n8n
 docker rm n8n
 ```
 
-### Verify the API after startup
+## Runtime model
 
-Health check from the Pi host or another machine on your LAN:
+The MCP container is now named `jarvis-mcp`.
+
+Inside Docker Compose, the server is reachable at:
+
+`http://jarvis-mcp:8000/mcp`
+
+From the Pi host or another machine on your LAN, it is usually:
+
+`http://192.168.0.200:8001/mcp`
+
+The exact endpoint path is controlled by `MCP_STREAMABLE_HTTP_PATH`.
+
+## Local verification
+
+List the registered MCP tools from your local venv:
 
 ```bash
-curl http://192.168.0.200:8001/ping
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-tools
 ```
 
-Health check from inside the `jarvis-api` container:
+List resources and resource templates:
 
 ```bash
-docker compose exec jarvis-api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/ping').read().decode())"
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-resources
 ```
 
-List available tools from inside the `jarvis-api` container:
+List prompts:
 
 ```bash
-docker compose exec jarvis-api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/tools').read().decode())"
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-prompts
 ```
 
-Search components from inside the `jarvis-api` container:
+Read the schema catalog resource:
 
 ```bash
-docker compose exec jarvis-api python -c "import json, urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/tools/search-components', data=json.dumps({'query': 'raspberry pi'}).encode(), headers={'Content-Type': 'application/json'}); print(urllib.request.urlopen(req).read().decode())"
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --read-resource engineering-db://schema/catalog
 ```
 
-Read a note from inside the `jarvis-api` container:
+Render the planning prompt:
 
 ```bash
-docker compose exec jarvis-api python -c "import json, urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/tools/read-note', data=json.dumps({'notes_path': 'components/compute/RPI4B.md'}).encode(), headers={'Content-Type': 'application/json'}); print(urllib.request.urlopen(req).read().decode())"
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --prompt engineering-db-query-planner --args-json '{"user_query":"find 18awg silicone wire"}'
 ```
 
-Test the same health check from the `n8n` container network path:
+Call `retrieve-engineering-db-schema-context` directly:
 
 ```bash
-docker compose exec n8n sh -lc "wget -qO- http://jarvis-api:8000/ping"
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool retrieve-engineering-db-schema-context --args-json '{"query":"find 18awg silicone wire"}'
 ```
 
-View container logs if something looks off:
+Call `engineering-db-lookup` directly without starting Docker:
 
 ```bash
-docker compose logs jarvis-api
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool engineering-db-lookup --args-json '{"query":"find 18awg silicone wire","candidate_tables":["wires","cables"]}'
+```
+
+Call `read-note` directly:
+
+```bash
+./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool read-note --args-json '{"notes_path":"components/compute/RPI4B.md"}'
+```
+
+View container logs:
+
+```bash
+docker compose logs jarvis-mcp
 docker compose logs n8n
 ```
 
-## Endpoints
+## n8n integration direction
 
-### Health check
+n8n should now consume Jarvis through an MCP client flow instead of raw REST `HTTP Request` nodes aimed at custom `/tools/...` endpoints.
 
-`GET /ping`
+That means the conceptual workflow changes from:
 
-Example response:
+1. call hand-written HTTP endpoint
+2. parse custom JSON response
+3. call another endpoint
 
-```json
-{
-  "answer": "Jarvis n8n tool API is reachable.",
-  "n8n_ready": true
-}
-```
+to a schema-aware MCP RAG flow:
 
-### Tool discovery
+1. connect to the Jarvis MCP server
+2. inspect schema resources or render the planning prompt
+3. invoke `retrieve-engineering-db-schema-context`
+4. invoke `engineering-db-lookup` with narrowed tables
+5. optionally invoke `read-note`
+6. format the final answer in n8n
 
-`GET /tools`
+This keeps Jarvis focused on reusable capabilities while n8n stays responsible for orchestration, approvals, scheduling, and branching.
 
-Example response:
+## How to add the next tool
 
-```json
-{
-  "tools": [
-    {
-      "name": "search-components",
-      "method": "POST",
-      "path": "/tools/search-components",
-      "body": {
-        "query": "raspberry pi"
-      }
-    },
-    {
-      "name": "read-note",
-      "method": "POST",
-      "path": "/tools/read-note",
-      "body": {
-        "notes_path": "notes/example.md"
-      }
-    }
-  ]
-}
-```
+Example expansion path:
 
-### Search components
+1. create or extend a module in `app/services/`
+2. define a stable return shape in `app/schemas/`
+3. decide whether it should surface as a resource, prompt, tool, or some combination
+4. register it in [app/servers/mcp/registry.py](/Users/shanereviello/jarvis/app/servers/mcp/registry.py:1)
+5. verify it with [app/servers/mcp/smoke_test.py](/Users/shanereviello/jarvis/app/servers/mcp/smoke_test.py:1)
 
-`POST /tools/search-components`
-
-Request body:
-
-```json
-{
-  "query": "raspberry pi"
-}
-```
-
-Success response:
-
-```json
-{
-  "ok": true,
-  "query": "raspberry pi",
-  "count": 1,
-  "results": [
-    {
-      "component_name": "Raspberry Pi 5",
-      "notes_path": "components/compute/rpi5.md",
-      "match_score": 0.913
-    }
-  ]
-}
-```
-
-### Read note
-
-`POST /tools/read-note`
-
-Request body:
-
-```json
-{
-  "notes_path": "components/compute/rpi5.md"
-}
-```
-
-Success response:
-
-```json
-{
-  "ok": true,
-  "notes_path": "components/compute/rpi5.md",
-  "content": "..."
-}
-```
-
-## Recommended n8n setup
-
-### n8n orchestrates the tool API directly
-
-Use:
-
-1. `Webhook` or `Chat Trigger`
-2. `HTTP Request` to `/tools/search-components`
-3. Optional branch:
-   if the first result includes `notes_path`, call `/tools/read-note`
-4. `Set` or `Code` node to format the final answer
-
-This is the intended shape for this branch.
-
-## Example HTTP Request node config
-
-Base URL inside Docker Compose will usually be:
-
-`http://jarvis-api:8000`
-
-Base URL from the Pi host or another machine on your LAN will be:
-
-`http://192.168.0.200:8001`
-
-Search components:
-
-- Method: `POST`
-- URL: `http://jarvis-api:8000/tools/search-components`
-- Send Body: `true`
-- Body Content Type: `JSON`
-- Body:
-
-```json
-{
-  "query": "={{ $json.query }}"
-}
-```
-
-Read note:
-
-- Method: `POST`
-- URL: `http://jarvis-api:8000/tools/read-note`
-- Send Body: `true`
-- Body Content Type: `JSON`
-- Body:
-
-```json
-{
-  "notes_path": "={{ $json.results[0].notes_path }}"
-}
-```
-
-## Long-term architecture
-
-- `n8n`: orchestration, triggers, approvals, scheduling, branching
-- `FastAPI`: custom tools, database access, file access, local Python logic
-- Python code here stays focused on tool implementation only
+That pattern is the main reason for the restructure. It gives you a place for each concern now, and it keeps future tables, schema helpers, and tool groups from turning into one large file later.
