@@ -14,11 +14,38 @@ def register(server: FastMCP) -> None:
     @server.resource(
         "engineering-db://schema/catalog",
         name="engineering-db-schema-catalog",
-        description="Catalog of engineering DB tables, columns, searchable fields, and note-related fields.",
+        description="Catalog of engineering DB tables, columns, searchable fields, note-related fields, and lookup hints.",
         mime_type="application/json",
     )
     def engineering_db_schema_catalog() -> str:
         return json.dumps(get_engineering_db_schema_catalog().to_dict(), indent=2)
+
+    @server.resource(
+        "engineering-db://schema/lookup-guide",
+        name="engineering-db-lookup-guide",
+        description="Guidance for when to use schema context, how to choose search terms, and how to shape engineering DB lookups.",
+        mime_type="application/json",
+    )
+    def engineering_db_lookup_guide() -> str:
+        payload = {
+            "search_term_rules": [
+                "Pass only the core identifier, model, part number, label, wire ID, connector name, or short entity name.",
+                "Do not include instructions like find, search, return, include, show, or fuzzy search.",
+                "Do not include requested fields or output formatting in search_term.",
+            ],
+            "when_to_use_schema_context": [
+                "Use retrieve-engineering-db-schema-context for broad natural-language questions when the tables are unclear.",
+                "Skip schema context for short identifiers like RPI4B, XT60, W001, GPIO14, or /dev/ttyACM0.",
+            ],
+            "lookup_argument_guide": {
+                "search_term": "Only the short value to search for.",
+                "candidate_tables": "Optional table allowlist when you know the likely tables.",
+                "requested_fields": "Optional list of fields the caller wants to extract after retrieval.",
+                "entity_hint": "Optional type hint like component, interface, wire, cable, or gpio.",
+                "follow_relationships": "Set true when related records matter for the answer.",
+            },
+        }
+        return json.dumps(payload, indent=2)
 
     @server.resource(
         "engineering-db://schema/relationships",
@@ -39,7 +66,7 @@ def register(server: FastMCP) -> None:
     @server.resource(
         "engineering-db://schema/table/{table_name}",
         name="engineering-db-table-schema",
-        description="Schema details for one engineering DB table.",
+        description="Schema details and lookup hints for one engineering DB table.",
         mime_type="application/json",
     )
     def engineering_db_table_schema(table_name: str) -> str:

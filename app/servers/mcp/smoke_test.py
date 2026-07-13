@@ -78,7 +78,7 @@ def main() -> None:
     parser.add_argument(
         "--args-json",
         default="{}",
-        help='JSON object of tool arguments, for example: {"query": "raspberry pi"}',
+        help='JSON object of tool arguments, for example: {"search_term": "RPI4B"}',
     )
     args = parser.parse_args()
 

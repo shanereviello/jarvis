@@ -32,6 +32,19 @@ DISPLAY_COLUMN_CANDIDATES = (
 )
 NOTES_COLUMN_CANDIDATES = ("notes_path", "notes", "note_path", "documentation_path")
 TOKEN_RE = re.compile(r"[a-z0-9]+")
+IDENTIFIER_COLUMN_CANDIDATES = (
+    "component_id",
+    "interface_id",
+    "part_number",
+    "part_no",
+    "label",
+    "name",
+    "pin_number",
+    "cable_id",
+    "wire_id",
+    "jack_a",
+    "jack_b",
+)
 
 
 def get_db_connection():
@@ -52,6 +65,96 @@ def _tokenize(value: str) -> set[str]:
 def _join_reason_parts(parts: list[str]) -> str:
     filtered = [part for part in parts if part]
     return "; ".join(filtered) if filtered else "General engineering DB lookup fallback."
+
+
+def _describe_table_purpose(table_name: str, columns: list[ColumnSchema]) -> str:
+    lower_name = table_name.lower()
+    column_names = {column.name.lower() for column in columns}
+    if "interface" in lower_name:
+        return "Connection and interface endpoints associated with components."
+    if "wire" in lower_name:
+        return "Wire or termination data that describes point-to-point electrical connections."
+    if "cable" in lower_name:
+        return "Cable assemblies and bundle-level connection records."
+    if "gpio" in lower_name:
+        return "GPIO pin reference data for Raspberry Pi hardware."
+    if "component" in lower_name:
+        return "Component inventory records including names, labels, part numbers, and note paths."
+    if "part_number" in column_names:
+        return "Engineering part records keyed by part numbers and human-readable names."
+    return "General engineering table containing searchable structured records."
+
+
+def _infer_lookup_examples(table_name: str, columns: list[ColumnSchema]) -> list[str]:
+    lower_name = table_name.lower()
+    examples: list[str] = []
+    if "component" in lower_name:
+        examples.extend(["Raspberry Pi B4", "RPI4B", "XT60"])
+    if "interface" in lower_name:
+        examples.extend(["A2A1", "UART0", "GPIO14"])
+    if "wire" in lower_name:
+        examples.extend(["W001", "24V sense wire"])
+    if "cable" in lower_name:
+        examples.extend(["camera harness", "CABLE-001"])
+    if "gpio" in lower_name:
+        examples.extend(["GPIO14", "pin 8"])
+    if not examples and any(column.name.lower() == "part_number" for column in columns):
+        examples.append("part number")
+    return examples[:4]
+
+
+def _build_search_variants(search_term: str) -> list[str]:
+    raw = (search_term or "").strip()
+    if not raw:
+        return []
+
+    variants: list[str] = []
+
+    def add(value: str) -> None:
+        normalized = value.strip()
+        if normalized and normalized not in variants:
+            variants.append(normalized)
+
+    add(raw)
+    add(raw.strip("\"'"))
+    compact = re.sub(r"[^A-Za-z0-9]+", "", raw)
+    add(compact)
+    spaced_alnum = re.sub(r"([A-Za-z])(\d)", r"\1 \2", raw)
+    spaced_alnum = re.sub(r"(\d)([A-Za-z])", r"\1 \2", spaced_alnum)
+    add(spaced_alnum)
+    collapsed_spaces = " ".join(TOKEN_RE.findall(raw))
+    add(collapsed_spaces)
+    return variants[:5]
+
+
+def _field_requested(requested_fields: list[str], field_name: str) -> bool:
+    if not requested_fields:
+        return True
+    requested = {item.lower() for item in requested_fields}
+    return field_name.lower() in requested
+
+
+def _filter_key_attributes(
+    key_attributes: dict[str, object],
+    requested_fields: list[str],
+) -> dict[str, object]:
+    if not requested_fields:
+        return key_attributes
+    requested = {item.lower() for item in requested_fields}
+    return {
+        key: value
+        for key, value in key_attributes.items()
+        if key.lower() in requested
+    }
+
+
+def _score_table_for_hint(table: TableSchema, entity_hint: str | None) -> int:
+    if not entity_hint:
+        return 0
+    hint_tokens = _tokenize(entity_hint)
+    purpose_tokens = _tokenize(table.table_purpose)
+    table_tokens = _tokenize(table.table_name.replace("_", " "))
+    return len(hint_tokens & purpose_tokens) + (2 * len(hint_tokens & table_tokens))
 
 
 def get_engineering_db_schema_catalog() -> EngineeringDbSchemaCatalog:
@@ -140,6 +243,11 @@ def get_engineering_db_schema_catalog() -> EngineeringDbSchemaCatalog:
         notes_columns = [
             column.name for column in columns if column.name.lower() in NOTES_COLUMN_CANDIDATES
         ]
+        common_identifiers = [
+            column.name
+            for column in columns
+            if column.name.lower() in IDENTIFIER_COLUMN_CANDIDATES
+        ]
         display_columns = [
             candidate
             for candidate in DISPLAY_COLUMN_CANDIDATES
@@ -154,6 +262,9 @@ def get_engineering_db_schema_catalog() -> EngineeringDbSchemaCatalog:
                 notes_columns=notes_columns,
                 display_columns=display_columns,
                 foreign_keys=relationships_by_table.get(table_name, []),
+                table_purpose=_describe_table_purpose(table_name, columns),
+                common_identifiers=common_identifiers,
+                lookup_examples=_infer_lookup_examples(table_name, columns),
             )
         )
 
@@ -316,10 +427,19 @@ def _pick_display_column(table: TableSchema) -> str | None:
 def _normalize_candidate_tables(
     candidate_tables: list[str] | None,
     catalog: EngineeringDbSchemaCatalog,
+    entity_hint: str | None = None,
 ) -> list[TableSchema]:
     if candidate_tables:
         allowed = {table_name.strip() for table_name in candidate_tables if table_name.strip()}
         return [table for table in catalog.tables if table.table_name in allowed]
+    if entity_hint:
+        ranked = sorted(
+            catalog.tables,
+            key=lambda table: _score_table_for_hint(table, entity_hint),
+            reverse=True,
+        )
+        if ranked and _score_table_for_hint(ranked[0], entity_hint) > 0:
+            return [table for table in ranked if _score_table_for_hint(table, entity_hint) > 0]
     return catalog.tables
 
 
@@ -340,27 +460,40 @@ def _select_attribute_columns(table: TableSchema) -> list[str]:
 
 
 def engineering_db_lookup(
-    query: str,
+    search_term: str,
     candidate_tables: list[str] | None = None,
+    requested_fields: list[str] | None = None,
+    entity_hint: str | None = None,
+    follow_relationships: bool = False,
     max_tables: int = 5,
     max_rows_per_table: int = 5,
 ) -> EngineeringDbLookupResult:
     catalog = get_engineering_db_schema_catalog()
+    requested_fields = requested_fields or []
+    search_terms_tried = _build_search_variants(search_term)
     if not catalog.ok:
         return EngineeringDbLookupResult(
             ok=False,
-            query=query,
+            search_term=search_term,
+            requested_fields=requested_fields,
+            entity_hint=entity_hint,
+            follow_relationships=follow_relationships,
+            search_terms_tried=search_terms_tried,
             guidance="Unable to query the engineering DB.",
             error=catalog.error,
         )
 
-    scoped_catalog_tables = _normalize_candidate_tables(candidate_tables, catalog)
+    scoped_catalog_tables = _normalize_candidate_tables(candidate_tables, catalog, entity_hint=entity_hint)
     if not scoped_catalog_tables:
-        schema_context = retrieve_engineering_db_schema_context(query, max_tables=max_tables)
+        schema_context = retrieve_engineering_db_schema_context(search_term, max_tables=max_tables)
         if not schema_context.ok:
             return EngineeringDbLookupResult(
                 ok=False,
-                query=query,
+                search_term=search_term,
+                requested_fields=requested_fields,
+                entity_hint=entity_hint,
+                follow_relationships=follow_relationships,
+                search_terms_tried=search_terms_tried,
                 guidance="Unable to determine relevant tables for the engineering DB lookup.",
                 error=schema_context.error,
             )
@@ -369,7 +502,6 @@ def engineering_db_lookup(
     else:
         scoped_names = [table.table_name for table in scoped_catalog_tables]
 
-    wildcard = f"%{query}%"
     records: list[EngineeringDbRecord] = []
 
     try:
@@ -379,14 +511,28 @@ def engineering_db_lookup(
             if not searchable_columns:
                 continue
 
-            where_parts = [
-                sql.SQL("{}::text ILIKE %s").format(sql.Identifier(column_name))
-                for column_name in searchable_columns
-            ]
-            score_parts = [
-                sql.SQL("CASE WHEN {}::text ILIKE %s THEN 1 ELSE 0 END").format(sql.Identifier(column_name))
-                for column_name in searchable_columns
-            ]
+            where_parts = []
+            score_parts = []
+            where_params: list[object] = []
+            score_params: list[object] = []
+            for column_name in searchable_columns:
+                variant_checks = []
+                for variant in search_terms_tried:
+                    wildcard = f"%{variant}%"
+                    variant_checks.append(
+                        sql.SQL("{}::text ILIKE %s").format(sql.Identifier(column_name))
+                    )
+                    where_params.append(wildcard)
+                    score_parts.append(
+                        sql.SQL("CASE WHEN {}::text ILIKE %s THEN 1 ELSE 0 END").format(sql.Identifier(column_name))
+                    )
+                    score_params.append(wildcard)
+                if variant_checks:
+                    where_parts.append(sql.SQL("(") + sql.SQL(" OR ").join(variant_checks) + sql.SQL(")"))
+
+            if not where_parts:
+                continue
+
             display_column = _pick_display_column(table)
             attribute_columns = _select_attribute_columns(table)
             query_sql = sql.SQL(
@@ -401,9 +547,7 @@ def engineering_db_lookup(
                 where_clause=sql.SQL(" OR ").join(where_parts),
             )
 
-            params = [wildcard] * len(searchable_columns)
-            params.extend([wildcard] * len(searchable_columns))
-            params.append(max_rows_per_table)
+            params = score_params + where_params + [max_rows_per_table]
 
             cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute(query_sql, params)
@@ -425,6 +569,7 @@ def engineering_db_lookup(
                     for column_name in attribute_columns
                     if column_name in row and row.get(column_name) is not None
                 }
+                key_attributes = _filter_key_attributes(key_attributes, requested_fields)
                 notes_path = next(
                     (
                         row.get(column_name)
@@ -438,6 +583,12 @@ def engineering_db_lookup(
                     if key == display_column:
                         continue
                     summary_parts.append(f"{key}={value}")
+                if follow_relationships and related_tables:
+                    summary_parts.append(f"related_tables={', '.join(related_tables[:3])}")
+
+                if _field_requested(requested_fields, "notes") or _field_requested(requested_fields, "notes_path"):
+                    if notes_path is not None and "notes" not in key_attributes and "notes_path" not in key_attributes:
+                        key_attributes["notes_path"] = str(notes_path)
 
                 records.append(
                     EngineeringDbRecord(
@@ -458,9 +609,13 @@ def engineering_db_lookup(
     except Exception as exc:
         return EngineeringDbLookupResult(
             ok=False,
-            query=query,
+            search_term=search_term,
             scoped_tables=scoped_names,
             records=[],
+            requested_fields=requested_fields,
+            entity_hint=entity_hint,
+            follow_relationships=follow_relationships,
+            search_terms_tried=search_terms_tried,
             guidance="The engineering DB lookup failed before records could be returned.",
             error=str(exc),
         )
@@ -469,11 +624,15 @@ def engineering_db_lookup(
 
     return EngineeringDbLookupResult(
         ok=True,
-        query=query,
+        search_term=search_term,
         scoped_tables=scoped_names,
         records=records,
+        requested_fields=requested_fields,
+        entity_hint=entity_hint,
+        follow_relationships=follow_relationships,
+        search_terms_tried=search_terms_tried,
         guidance=(
-            "Use the returned DB facts first. If a record includes notes_path and deeper context is needed, "
-            "call read-note with that path."
+            "Use the returned DB facts first. Pass only a short search term into this tool. "
+            "If a record includes notes_path and deeper context is needed, call read-note with that exact path."
         ),
     )

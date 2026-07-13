@@ -140,7 +140,7 @@ the intended flow is:
 3. The model narrows the database space first:
    - read `engineering-db://schema/catalog`, or
    - call `retrieve-engineering-db-schema-context`
-4. The model then calls `engineering-db-lookup` with likely tables.
+4. The model then calls `engineering-db-lookup` with a short `search_term`, optional `requested_fields`, and likely tables.
 5. The DB result may include a `notes_path`.
 6. If the user needs the actual note contents, the model calls `read-note`.
 7. `read-note` loads the file from the vault and returns the text.
@@ -218,49 +218,55 @@ The exact endpoint path is controlled by `MCP_STREAMABLE_HTTP_PATH`.
 List the registered MCP tools from your local venv:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-tools
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --list-tools
 ```
 
 List resources and resource templates:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-resources
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --list-resources
 ```
 
 List prompts:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --list-prompts
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --list-prompts
 ```
 
 Read the schema catalog resource:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --read-resource engineering-db://schema/catalog
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --read-resource engineering-db://schema/catalog
+```
+
+Read the lookup guide resource:
+
+```bash
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --read-resource engineering-db://schema/lookup-guide
 ```
 
 Render the planning prompt:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --prompt engineering-db-query-planner --args-json '{"user_query":"find 18awg silicone wire"}'
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --prompt engineering-db-query-planner --args-json '{"user_query":"find 18awg silicone wire"}'
 ```
 
 Call `retrieve-engineering-db-schema-context` directly:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool retrieve-engineering-db-schema-context --args-json '{"query":"find 18awg silicone wire"}'
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --tool retrieve-engineering-db-schema-context --args-json '{"query":"find 18awg silicone wire"}'
 ```
 
 Call `engineering-db-lookup` directly without starting Docker:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool engineering-db-lookup --args-json '{"query":"find 18awg silicone wire","candidate_tables":["wires","cables"]}'
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --tool engineering-db-lookup --args-json '{"search_term":"18awg silicone wire","candidate_tables":["wires","cables"],"entity_hint":"wire","requested_fields":["component_a","component_b","wire_purpose"]}'
 ```
 
 Call `read-note` directly:
 
 ```bash
-./venv_jarvis/bin/python -m app.servers.mcp.smoke_test --tool read-note --args-json '{"notes_path":"components/RPI4B.md"}'
+docker compose exec jarvis-mcp python -m app.servers.mcp.smoke_test --tool read-note --args-json '{"notes_path":"components/RPI4B.md"}'
 ```
 
 View container logs:
@@ -285,7 +291,7 @@ to a schema-aware MCP RAG flow:
 1. connect to the Jarvis MCP server
 2. inspect schema resources or render the planning prompt
 3. invoke `retrieve-engineering-db-schema-context`
-4. invoke `engineering-db-lookup` with narrowed tables
+4. invoke `engineering-db-lookup` with a short `search_term` plus narrowed tables
 5. optionally invoke `read-note`
 6. format the final answer in n8n
 

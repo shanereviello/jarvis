@@ -35,6 +35,9 @@ class TableSchema:
     notes_columns: list[str] = field(default_factory=list)
     display_columns: list[str] = field(default_factory=list)
     foreign_keys: list[TableRelationship] = field(default_factory=list)
+    table_purpose: str = ""
+    common_identifiers: list[str] = field(default_factory=list)
+    lookup_examples: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -45,6 +48,9 @@ class TableSchema:
             "notes_columns": self.notes_columns,
             "display_columns": self.display_columns,
             "foreign_keys": [relationship.to_dict() for relationship in self.foreign_keys],
+            "table_purpose": self.table_purpose,
+            "common_identifiers": self.common_identifiers,
+            "lookup_examples": self.lookup_examples,
         }
 
 
@@ -117,18 +123,26 @@ class EngineeringDbRecord:
 @dataclass(slots=True)
 class EngineeringDbLookupResult:
     ok: bool
-    query: str
+    search_term: str
     scoped_tables: list[str] = field(default_factory=list)
     records: list[EngineeringDbRecord] = field(default_factory=list)
+    requested_fields: list[str] = field(default_factory=list)
+    entity_hint: str | None = None
+    follow_relationships: bool = False
+    search_terms_tried: list[str] = field(default_factory=list)
     guidance: str = ""
     error: str | None = None
 
     def to_dict(self) -> dict:
         return {
             "ok": self.ok,
-            "query": self.query,
+            "search_term": self.search_term,
             "scoped_tables": self.scoped_tables,
             "records": [record.to_dict() for record in self.records],
+            "requested_fields": self.requested_fields,
+            "entity_hint": self.entity_hint,
+            "follow_relationships": self.follow_relationships,
+            "search_terms_tried": self.search_terms_tried,
             "guidance": self.guidance,
             "error": self.error,
         }
