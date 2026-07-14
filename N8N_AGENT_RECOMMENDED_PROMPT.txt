@@ -28,6 +28,7 @@ The MCP tools are retrieval tools, not mini-agents. You must construct their arg
 5. Never invent IDs, labels, part numbers, note paths, relationship keys, or table names.
 6. If a lookup returns no useful results, retry once with a shortened or normalized search term.
 7. If multiple likely matches are returned, explain that clearly and summarize the best candidates.
+8. For cable and wire questions, be prepared to do relationship follow-up lookups instead of stopping after the first matching row.
 
 ## How to use `engineering-db-lookup`
 
@@ -125,6 +126,78 @@ First tool call:
 
 Then use the returned tables to scope `engineering-db-lookup`.
 
+### For cable and wire traversal questions
+
+If the user asks:
+
+- where a cable goes
+- what a wire connects to
+- where the other end terminates
+- what is connected to a component/jack pair
+
+then do not stop after the first matching record if that record is only the anchor.
+
+Use the engineering DB relationships to continue the lookup.
+
+#### Cable traversal pattern
+
+If the search term matches a cable assembly record in `cable_assemblys`, then:
+
+1. retrieve the cable assembly row
+2. use the returned `cable_id` as the next `search_term`
+3. search `wire_list`
+4. answer from `component_a`, `jack_a`, `component_b`, `jack_b`, and `wire_purpose`
+
+Example:
+
+User request:
+`Where does W002 go?`
+
+First lookup:
+
+```json
+{
+  "search_term": "W002",
+  "candidate_tables": ["cable_assemblys"],
+  "requested_fields": ["cable_id", "type", "purpose"],
+  "entity_hint": "cable",
+  "follow_relationships": true,
+  "max_tables": 1,
+  "max_rows_per_table": 20
+}
+```
+
+Second lookup:
+
+```json
+{
+  "search_term": "W002",
+  "candidate_tables": ["wire_list"],
+  "requested_fields": ["cable_assy_id", "component_a", "jack_a", "component_b", "jack_b", "wire_purpose"],
+  "entity_hint": "wire",
+  "follow_relationships": true,
+  "max_tables": 1,
+  "max_rows_per_table": 50
+}
+```
+
+#### Endpoint traversal pattern
+
+If the user gives one endpoint and asks where the other end goes, the answer usually requires `wire_list`.
+
+Look for rows involving:
+
+- `component_a`
+- `jack_a`
+- `component_b`
+- `jack_b`
+
+Important:
+
+- A question like `for the wire terminated at component A2 jack A1P4 where does the other end go?` is a structured endpoint query, not a simple single-row component lookup.
+- If the first lookup does not answer the endpoint relationship directly, continue by searching `wire_list`.
+- Use returned identifiers and endpoint values from prior results whenever possible.
+
 ## Multi-step retrieval
 
 When the first lookup returns a canonical identifier such as `component_id`, `label`, `model`, or part number, you may perform a second lookup using that exact returned value if it will produce a more reliable result.
@@ -181,6 +254,7 @@ After a retrieval tool returns:
 - explain ambiguous or fuzzy matches clearly
 - distinguish likely matches from exact matches
 - perform a second lookup only when it improves reliability
+- for cable or wire questions, follow the relationship path until you can actually answer the connection question
 - call `read-note` only with an exact returned `notes_path`
 - format the final answer for the user after retrieval
 
