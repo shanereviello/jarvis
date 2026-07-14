@@ -47,6 +47,17 @@ IDENTIFIER_COLUMN_CANDIDATES = (
 )
 
 
+# These heuristics are the main place to customize the "knowledge map" of your DB.
+# If your real schema uses different table meanings or naming patterns, edit the
+# helper functions below rather than scattering special cases across the lookup code.
+ENTITY_HINT_PATTERNS = {
+    "component": ("component", "device", "board", "sensor", "controller", "connector"),
+    "interface": ("interface", "port", "pinout", "pin"),
+    "wire": ("wire", "termination", "signal", "jack"),
+    "cable": ("cable", "harness", "assembly"),
+}
+
+
 def get_db_connection():
     settings = get_settings()
     return psycopg2.connect(
@@ -76,13 +87,23 @@ def _describe_table_purpose(table_name: str, columns: list[ColumnSchema]) -> str
         return "Wire or termination data that describes point-to-point electrical connections."
     if "cable" in lower_name:
         return "Cable assemblies and bundle-level connection records."
-    if "gpio" in lower_name:
-        return "GPIO pin reference data for Raspberry Pi hardware."
     if "component" in lower_name:
         return "Component inventory records including names, labels, part numbers, and note paths."
     if "part_number" in column_names:
         return "Engineering part records keyed by part numbers and human-readable names."
     return "General engineering table containing searchable structured records."
+
+
+def _infer_entity_type(table_name: str, columns: list[ColumnSchema]) -> str:
+    # Customize this if your DB has table names that do not follow obvious naming patterns.
+    lower_name = table_name.lower()
+    column_names = {column.name.lower() for column in columns}
+    for entity_type, patterns in ENTITY_HINT_PATTERNS.items():
+        if any(pattern in lower_name for pattern in patterns):
+            return entity_type
+    if "part_number" in column_names:
+        return "component"
+    return "record"
 
 
 def _infer_lookup_examples(table_name: str, columns: list[ColumnSchema]) -> list[str]:
@@ -91,16 +112,109 @@ def _infer_lookup_examples(table_name: str, columns: list[ColumnSchema]) -> list
     if "component" in lower_name:
         examples.extend(["Raspberry Pi B4", "RPI4B", "XT60"])
     if "interface" in lower_name:
-        examples.extend(["A2A1", "UART0", "GPIO14"])
+        examples.extend(["A2A1P2", "UART0", "GPIO-14"])
     if "wire" in lower_name:
         examples.extend(["W001", "24V sense wire"])
     if "cable" in lower_name:
-        examples.extend(["camera harness", "CABLE-001"])
-    if "gpio" in lower_name:
-        examples.extend(["GPIO14", "pin 8"])
+        examples.extend(["W001", "camera harness"])
     if not examples and any(column.name.lower() == "part_number" for column in columns):
         examples.append("part number")
     return examples[:4]
+
+
+def _infer_common_question_types(table_name: str, entity_type: str) -> list[str]:
+    # Customize these prompts/examples to mirror how *you* naturally ask questions of each table.
+    lower_name = table_name.lower()
+    if entity_type == "component":
+        return [
+            "find component by name, label, or part number",
+            "get component metadata and note path",
+            "identify likely matching hardware record",
+        ]
+    if entity_type == "interface":
+        return [
+            "find interfaces belonging to a component",
+            "look up interface pin or label details",
+            "inspect interface notes or connection endpoints",
+        ]
+    if entity_type == "wire":
+        return [
+            "find where a wire terminates",
+            "inspect wire purpose or endpoints",
+            "trace point-to-point electrical connections",
+        ]
+    if entity_type == "cable":
+        return [
+            "find cable assembly records",
+            "inspect a harness or cable purpose",
+            "relate cable records to contained wire connections",
+        ]
+    return ["perform general engineering record lookup"]
+
+
+def _infer_best_lookup_columns(
+    columns: list[ColumnSchema],
+    searchable_columns: list[str],
+    display_columns: list[str],
+    common_identifiers: list[str],
+) -> list[str]:
+    # This is one of the highest-value tuning points. If your DB has better "entry"
+    # columns for each table, update the priority logic here.
+    ordered: list[str] = []
+
+    def add(column_name: str) -> None:
+        if column_name and column_name not in ordered:
+            ordered.append(column_name)
+
+    for column_name in common_identifiers:
+        add(column_name)
+    for column_name in display_columns:
+        add(column_name)
+    for column_name in searchable_columns:
+        add(column_name)
+
+    return ordered[:6]
+
+
+def _infer_related_tables(
+    table_name: str,
+    relationships: list[TableRelationship],
+) -> list[str]:
+    related = sorted(
+        {
+            relationship.to_table
+            for relationship in relationships
+            if relationship.from_table == table_name
+        }
+        | {
+            relationship.from_table
+            for relationship in relationships
+            if relationship.to_table == table_name
+        }
+    )
+    return related
+
+
+def _infer_recommended_followup_tables(
+    entity_type: str,
+    related_tables: list[str],
+) -> list[str]:
+    # Customize follow-up preferences here if your DB has preferred traversal paths.
+    ranked: list[str] = []
+    priorities = {
+        "component": ("interfaces", "wire_list", "cable_assemblys"),
+        "interface": ("components", "wire_list"),
+        "wire": ("components", "cable_assemblys", "interfaces"),
+        "cable": ("wire_list", "components"),
+        "gpio": ("components", "interfaces"),
+    }
+    for candidate in priorities.get(entity_type, ()):
+        if candidate in related_tables and candidate not in ranked:
+            ranked.append(candidate)
+    for table_name in related_tables:
+        if table_name not in ranked:
+            ranked.append(table_name)
+    return ranked[:5]
 
 
 def _build_search_variants(search_term: str) -> list[str]:
@@ -253,17 +367,30 @@ def get_engineering_db_schema_catalog() -> EngineeringDbSchemaCatalog:
             for candidate in DISPLAY_COLUMN_CANDIDATES
             if any(column.name.lower() == candidate for column in columns)
         ]
+        entity_type = _infer_entity_type(table_name, columns)
+        related_tables = _infer_related_tables(table_name, relationships)
+        best_lookup_columns = _infer_best_lookup_columns(
+            columns=columns,
+            searchable_columns=searchable_columns,
+            display_columns=display_columns,
+            common_identifiers=common_identifiers,
+        )
         tables.append(
             TableSchema(
                 table_name=table_name,
                 columns=list(columns),
                 primary_key_columns=primary_key_columns,
                 searchable_columns=searchable_columns,
+                best_lookup_columns=best_lookup_columns,
                 notes_columns=notes_columns,
                 display_columns=display_columns,
                 foreign_keys=relationships_by_table.get(table_name, []),
+                entity_type=entity_type,
                 table_purpose=_describe_table_purpose(table_name, columns),
+                common_question_types=_infer_common_question_types(table_name, entity_type),
                 common_identifiers=common_identifiers,
+                related_tables=related_tables,
+                recommended_followup_tables=_infer_recommended_followup_tables(entity_type, related_tables),
                 lookup_examples=_infer_lookup_examples(table_name, columns),
             )
         )

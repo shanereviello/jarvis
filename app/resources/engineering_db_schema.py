@@ -44,6 +44,17 @@ def register(server: FastMCP) -> None:
                 "entity_hint": "Optional type hint like component, interface, wire, cable, or gpio.",
                 "follow_relationships": "Set true when related records matter for the answer.",
             },
+            "schema_metadata_guide": {
+                "entity_type": "The inferred kind of record a table represents. Customize this if your table naming differs.",
+                "best_lookup_columns": "Columns the retrieval layer currently treats as the strongest entry points.",
+                "common_question_types": "Examples of the kinds of user questions this table is meant to answer.",
+                "related_tables": "Tables linked through foreign-key style relationships.",
+                "recommended_followup_tables": "Tables the agent should consider after a first successful match.",
+            },
+            "customization_notes": [
+                "Tune the DB knowledge map heuristics in app/services/engineering_db.py.",
+                "Look for helper functions like _infer_entity_type, _infer_best_lookup_columns, and _infer_common_question_types.",
+            ],
         }
         return json.dumps(payload, indent=2)
 

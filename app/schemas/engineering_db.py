@@ -32,11 +32,16 @@ class TableSchema:
     columns: list[ColumnSchema] = field(default_factory=list)
     primary_key_columns: list[str] = field(default_factory=list)
     searchable_columns: list[str] = field(default_factory=list)
+    best_lookup_columns: list[str] = field(default_factory=list)
     notes_columns: list[str] = field(default_factory=list)
     display_columns: list[str] = field(default_factory=list)
     foreign_keys: list[TableRelationship] = field(default_factory=list)
+    entity_type: str = ""
     table_purpose: str = ""
+    common_question_types: list[str] = field(default_factory=list)
     common_identifiers: list[str] = field(default_factory=list)
+    related_tables: list[str] = field(default_factory=list)
+    recommended_followup_tables: list[str] = field(default_factory=list)
     lookup_examples: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -45,11 +50,16 @@ class TableSchema:
             "columns": [column.to_dict() for column in self.columns],
             "primary_key_columns": self.primary_key_columns,
             "searchable_columns": self.searchable_columns,
+            "best_lookup_columns": self.best_lookup_columns,
             "notes_columns": self.notes_columns,
             "display_columns": self.display_columns,
             "foreign_keys": [relationship.to_dict() for relationship in self.foreign_keys],
+            "entity_type": self.entity_type,
             "table_purpose": self.table_purpose,
+            "common_question_types": self.common_question_types,
             "common_identifiers": self.common_identifiers,
+            "related_tables": self.related_tables,
+            "recommended_followup_tables": self.recommended_followup_tables,
             "lookup_examples": self.lookup_examples,
         }
 
