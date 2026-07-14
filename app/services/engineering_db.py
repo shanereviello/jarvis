@@ -10,6 +10,8 @@ from psycopg2.extras import RealDictCursor
 from app.core.config import get_settings
 from app.schemas.engineering_db import (
     ColumnSchema,
+    EngineeringDbConnectionLookupResult,
+    EngineeringDbConnectionRecord,
     EngineeringDbLookupResult,
     EngineeringDbRecord,
     EngineeringDbSchemaCatalog,
@@ -259,6 +261,20 @@ def _filter_key_attributes(
         key: value
         for key, value in key_attributes.items()
         if key.lower() in requested
+    }
+
+
+def _filter_connection_row(
+    row: dict[str, object],
+    requested_fields: list[str],
+) -> dict[str, object]:
+    if not requested_fields:
+        return row
+    requested = {item.lower() for item in requested_fields}
+    return {
+        key: value
+        for key, value in row.items()
+        if key.lower() in requested or key in {"wire_id", "cable_assy_id"}
     }
 
 
@@ -761,5 +777,133 @@ def engineering_db_lookup(
         guidance=(
             "Use the returned DB facts first. Pass only a short search term into this tool. "
             "If a record includes notes_path and deeper context is needed, call read-note with that exact path."
+        ),
+    )
+
+
+def engineering_db_connection_lookup(
+    cable_assy_id: str,
+    endpoint_component: str | None = None,
+    endpoint_jack: str | None = None,
+    requested_fields: list[str] | None = None,
+    max_rows: int = 50,
+) -> EngineeringDbConnectionLookupResult:
+    requested_fields = requested_fields or []
+
+    # Tune this query path if your real wire endpoint rules become more specific.
+    # Right now this is intentionally deterministic and maps directly onto wire_list.
+    lookup_sql = """
+    SELECT
+        wire_id,
+        cable_assy_id,
+        component_a,
+        jack_a,
+        component_b,
+        jack_b,
+        wire_purpose
+    FROM wire_list
+    WHERE cable_assy_id = %s
+      AND (
+        (%s IS NULL AND %s IS NULL)
+        OR (%s IS NOT NULL AND %s IS NOT NULL AND component_a = %s AND jack_a = %s)
+        OR (%s IS NOT NULL AND %s IS NOT NULL AND component_b = %s AND jack_b = %s)
+      )
+    ORDER BY wire_id
+    LIMIT %s;
+    """
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            lookup_sql,
+            (
+                cable_assy_id,
+                endpoint_component,
+                endpoint_jack,
+                endpoint_component,
+                endpoint_jack,
+                endpoint_component,
+                endpoint_jack,
+                endpoint_component,
+                endpoint_jack,
+                endpoint_component,
+                endpoint_jack,
+                max_rows,
+            ),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        return EngineeringDbConnectionLookupResult(
+            ok=False,
+            cable_assy_id=cable_assy_id,
+            endpoint_component=endpoint_component,
+            endpoint_jack=endpoint_jack,
+            requested_fields=requested_fields,
+            guidance="The engineering DB connection lookup failed before exact wire rows could be returned.",
+            error=str(exc),
+        )
+
+    records: list[EngineeringDbConnectionRecord] = []
+    for raw_row in rows:
+        row = dict(raw_row)
+        matched_side = None
+        other_end_component = row.get("component_b")
+        other_end_jack = row.get("jack_b")
+
+        if endpoint_component and endpoint_jack:
+            if row.get("component_a") == endpoint_component and row.get("jack_a") == endpoint_jack:
+                matched_side = "a"
+                other_end_component = row.get("component_b")
+                other_end_jack = row.get("jack_b")
+            elif row.get("component_b") == endpoint_component and row.get("jack_b") == endpoint_jack:
+                matched_side = "b"
+                other_end_component = row.get("component_a")
+                other_end_jack = row.get("jack_a")
+
+        filtered_row = _filter_connection_row(
+            {
+                "wire_id": row.get("wire_id"),
+                "cable_assy_id": row.get("cable_assy_id"),
+                "component_a": row.get("component_a"),
+                "jack_a": row.get("jack_a"),
+                "component_b": row.get("component_b"),
+                "jack_b": row.get("jack_b"),
+                "wire_purpose": row.get("wire_purpose"),
+                "matched_side": matched_side,
+                "other_end_component": other_end_component,
+                "other_end_jack": other_end_jack,
+            },
+            requested_fields,
+        )
+
+        # Keep the strongly answer-bearing fields even when requested_fields is narrow.
+        records.append(
+            EngineeringDbConnectionRecord(
+                wire_id=filtered_row.get("wire_id"),
+                cable_assy_id=str(filtered_row.get("cable_assy_id") or cable_assy_id),
+                component_a=filtered_row.get("component_a"),
+                jack_a=filtered_row.get("jack_a"),
+                component_b=filtered_row.get("component_b"),
+                jack_b=filtered_row.get("jack_b"),
+                wire_purpose=filtered_row.get("wire_purpose"),
+                matched_side=filtered_row.get("matched_side"),
+                other_end_component=filtered_row.get("other_end_component"),
+                other_end_jack=filtered_row.get("other_end_jack"),
+            )
+        )
+
+    return EngineeringDbConnectionLookupResult(
+        ok=True,
+        cable_assy_id=cable_assy_id,
+        endpoint_component=endpoint_component,
+        endpoint_jack=endpoint_jack,
+        requested_fields=requested_fields,
+        records=records,
+        guidance=(
+            "Use this tool for exact cable and endpoint traversal questions. "
+            "It reads wire_list directly so fields like wire_purpose come from the matched wire row."
         ),
     )

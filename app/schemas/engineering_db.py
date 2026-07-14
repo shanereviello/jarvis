@@ -156,3 +156,44 @@ class EngineeringDbLookupResult:
             "guidance": self.guidance,
             "error": self.error,
         }
+
+
+@dataclass(slots=True)
+class EngineeringDbConnectionRecord:
+    wire_id: int | None
+    cable_assy_id: str
+    component_a: str | None
+    jack_a: str | None
+    component_b: str | None
+    jack_b: str | None
+    wire_purpose: str | None = None
+    matched_side: str | None = None
+    other_end_component: str | None = None
+    other_end_jack: str | None = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class EngineeringDbConnectionLookupResult:
+    ok: bool
+    cable_assy_id: str
+    endpoint_component: str | None = None
+    endpoint_jack: str | None = None
+    requested_fields: list[str] = field(default_factory=list)
+    records: list[EngineeringDbConnectionRecord] = field(default_factory=list)
+    guidance: str = ""
+    error: str | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "ok": self.ok,
+            "cable_assy_id": self.cable_assy_id,
+            "endpoint_component": self.endpoint_component,
+            "endpoint_jack": self.endpoint_jack,
+            "requested_fields": self.requested_fields,
+            "records": [record.to_dict() for record in self.records],
+            "guidance": self.guidance,
+            "error": self.error,
+        }

@@ -44,6 +44,18 @@ def register(server: FastMCP) -> None:
                 "entity_hint": "Optional type hint like component, interface, wire, cable, or gpio.",
                 "follow_relationships": "Set true when related records matter for the answer.",
             },
+            "connection_lookup_argument_guide": {
+                "cable_assy_id": "Required cable assembly ID such as W001 or W002.",
+                "endpoint_component": "Optional exact endpoint component label such as A2.",
+                "endpoint_jack": "Optional exact endpoint jack such as J1P10.",
+                "requested_fields": "Optional list of fields to emphasize in the returned connection rows.",
+                "max_rows": "Maximum number of exact wire_list rows to return.",
+            },
+            "when_to_use_connection_lookup": [
+                "Use engineering-db-connection-lookup when the question is about where a cable goes.",
+                "Use it when the user asks what the other end is for a component/jack endpoint.",
+                "Use it when you need exact wire_list fields like component_a, jack_a, component_b, jack_b, or wire_purpose.",
+            ],
             "schema_metadata_guide": {
                 "entity_type": "The inferred kind of record a table represents. Customize this if your table naming differs.",
                 "best_lookup_columns": "Columns the retrieval layer currently treats as the strongest entry points.",

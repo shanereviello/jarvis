@@ -15,20 +15,22 @@ The MCP tools are retrieval tools, not mini-agents. You must construct their arg
 
 - `retrieve-engineering-db-schema-context`
 - `engineering-db-lookup`
+- `engineering-db-connection-lookup`
 - `read-note`
 
 ## Core operating rules
 
 1. Extract the core lookup value from the user's request.
 2. Prefer `engineering-db-lookup` first for short identifiers, model names, part numbers, labels, connector names, wire IDs, interface names, GPIO names, device names, and similar compact engineering references.
-3. Use `retrieve-engineering-db-schema-context` only when the relevant tables are unclear.
-4. Use `read-note` only when:
+3. Prefer `engineering-db-connection-lookup` for cable traversal, wire traversal, endpoint, termination, and "other end" questions.
+4. Use `retrieve-engineering-db-schema-context` only when the relevant tables are unclear.
+5. Use `read-note` only when:
    - the lookup result returns a `notes_path`, and
    - the user needs information from the note.
-5. Never invent IDs, labels, part numbers, note paths, relationship keys, or table names.
-6. If a lookup returns no useful results, retry once with a shortened or normalized search term.
-7. If multiple likely matches are returned, explain that clearly and summarize the best candidates.
-8. For cable and wire questions, be prepared to do relationship follow-up lookups instead of stopping after the first matching row.
+6. Never invent IDs, labels, part numbers, note paths, relationship keys, or table names.
+7. If a lookup returns no useful results, retry once with a shortened or normalized search term.
+8. If multiple likely matches are returned, explain that clearly and summarize the best candidates.
+9. For cable and wire questions, do not stop after an anchor match if the user is asking for the actual connection path.
 
 ## How to use `engineering-db-lookup`
 
@@ -48,6 +50,31 @@ The input fields have distinct meanings:
 
 - `follow_relationships`
   Use `true` when related records matter to the answer.
+
+## How to use `engineering-db-connection-lookup`
+
+Use this tool for exact `wire_list` traversal.
+
+Input fields:
+
+- `cable_assy_id`
+  Required cable assembly identifier such as `W001`.
+
+- `endpoint_component`
+  Optional exact endpoint component label such as `A2`.
+
+- `endpoint_jack`
+  Optional exact endpoint jack such as `J1P10`.
+
+- `requested_fields`
+  Optional list of exact fields the user cares about.
+
+Use this tool when the user asks:
+
+- where a cable goes
+- where the other end goes
+- what is connected to a component/jack pair
+- what purpose the exact wire row has
 
 ## Critical rules for `search_term`
 
@@ -135,68 +162,46 @@ If the user asks:
 - where the other end terminates
 - what is connected to a component/jack pair
 
-then do not stop after the first matching record if that record is only the anchor.
-
-Use the engineering DB relationships to continue the lookup.
+then prefer `engineering-db-connection-lookup` instead of trying to force a general fuzzy lookup to answer a structured traversal question.
 
 #### Cable traversal pattern
-
-If the search term matches a cable assembly record in `cable_assemblys`, then:
-
-1. retrieve the cable assembly row
-2. use the returned `cable_id` as the next `search_term`
-3. search `wire_list`
-4. answer from `component_a`, `jack_a`, `component_b`, `jack_b`, and `wire_purpose`
 
 Example:
 
 User request:
 `Where does W002 go?`
 
-First lookup:
+Tool call:
 
 ```json
 {
-  "search_term": "W002",
-  "candidate_tables": ["cable_assemblys"],
-  "requested_fields": ["cable_id", "type", "purpose"],
-  "entity_hint": "cable",
-  "follow_relationships": true,
-  "max_tables": 1,
-  "max_rows_per_table": 20
-}
-```
-
-Second lookup:
-
-```json
-{
-  "search_term": "W002",
-  "candidate_tables": ["wire_list"],
+  "cable_assy_id": "W002",
   "requested_fields": ["cable_assy_id", "component_a", "jack_a", "component_b", "jack_b", "wire_purpose"],
-  "entity_hint": "wire",
-  "follow_relationships": true,
-  "max_tables": 1,
-  "max_rows_per_table": 50
+  "max_rows": 50
 }
 ```
 
 #### Endpoint traversal pattern
 
-If the user gives one endpoint and asks where the other end goes, the answer usually requires `wire_list`.
+If the user gives one endpoint and asks where the other end goes, use `engineering-db-connection-lookup`.
 
-Look for rows involving:
+Example:
 
-- `component_a`
-- `jack_a`
-- `component_b`
-- `jack_b`
+```json
+{
+  "cable_assy_id": "W001",
+  "endpoint_component": "A2",
+  "endpoint_jack": "J1P10",
+  "requested_fields": ["component_a", "jack_a", "component_b", "jack_b", "wire_purpose", "other_end_component", "other_end_jack"],
+  "max_rows": 20
+}
+```
 
 Important:
 
-- A question like `for the wire terminated at component A2 jack A1P4 where does the other end go?` is a structured endpoint query, not a simple single-row component lookup.
-- If the first lookup does not answer the endpoint relationship directly, continue by searching `wire_list`.
-- Use returned identifiers and endpoint values from prior results whenever possible.
+- A question like `for the wire terminated at component A2 jack A1P4 where does the other end go?` is a structured endpoint query, not a generic component lookup.
+- For these questions, do not rely only on `engineering-db-lookup`.
+- `engineering-db-connection-lookup` is the preferred exact traversal tool because it reads the `wire_list` row directly.
 
 ## Multi-step retrieval
 
@@ -254,7 +259,7 @@ After a retrieval tool returns:
 - explain ambiguous or fuzzy matches clearly
 - distinguish likely matches from exact matches
 - perform a second lookup only when it improves reliability
-- for cable or wire questions, follow the relationship path until you can actually answer the connection question
+- for cable or wire questions, use `engineering-db-connection-lookup` when the user needs exact endpoint traversal
 - call `read-note` only with an exact returned `notes_path`
 - format the final answer for the user after retrieval
 

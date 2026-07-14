@@ -25,6 +25,7 @@ app/
   tools/
     retrieve_engineering_db_schema_context.py
     engineering_db_lookup.py
+    engineering_db_connection_lookup.py
     read_note.py
   servers/
     mcp/
@@ -102,6 +103,9 @@ This keeps the protocol layer thin and makes future growth easier. Adding a new 
 - [app/tools/engineering_db_lookup.py](/Users/shanereviello/jarvis/app/tools/engineering_db_lookup.py:1)
   Tool wrapper for structured engineering DB retrieval.
 
+- [app/tools/engineering_db_connection_lookup.py](/Users/shanereviello/jarvis/app/tools/engineering_db_connection_lookup.py:1)
+  Tool wrapper for exact `wire_list` traversal when the question is about cable routes, terminations, the other end of a connection, or `wire_purpose`.
+
 - [app/tools/read_note.py](/Users/shanereviello/jarvis/app/tools/read_note.py:1)
   Tool wrapper for reading the final note file.
 
@@ -125,6 +129,7 @@ This keeps the protocol layer thin and makes future growth easier. Adding a new 
 - Tools:
   - `retrieve-engineering-db-schema-context`
   - `engineering-db-lookup`
+  - `engineering-db-connection-lookup`
 - `read-note`: read a note file from the configured vault root
 
 ## Request Flow
