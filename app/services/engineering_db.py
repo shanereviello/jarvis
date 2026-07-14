@@ -271,10 +271,23 @@ def _filter_connection_row(
     if not requested_fields:
         return row
     requested = {item.lower() for item in requested_fields}
+    always_keep = {
+        "wire_id",
+        "cable_assy_id",
+        # Keep the exact traversal answer fields even when the caller requests a narrow subset.
+        "component_a",
+        "jack_a",
+        "component_b",
+        "jack_b",
+        "wire_purpose",
+        "matched_side",
+        "other_end_component",
+        "other_end_jack",
+    }
     return {
         key: value
         for key, value in row.items()
-        if key.lower() in requested or key in {"wire_id", "cable_assy_id"}
+        if key.lower() in requested or key in always_keep
     }
 
 
