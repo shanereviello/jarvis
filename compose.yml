@@ -1,0 +1,24 @@
+services:
+  jarvis-mcp:
+    image: jarvis-mcp:latest
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: jarvis-mcp
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    networks:
+      - jarvis-net
+
+    volumes:
+      - /srv/notes/obsidian:/notes:ro
+
+networks:
+  jarvis-net:
+    external: true
