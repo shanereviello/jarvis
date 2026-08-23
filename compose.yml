@@ -1,6 +1,7 @@
 services:
   jarvis-mcp:
     image: jarvis-mcp:latest
+    user: "1000:1000"
 
     build:
       context: .
