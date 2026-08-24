@@ -1,8 +1,6 @@
 services:
   jarvis-mcp:
-    image: jarvis-mcp:latest
-    user: "1000:1000"
-
+    image: jarvis-mcp:${JARVIS_MCP_VERSION:-notes-v1}
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,11 +12,27 @@ services:
     env_file:
       - .env
 
+    user: "${JARVIS_UID:-1000}:${JARVIS_GID:-1000}"
+
+    environment:
+      JARVIS_NOTES_REPOSITORY: /srv/notes/repo.git
+      JARVIS_NOTES_BASELINE: /srv/notes/baseline
+      JARVIS_NOTES_REVIEW: /srv/notes/review
+      JARVIS_NOTES_BASELINE_REF: ${JARVIS_NOTES_BASELINE_REF:-main}
+      JARVIS_DRAFT_ROOT: Jarvis Drafts
+      JARVIS_SECOND_BRAIN_ROOT: Jarvis Second Brain
+      JARVIS_AUDIT_PATH: /srv/jarvis/audit/note-actions.jsonl
+      JARVIS_NOTES_MAX_RESULTS: ${JARVIS_NOTES_MAX_RESULTS:-100}
+      JARVIS_NOTES_MAX_CONTENT_BYTES: ${JARVIS_NOTES_MAX_CONTENT_BYTES:-100000}
+
     networks:
       - jarvis-net
 
     volumes:
-      - /srv/notes/obsidian:/notes:ro
+      - /srv/notes/repo.git:/srv/notes/repo.git:ro
+      - /srv/notes/baseline:/srv/notes/baseline:ro
+      - /srv/notes/review:/srv/notes/review:rw
+      - /srv/jarvis/audit:/srv/jarvis/audit:rw
 
 networks:
   jarvis-net:

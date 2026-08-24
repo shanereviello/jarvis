@@ -9,9 +9,11 @@ def create_server() -> FastMCP:
     server = FastMCP(
         name=settings.mcp_name,
         instructions=(
-            "Jarvis MCP server for engineering DB exploration and vault note retrieval. "
+            "Jarvis MCP server for engineering DB exploration and approved-baseline note access. "
             "Start by reading engineering DB schema resources or calling retrieve-engineering-db-schema-context. "
-            "Then use engineering-db-lookup with narrowed tables. Only use read-note when the DB result is not sufficient."
+            "Then use engineering-db-lookup with narrowed tables. Use notes-read for the approved Git baseline. "
+            "Use notes-write only for reviewable Jarvis drafts; its output is not authoritative until a human approves "
+            "and commits it. Never treat review-worktree drafts as verified source material."
         ),
         host=settings.mcp_host,
         port=settings.mcp_port,
