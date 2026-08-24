@@ -4,6 +4,8 @@ from typing import Literal
 
 
 NotesReadOperation = Literal[
+    "browse",
+    "inventory",
     "list",
     "read",
     "search",
@@ -14,3 +16,5 @@ NotesReadOperation = Literal[
     "recent",
     "resolve_link",
 ]
+
+NotesSearchMatchMode = Literal["literal"]
