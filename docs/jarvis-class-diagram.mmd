@@ -1,0 +1,249 @@
+classDiagram
+direction LR
+
+namespace MCP_Layer {
+    class MCPServer {
+        <<FastMCP>>
+        +create_server()
+        +run(transport)
+    }
+    class MCPRegistry {
+        <<module>>
+        +register_tools(server)
+        +register_resources(server)
+        +register_prompts(server)
+    }
+    class EngineeringDbTools {
+        <<adapter>>
+        +retrieve_schema_context(query)
+        +lookup(search_term, candidate_tables)
+        +connection_lookup(cable_assy_id, endpoint)
+    }
+    class NotesTools {
+        <<adapter>>
+        +notes_read(operation, path, query)
+        +notes_write(operation, path, content)
+        +read_note(notes_path)
+    }
+}
+
+namespace Services {
+    class EngineeringDbService {
+        <<module>>
+        +get_schema_catalog()
+        +get_table_schema(table_name)
+        +retrieve_schema_context(query)
+        +engineering_db_lookup(search_term)
+        +connection_lookup(cable_assy_id)
+    }
+    class NotesReader {
+        <<module>>
+        +notes_read(operation)
+        -decode_cursor(cursor)
+        -read_bounded(path)
+        -extract_headings(content)
+        -extract_links(content)
+    }
+    class NotesWriter {
+        <<module>>
+        +notes_write(operation, path)
+        -replace_section(body, heading)
+        -git_diff_summary(path)
+        -attribute_content(content)
+    }
+    class NotesRepository {
+        <<module>>
+        +resolve_baseline_path(path)
+        +resolve_review_path(path)
+        +get_baseline_commit()
+        +calculate_sha256(path)
+        +parse_frontmatter(content)
+        +render_note(frontmatter, body)
+        +atomic_write(path, content)
+    }
+    class NotesAudit {
+        <<module>>
+        +record_note_action(event)
+    }
+    class SecondBrain {
+        <<module>>
+        +read_manifest(path)
+        +write_manifest(path, manifest)
+    }
+    class LegacyNoteService {
+        <<compatibility facade>>
+        +read_note(notes_path)
+    }
+}
+
+namespace Configuration {
+    class Settings {
+        +db_name
+        +db_user
+        +db_host
+        +db_port
+        +db_schema
+        +notes_baseline_root
+        +notes_review_root
+        +notes_repository_root
+        +audit_path
+        +mcp_host
+        +mcp_port
+        +mcp_transport
+    }
+}
+
+namespace Engineering_Domain {
+    class ColumnSchema {
+        +name: str
+        +data_type: str
+        +is_nullable: bool
+        +is_primary_key: bool
+        +is_foreign_key: bool
+        +to_dict()
+    }
+    class TableRelationship {
+        +from_table: str
+        +from_column: str
+        +to_table: str
+        +to_column: str
+        +to_dict()
+    }
+    class TableSchema {
+        +table_name: str
+        +columns: ColumnSchema[]
+        +foreign_keys: TableRelationship[]
+        +entity_type: str
+        +searchable_columns: str[]
+        +related_tables: str[]
+        +to_dict()
+    }
+    class EngineeringDbSchemaCatalog {
+        +ok: bool
+        +schema_name: str
+        +tables: TableSchema[]
+        +relationships: TableRelationship[]
+        +error: str
+        +to_dict()
+    }
+    class SchemaContextMatch {
+        +table_name: str
+        +score: int
+        +reason: str
+        +related_tables: str[]
+    }
+    class SchemaContextResult {
+        +ok: bool
+        +query: str
+        +suggested_tables: SchemaContextMatch[]
+        +relationships: TableRelationship[]
+        +guidance: str
+    }
+    class EngineeringDbRecord {
+        +table_name: str
+        +entity_type: str
+        +display_name: str
+        +summary: str
+        +key_attributes: dict
+        +relationships: dict[]
+        +notes_path: str
+    }
+    class EngineeringDbLookupResult {
+        +ok: bool
+        +search_term: str
+        +records: EngineeringDbRecord[]
+        +scoped_tables: str[]
+        +guidance: str
+    }
+    class ConnectionRecord {
+        +wire_id: int
+        +cable_assy_id: str
+        +component_a: str
+        +jack_a: str
+        +component_b: str
+        +jack_b: str
+        +wire_purpose: str
+        +other_end_component: str
+        +other_end_jack: str
+    }
+    class ConnectionLookupResult {
+        +ok: bool
+        +cable_assy_id: str
+        +records: ConnectionRecord[]
+        +guidance: str
+    }
+}
+
+namespace Notes_Domain {
+    class NotesResult {
+        +status: NoteStatus
+        +operation: str
+        +baseline_commit: str
+        +path: str
+        +changed: bool
+        +data: dict
+        +error_code: str
+        +ok: bool
+        +to_dict()
+    }
+    class NoteReadResult {
+        +ok: bool
+        +notes_path: str
+        +content: str
+        +error: str
+        +to_dict()
+    }
+    class NotesRepositoryError {
+        <<exception>>
+    }
+}
+
+namespace External_Systems {
+    class PostgreSQL {
+        <<database>>
+    }
+    class BaselineWorktree {
+        <<read-only Git worktree>>
+    }
+    class ReviewWorktree {
+        <<writable Git worktree>>
+    }
+    class AuditLog {
+        <<JSONL file>>
+    }
+}
+
+MCPServer --> Settings : configured by
+MCPServer --> MCPRegistry : delegates registration
+MCPRegistry --> EngineeringDbTools : registers
+MCPRegistry --> NotesTools : registers
+EngineeringDbTools --> EngineeringDbService : invokes
+NotesTools --> NotesReader : reads
+NotesTools --> NotesWriter : writes
+NotesTools --> LegacyNoteService : compatibility
+EngineeringDbService --> Settings : DB configuration
+EngineeringDbService --> PostgreSQL : queries
+EngineeringDbService ..> EngineeringDbSchemaCatalog : creates
+EngineeringDbService ..> SchemaContextResult : creates
+EngineeringDbService ..> EngineeringDbLookupResult : creates
+EngineeringDbService ..> ConnectionLookupResult : creates
+EngineeringDbSchemaCatalog *-- TableSchema
+EngineeringDbSchemaCatalog *-- TableRelationship
+TableSchema *-- ColumnSchema
+TableSchema *-- TableRelationship
+SchemaContextResult *-- SchemaContextMatch
+SchemaContextResult *-- TableRelationship
+EngineeringDbLookupResult *-- EngineeringDbRecord
+ConnectionLookupResult *-- ConnectionRecord
+NotesReader --> NotesRepository : safe path and metadata access
+NotesWriter --> NotesRepository : validates and writes
+NotesWriter --> NotesAudit : records mutations
+LegacyNoteService --> NotesReader : delegates
+NotesReader ..> NotesResult : creates
+NotesWriter ..> NotesResult : creates
+LegacyNoteService ..> NoteReadResult : creates
+NotesRepository ..> NotesRepositoryError : raises
+NotesRepository --> Settings : root configuration
+NotesRepository --> BaselineWorktree : approved reads
+NotesRepository --> ReviewWorktree : draft writes
+NotesAudit --> AuditLog : appends events
