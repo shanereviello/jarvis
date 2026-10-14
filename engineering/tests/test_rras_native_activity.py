@@ -18,9 +18,6 @@ def module(name):
 
 a = module("activity")
 p = module("prepare_profile")
-runtime = module("prepare_runtime")
-acceptance = module("container_acceptance")
-container_probe = module("container_probe")
 
 
 class NativeActivityTests(unittest.TestCase):
@@ -161,85 +158,11 @@ class NativeActivityTests(unittest.TestCase):
         self.export()
         self.assertFalse(marker.exists())
 
-    def test_runtime_packaging_rejects_wrong_pin_before_creating_destination(self):
-        binary = self.root / "codex"
-        binary.write_bytes(b"unreviewed executable")
-        target = self.root / "runtime-candidate"
-        with self.assertRaises(ValueError):
-            runtime.prepare(target, "candidate-model", binary)
-        self.assertFalse(target.exists())
 
-    def test_runtime_packaging_requires_sandbox_resources(self):
-        from unittest.mock import patch
-        binary = self.root / "bin/codex"
-        binary.parent.mkdir()
-        binary.write_bytes(b"fixture-cli")
-        binary.with_name("codex-code-mode-host").write_bytes(b"fixture-companion")
-        target = self.root / "runtime-candidate"
-        with patch.object(runtime, "OBSERVED_LOCAL_CLI_SHA256", a.digest(binary.read_bytes())):
-            with self.assertRaises(ValueError):
-                runtime.prepare(target, "candidate-model", binary)
-        self.assertFalse(target.exists())
 
-    def test_runtime_bundle_checksum_recipe_and_manifest(self):
-        from unittest.mock import patch
-        binary = self.root / "bin/codex"
-        binary.parent.mkdir()
-        binary.write_bytes(b"fixture-cli")
-        binary.with_name("codex-code-mode-host").write_bytes(b"fixture-companion")
-        for name in ("codex-resources/bwrap", "codex-resources/zsh/bin/zsh", "codex-path/rg"):
-            resource = binary.parent.parent / name
-            resource.parent.mkdir(parents=True, exist_ok=True)
-            resource.write_bytes(b"fixture-resource")
-        target = self.root / "runtime-candidate"
-        with patch.object(runtime, "OBSERVED_LOCAL_CLI_SHA256", a.digest(binary.read_bytes())):
-            manifest = runtime.prepare(target, "candidate-model", binary)
-        for name, expected in manifest["files"].items():
-            self.assertEqual(a.digest((target / name).read_bytes()), expected)
-        recipe = (target / "Dockerfile").read_text()
-        self.assertIn('FROM ${BASE_IMAGE}', recipe)
-        checksums = (target / "runtime.sha256").read_text()
-        self.assertIn(a.digest(binary.read_bytes()), checksums)
-        self.assertIn(a.digest(b"fixture-companion"), checksums)
-        self.assertTrue((target / "runtime/codex-resources/bwrap").is_file())
-        self.assertIn("sha256sum -c runtime.sha256", recipe)
-        self.assertNotIn("curl", recipe)
-        self.assertNotIn("apt-get", recipe)
-        plan = json.loads((target / "activation-plan.json").read_text())
-        self.assertTrue(plan["codex_artifact_included"])
-        self.assertFalse(plan["image_built"])
-        self.assertFalse(plan["installed"])
 
-    def test_disposable_container_argv_keeps_exact_image_and_restrictions(self):
-        e = {"container_name": "fixture", "run_id": "a" * 32, "nonce": "fixture-nonce", "image_id": "sha256:fixture"}
-        argv = acceptance.create_argv(e)
-        for required in ("--pull=never", "--network=none", "--read-only", "--cap-drop=ALL",
-                         "--security-opt=no-new-privileges:true", "--log-driver=local",
-                         "--log-opt=max-size=1m", "--log-opt=max-file=1", "--log-opt=compress=false"):
-            self.assertIn(required, argv)
-        self.assertNotIn("--privileged", argv)
-        self.assertNotIn("--volume", argv)
-        self.assertNotIn("--publish", argv)
-        self.assertIn(e["image_id"], argv)
 
-    def test_namespace_failure_cannot_count_as_write_denial(self):
-        self.assertFalse(container_probe.write_passed(False, 1, False, False))
-        self.assertTrue(container_probe.write_passed(False, 1, False, True))
-        self.assertTrue(container_probe.write_passed(True, 0, True, False))
-        self.assertFalse(container_probe.write_passed(True, 0, False, True))
 
-    def test_exact_cleanup_ownership_and_lost_response_refusal(self):
-        e = {"run_id": "a" * 32, "nonce": "nonce", "container_name": "fixture",
-             "container_id": "cid", "image_id": "image"}
-        info = {"Id": "cid", "Image": "image", "Name": "/fixture",
-                "Config": {"Labels": {"rras.native.run": e["run_id"], "rras.native.nonce": "nonce"}}}
-        self.assertTrue(acceptance.owned_container(e, info))
-        info["Id"] = "foreign"
-        self.assertFalse(acceptance.owned_container(e, info))
-        with self.assertRaises(ValueError):
-            acceptance.cleanup(self.root, {"creation_status": "pending-response"})
-        with self.assertRaises(ValueError):
-            acceptance.cleanup(self.root, {"build_status": "pending-response"})
 
 
 if __name__ == "__main__":

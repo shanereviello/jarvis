@@ -45,22 +45,3 @@ class CredentialFixtureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.probe('/absent','/absent',self.root,'/absent',os.getuid())
         self.assertEqual(list(self.root.iterdir()),[])
-
-    def test_generated_systemd_argv_preserves_runtime_credential_expansion(self):
-        import subprocess
-        script=(ROOT/'tools/rras_native/run_cli_credential_acceptance.sh').read_text()
-        command=script.split('sudo systemd-run --unit',1)[1].split('2>&1 |',1)[0]
-        fixture='''set -eu
-UNIT=fixture
-ACCOUNT=fixture
-WORK=/fixture/work
-SOURCE_ROOT=/fixture/source
-RELEASE=/fixture/release
-REVIEW=/fixture/review
-sudo() { printf '%s\\0' "$@"; }
-'''
-        args=subprocess.check_output(['bash','-c',fixture+'sudo systemd-run --unit'+command]).decode().split('\0')
-        self.assertIn('CREDENTIALS_DIRECTORY=${CREDENTIALS_DIRECTORY}',args)
-        self.assertEqual(args[args.index('--credential')+1],'${CREDENTIALS_DIRECTORY}/rras-fixture')
-        self.assertFalse(any('%d' in a for a in args))
-        self.assertIn('LoadCredential=rras-fixture:/fixture/source/fixture',args)

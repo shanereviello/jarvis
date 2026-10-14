@@ -1,0 +1,17 @@
+# Cleanup scope and remaining compatibility
+
+The cleanup removes abandoned container tools, duplicate calculator executors, one-off diagnosis scripts/launchers, SQLite simulated ledger/allocator and its tests/migrations, an unreferenced second-brain manifest helper, debug scripts and historical docs from the maintained tree. Their source remains in Git history; actual runtime records, secrets and installed artifacts are retained.
+
+Shared credential delivery and bounded request validation now have purpose-named `credentials.py` and `task_contract.py` modules. Intake no longer imports the executor. Host packaging no longer generates a Dockerfile or bundles the abandoned container lane. Reusable model-free probes remain behind one acceptance CLI, preserving sandbox/credential/stop/validation invariants rather than maintaining dated shell scripts.
+
+Retained deliberately:
+- The running PostgreSQL adapter's `execution_state`, `workflow_registry`, `phase5b_evidence`, `worktree_allocator` and `repository_persistence` dependencies. Their old controller/allocator authority is legacy, but deleting imports would break the deployed adapter. Consumer audit and minimal ledger replacement remain a separate tested cutover.
+- PostgreSQL init/migration source, checksums, app-role constraints, backups and records. Historical migrations are immutable; no tables/data are removed. Proposed Compose marks migration operator-only and no longer makes adapter startup depend on it. Installed Compose is unchanged.
+- Active notes/engineering DB MCP registrations and read_note compatibility alias until callers are audited. Linear stays separate. Configured/running does not prove current human use, and absence of coding-runner dependency does not prove safe removal.
+- Native vendor/runtime bootstrap and meaningful source/host acceptance; old runtime installation is a dependency until relocation.
+
+Do not delete `/srv/hermes-dev`, `/srv/jarvis-activity`, `/srv/jarvis-codex` or `/opt/jarvis-codex` on the strength of source cleanup. Current mounts, secret sources, development work and interpreter dependencies still exist. Finish the approved filesystem cutovers and rollback verification first. Legacy fences are not automatically released.
+
+Validation of this cleanup:101 engineering/application tests and50 retained PostgreSQL compatibility/deployment-policy tests passed. Six model-free scenarios used actual native dispatch/worktrees/completion and exact fixture-child cleanup (development UID1000, dedicated-cgroup=false). Two real stdio tests passed inside the current Hermes container as UID1000/MCP2.0.0 using temporary cleaned source; no chat/model turn or worker launch. Actual reviewed Hermes Git source and pinned Codex resources produced a hash-verified host review bundle without Docker artifacts. No installed release or service was changed; renewed dedicated-worker host acceptance remains required before deploying this revision.
+
+Maintained native tool files reduced40→20 (3907→1837lines); engineering documentation reduced53→6. PostgreSQL module files reduced11→7 while retaining deployed import closure. Removed96 obsolete files from the maintained tree; shared helpers, replacement acceptance entrypoint, targeted tests and current docs were added. Historical source remains in the prior Git commit.

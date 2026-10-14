@@ -47,6 +47,8 @@ services:
         condition: service_healthy
     networks:
     - activity_internal
+    profiles:
+    - migration
   jarvis-activity-adapter:
     build:
       context: ../..
@@ -72,15 +74,14 @@ services:
     - ${JARVIS_PHASE4B_STAGING_ROOT:-/srv/jarvis-activity/runner-state/phase4b-controller-staging}:/srv/jarvis-activity/runner-state/phase4b-controller-staging:ro
     - ${JARVIS_PHASE4B_RETAINED_ROOT:-/srv/jarvis-activity/runner-state/phase4b-controller-retained}:/srv/jarvis-activity/runner-state/phase4b-controller-retained:rw
     depends_on:
-      jarvis-activity-migrate:
-        condition: service_completed_successfully
+      jarvis-activity-postgres:
+        condition: service_healthy
     networks:
     - activity_internal
     - controller_internal
 networks:
   activity_internal:
     internal: true
-  runner_egress: null
   controller_internal:
     internal: true
 volumes:

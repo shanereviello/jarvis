@@ -1,0 +1,11 @@
+# Native-first engineering architecture
+
+Hermes owns Kanban tasks, runs, worktrees and worker lifecycle. Codex App Server owns the coding session and workspace sandbox. RRAS supplies repository/path admission, traceability, independent validation, verified-stop checks, evidence export and human action gates.
+
+The preparation-only stdio server has fixed Hermes identity and exactly two tools: prepare a bounded proposal and read it back. Source supports the existing Hermes container MCP2.0.0 and development MCP1.27.2. It does not use old Jarvis MCP or Linear. Policy admits only robot_ws manual-velocity source paths and an operator-selected validation recipe. Proposal state is writable by Hermes and is not execution authorization.
+
+An operator-approved request runs under dedicated engineering UID996 using native-10 vendor/runtime. Coding edits use a fresh worker clone/native worktree, never writable canonical Git. Native completion and verified worker exit precede independent validation. Unexpected scope, instruction tampering, worker commits, unresolved workers or surviving validation descendants refuse success/export as appropriate. Review evidence stays local and is hash checked. Publication is a separately approved operation; merge and deployment remain human-controlled.
+
+Actual robot task `a48135fe9331417da202d5e564b06658` demonstrated this manual positive path. GitHub review publication was performed after explicit approval; it is not an automated runner feature. Request counts/spend were unknown. Current ledger indexing=false. Stdio transport passed model-free inside Hermes; no gateway configuration has been activated.
+
+Unfinished: source promotion/installation, actual chat registration, approved receipt-to-launch adaptation, shared single-task serialization, production cancellation/restart recovery, evidence ledger indexing and approved GitHub publication. Local hard budgets remain deferred to operator portal policy. Existing PostgreSQL adapter still contains legacy execution compatibility; it is not the authority for native tasks and must be replaced only after consumer audit. Linear and notes/DB MCP application services are separate supported paths pending individual use audits.

@@ -34,18 +34,6 @@ class ManualRunnerTests(unittest.TestCase):
   with self.assertRaises(ValueError):m.run(None,None,None,None,None,None,work)
   self.assertEqual((work/'existing').read_text(),'preserve');self.assertFalse((work/'evidence.json').exists())
 
- def test_actual_acceptance_argv_matches_probe_parser(self):
-  import argparse,textwrap
-  script=(ROOT/'run_manual_runner_acceptance.sh').read_text()
-  command=script.split('sudo systemd-run --unit',1)[1].split('2>&1 |',1)[0]
-  setup='UNIT=test;ACCOUNT=test;WORK=/fixture;RELEASE=/release;REVIEW=/review; sudo() { printf "%s\\0" "$@"; }; '
-  argv=subprocess.check_output(['bash','-c',setup+'sudo systemd-run --unit'+command]).decode().split('\0')
-  args=argv[argv.index('--source'):]
-  while args and not args[-1]:args.pop()
-  code=textwrap.dedent((ROOT/'probe_manual_runner.py').read_text().split("if __name__=='__main__':\n",1)[1].split('    a=p.parse_args();',1)[0])
-  ns={'argparse':argparse,'__doc__':'test'};exec(code,ns);parsed=ns['p'].parse_args(args)
-  self.assertTrue(parsed.dedicated_cgroup);self.assertEqual(parsed.parent,'/fixture');self.assertEqual(parsed.profile,'/review/profile.json')
-  self.assertNotIn('LoadCredential',str(argv))
 
  def test_additional_artifact_is_hash_verified_in_export(self):
   registry=self.root/'registry.json';registry.write_text(json.dumps({'schema_version':1,'repositories':[{'repository_id':'fixture','path':str(self.repo),'enabled':True,'hermes_project':'fixture'}]}))

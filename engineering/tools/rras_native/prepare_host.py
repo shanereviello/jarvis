@@ -32,7 +32,7 @@ def prepare(destination, source, binary, model, uv=None):
     verify_source(source)
     if uv is not None and hashlib.sha256(Path(uv).read_bytes()).hexdigest()!='abdc39eab8b4ad341dca91f3823a23a343fae94bdb22ebdd9e91694415206f2f':
         raise ValueError('uv client differs from reviewed pin')
-    spec = importlib.util.spec_from_file_location('runtime', Path(__file__).with_name('prepare_runtime.py'))
+    spec = importlib.util.spec_from_file_location('runtime', Path(__file__).with_name('package_host_runtime.py'))
     runtime = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runtime)
     runtime.prepare(destination, model, binary)
@@ -42,8 +42,7 @@ def prepare(destination, source, binary, model, uv=None):
     for name in PINS:
         if '/' not in name:
             (destination / name).write_bytes(git(source, 'show', REVISION + ':' + name))
-    for name in ('Dockerfile', 'container_probe.py', 'container_acceptance.py', 'manifest.json'):
-        (destination / name).unlink()
+    (destination / 'manifest.json').unlink()
     config_path = destination / 'profile/config.yaml'
     config = json.loads(config_path.read_text())
     config['kanban'] = {'max_in_progress': 1, 'max_in_progress_per_profile': 1, 'max_spawn': 1,
@@ -71,7 +70,7 @@ def prepare(destination, source, binary, model, uv=None):
         (destination/'build-tools').mkdir(mode=0o700)
         shutil.copyfile(uv,destination/'build-tools/uv')
         (destination/'build-tools/uv').chmod(0o555)
-    for name in ('probe_dispatcher.py', 'probe_foreground.py', 'probe_host_worker.py', 'install_host_review.py'):
+    for name in ('acceptance.py', 'probe_manual_runner.py', 'probe_session_policy.py', 'probe_live_session.py', 'probe_git_metadata.py', 'probe_cli_credentials.py', 'probe_wait_worker.py', 'activity.py', 'manual_runner.py', 'credentials.py', 'task_contract.py', 'wait_worker.py', 'native_task_cli.py', 'install_host_review.py'):
         shutil.copyfile(Path(__file__).with_name(name), destination / name)
     # A help-only service candidate: no coding task, board creation, credential, or timer.
     (destination / 'rras-engineering-check.service').write_text('''[Unit]

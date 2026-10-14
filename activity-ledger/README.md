@@ -1,7 +1,7 @@
-# Activity ledger subproject
+# PostgreSQL activity ledger — retained compatibility boundary
 
-Imported from the independent central-codex-activity-prototype history. `db/migrations` is PostgreSQL schema source; top-level `migrations` supports retained SQLite compatibility tests. No schema migration has run during this import.
+This subproject preserves the deployed PostgreSQL adapter, schema, application-role contract and tests. The native engineering runner currently exports local evidence and does not use this adapter for task/worktree lifecycle.
 
-The running adapter still serves legacy phase4/phase5 endpoints. Preserve its modules/contracts until consumer audit allows removal. Operational Compose sources contain only database, adapter, and explicitly invoked migration service; inactive controller/executor/runner definitions were omitted. The phase5a override retains adapter compatibility mounts only. Old host/phase2b verification scripts are retained as test dependencies, not installed/run by this source import.
+The old SQLite simulation, duplicate durable controller and managed-root policy were retired. PostgreSQL execution compatibility remains because pg_adapter still imports those definitions and serves old routes. Remove that authority only after client audit and a tested minimal ledger/evidence replacement. Do not wire the new Hermes intake into the legacy controller endpoints.
 
-Historical SQL invariance is checked against SHA256s derived from original required commit 3d6433b; the old commit does not belong to canonical Jarvis history.
+`db/migrations` contains immutable PostgreSQL history; no production migrations/data changes occur in this PR. Operational Compose marks the migrator with explicit `migration` profile and starts the adapter after PostgreSQL health rather than running migrations automatically. Source definitions remain cutover candidates; the installed deployment is unchanged. `host/phase2b` is retained backup/restore/schema verification support, not a task executor.

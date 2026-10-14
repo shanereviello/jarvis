@@ -41,7 +41,7 @@ def prepare(policy_path, proposal_path, state, *, authenticated_identity):
                    validation_timeout_seconds=row['validation_timeout_seconds'],
                    commit_policy='leave_uncommitted')
     # Validate with the same runner contract, without publishing intermediate files.
-    local('manual_runner').validate_request(request)
+    local('task_contract').validate_request(request)
     receipt = {'schema_version': 1, 'authenticated_identity': identity,
                'policy_sha256': a.digest(Path(policy_path).read_bytes()), 'request': request,
                'execution_authorized': False, 'publication_authorized': False}
