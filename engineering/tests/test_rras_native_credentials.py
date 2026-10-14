@@ -33,6 +33,3 @@ class PaidGateTests(unittest.TestCase):
             with self.assertRaises(ValueError):m.delivered_key(self.file)
             self.file.chmod(0o600);self.file.write_text('not a credential')
             with self.assertRaises(ValueError):m.delivered_key(self.file)
-
-
-
