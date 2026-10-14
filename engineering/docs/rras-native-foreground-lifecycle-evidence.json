@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "decision": "native foreground gateway accepted for lifecycle; dedicated UID/cgroup still pending",
+  "raw_receipt": "/tmp/rras-native-foreground-gpq75owk/evidence.json",
+  "raw_receipt_sha256": "212b9505e8e765d7f357ae350cc5a7d1e315eabbb9fa2166b0dc84186ae4fb27",
+  "raw": {
+    "api_calls_requested": 0,
+    "tasks_submitted": 0,
+    "production_modified": false,
+    "root": "/tmp/rras-native-foreground-gpq75owk",
+    "ready": true,
+    "success": false,
+    "startup_window_seconds": 40,
+    "grace_seconds": 15,
+    "pid": 3947065,
+    "status": {
+      "pid": 3947065,
+      "kind": "hermes-gateway",
+      "argv": [
+        "/tmp/rras-native-host-build-20261005-01/source/.venv/bin/hermes",
+        "gateway",
+        "run"
+      ],
+      "start_time": 363189884,
+      "hermes_home": "/tmp/rras-native-foreground-gpq75owk/home",
+      "gateway_state": "running",
+      "exit_reason": null,
+      "restart_requested": false,
+      "active_agents": 0,
+      "platforms": {},
+      "updated_at": "2026-10-05T22:07:59.765004+00:00"
+    },
+    "ready_seconds": 4.005809742026031,
+    "descendants_before_stop": [],
+    "sigterm_sent": true,
+    "exit_code": 1,
+    "stopped": true,
+    "shutdown_seconds": 0.3142810729332268,
+    "unexpected_remaining_children": []
+  },
+  "assessment": {
+    "accepted": true,
+    "original_false_reason": "probe required exit code zero, but pinned native source intentionally returns one for external SIGTERM",
+    "shutdown_observed": true,
+    "pid_file_removed": true,
+    "no_observed_remaining_children": true,
+    "sigkill_required": false,
+    "real_coding_worker_tested": false,
+    "dedicated_uid_tested": false,
+    "systemd_tested": false
+  },
+  "asyncio_control": {
+    "inside_outer_sandbox": {
+      "value": 42,
+      "wakeup_errno": 1,
+      "error": "Operation not permitted"
+    },
+    "outside_outer_sandbox": {
+      "value": 42,
+      "wakeup_errors": []
+    },
+    "method": "bounded standard-library executor test with diagnostic _write_to_self wrapper; no network endpoint"
+  },
+  "source": {
+    "revision": "76952ba54f5dd83f4f5bd0246059171b4b9d1c4a",
+    "executor_startup": "gateway/run.py:30607",
+    "sigterm_exit_policy": "gateway/run.py:30824",
+    "cli_exit_mapping": "hermes_cli/gateway.py:5791"
+  },
+  "inference_requests": 0,
+  "accounts_provisioned": false,
+  "installed_services_changed": false,
+  "source_tests_passed": 26
+}

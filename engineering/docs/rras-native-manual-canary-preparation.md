@@ -1,0 +1,46 @@
+# Manual canary preparation checkpoint
+
+2026-10-12. Dedicated repository fixture reported successful under UID 996, run `454730cc3333421ca646d74421194071`, all 13 checks, fake child stopped, no API calls. Evidence/worktree/export retained under `/var/lib/rras-engineering/repository-acceptance-454730cc3333421ca646d74421194071/rras-native-dispatcher-l0afeish`. The false dedicated_uid_tested flag is fixture metadata, not independent identity acceptance; uid=996 and the operator service procedure establish the execution context. Cgroup failure testing and actual coding remain untested.
+
+## Two source corrections before inference
+
+Pinned Hermes automatically adds the newly shipped BFL video toolset to existing saved lists. Native `agent.disabled_toolsets: [bfl]` suppresses it without a fork. Actual installed resolver returned exactly `kanban,skills` with this setting; [evidence](rras-native-canary-toolset-evidence.json). Do not enable the Hermes MCP callback. These CLI toolsets alone do not prove Codex callback exposure.
+
+More critically, the installed profile's `custom:rras-api` Hermes provider does not select Codex App Server through `model.openai_runtime`. Pinned `hermes_cli/runtime_provider.py::_maybe_apply_codex_app_server_runtime` accepts only openai/openai-codex. Direct session probes bypassed that provider resolver. Thus their success never established the full CLI provider route. The source profile now selects `openai` plus `openai_runtime: codex_app_server`. Actual native helper tests confirmed custom remains chat_completions while openai selects codex_app_server. No key or model used. Codex's separate custom provider rras-api still points to API Platform with RRAS_OPENAI_API_KEY; no personal login.
+
+Fresh corrected profile review: `/tmp/rras-canary-profile-review-20261012-02`; older candidate -01 retained and superseded. It is configuration/source only, not installed. Existing native-10 and worker configs remain untouched. Focused suite 33 passed after both changes.
+
+## Ordered remaining canary work
+
+1. Test full native CLI/provider resolution with isolated fixture configuration, without dummy/real credentials, network calls or model turns. Require effective api_mode=codex_app_server, fixed Codex executable, private home, exact kanban/skills and bypass disabled. The helper test is not full CLI acceptance. Prepare a reviewed absent-only canary home with corrected configuration; never overwrite existing profiles or native-10.
+2. Prepare an absent-only disposable Git repository with a simple `add(a,b)` implementation and a deterministic standard-library unittest command. Admit it through the RRAS registry before native project/task registration. Require one task, preserved native worktree, no hooks/remotes, no shared board queue, exact baseline and native references. Do not reuse fake fixture IDs/board.
+3. Review secret delivery through systemd LoadCredential into a bounded manual launcher. Root-owned API token source remains `/srv/jarvis-codex/secrets/openai_api_key`; this pass did not inspect or use it. Never put keys in argv, configuration, shell history, evidence or personal Codex auth. Launcher reads only its credential file and supplies the same dedicated API Platform key as OPENAI_API_KEY for Hermes provider admission and RRAS_OPENAI_API_KEY for Codex. Coding processes legitimately inherit provider credentials; no claim that sandbox protects the provider key from the model runtime. No other credentials inherited. Validate delivery with a harmless non-secret sentinel first. Do not provision/copy the real key yet.
+4. Prepare exact bounded transient manual invocation, one worker and one pass, full-session route acceptance, evidence paths and timeout/stop verification. Native dispatch_once may leave the coding child alive after dispatcher exit: do not treat one-pass dispatcher return as task completion or permit a transient cgroup to stop the worker prematurely. A fixture-tested wait/retention invocation must cover this before the final paid command is issued. No new daemon/controller required.
+5. Obtain separate explicit authorization for one paid canary. Proposed objective: fix add(a,b), run the supplied test, commit locally, retain patch/test output and native run/session references, never push/merge/deploy. gpt-5.4 remains the candidate; entitlement unverified. Operator API portal limits remain spending policy; custom task/daily/month enforcement deferred. No application-side cap promised.
+6. Inspect result, verify native termination, export and review exact committed work. Stop after one attempt; do not automatically retry inference. Native lifecycle callback completion without MCP must be demonstrated rather than assumed from fake completion.
+
+No additional architecture/identity decision is needed for source preparation. Actual credential delivery and paid-canary authorization remain operator gates. Do not execute the installed profile as-is: its full CLI routing is not accepted. Continue source preparation through sentinel delivery and model-free full CLI checks before publishing executable paid commands.
+
+## Full resolver correction and offline delivery check
+
+The earlier openai candidate (-02) is superseded: full native resolution rejected `openai` as unknown. The narrow helper check did not establish provider admission. Correct native provider is **openai-api**, with explicit `model.api_mode: codex_app_server`; the openai_runtime helper alone does not rewrite this API-key path. Candidate `/tmp/rras-canary-profile-review-20261012-03` contains this correction and disabled bfl. Installed configuration remains unchanged.
+
+[probe_provider_route.py](../tools/rras_native/probe_provider_route.py) ran the full actual installed provider resolver, with network connections rejected and a clearly non-secret local credential fixture. It passed four checks: openai-api admission, effective codex_app_server, exact kanban/skills and identical sentinel delivery to both variable names. [Evidence](rras-native-provider-route-evidence.json). No real credential read or model call. This tests local file-to-environment plumbing, not systemd LoadCredential, CLI agent construction or actual inference. The fixture flag explicitly states these gaps; do not treat it as full end-to-end CLI validation. Focused suite remains 33 passed.
+
+Continue with a bounded dedicated-account sentinel LoadCredential acceptance and native CLI agent-construction fixture that blocks inference. Only after those pass should the final paid invocation and real credential procedure be issued. Preserve superseded candidates and all failed-run evidence; do not run candidates -01 or -02.
+
+## CLI construction checkpoint reached
+
+Actual HermesCLI/AIAgent construction passed eight offline checks with the corrected openai-api/api_mode settings, exact tools and approvals bypass off. The native optional scanner's background download was observed and blocked, then eliminated using security.tirith_enabled=false in profile review -04. All older candidates remain retained and superseded. [CLI/credential acceptance procedure](rras-native-cli-credential-acceptance.md) contains the final pinned bundle and next operator block. Source suite now 38 passed. Dedicated systemd LoadCredential testing remains pending interactive sudo; real token and paid invocation remain untouched.
+
+## Task-context decision before the final invocation
+
+Dedicated native CLI/sentinel LoadCredential acceptance passed according to operator run 59324c06a5754bcd908504e752fd94a8. Inspection then found that the native dispatcher query contains only a task ID, while the App Server path forwards neither Hermes task guidance nor lifecycle tools in the no-MCP lane. Fake-child completion is not proof of real worker completion. [Context/lifecycle decision](rras-native-canary-context-decision.md) proposes repository instruction metadata plus supported native CLI operations, with a narrow MCP bridge as the alternative. Stop dependent paid-invocation preparation pending that operator choice; preserve all successful and failed evidence.
+
+## Corrected-profile dispatch gate
+
+Operator's native context run passed under UID996 but retained the old bfl argv. A new model-free development run accepted exact kanban/skills with the corrected openai-api/App Server profile (21 checks). [Combined dedicated acceptance](rras-native-corrected-profile-dispatch-acceptance.md) supplies the next fresh administrator block; all old receipts remain retained. No installed profile edit or inference is performed. Bounded real-canary runner and fault paths remain the next source work after this combined gate.
+
+## Waiter source prepared
+
+Corrected-profile dedicated acceptance passed according to operator run 5a1f22f646734f3e8d22a638c2a913e1. A bounded no-signal/no-lifecycle-mutation wait component and four development failure/success fixtures now pass; native source suite 46 passed. [Dedicated cgroup waiter acceptance](rras-native-waiter-acceptance.md) is the next operator block. Its real-descendant case is still pending host execution; status values in the waiter fixture are simulated. Integrated native-run validation/export and paid token use remain pending, not claimed complete.

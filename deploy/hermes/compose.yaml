@@ -1,0 +1,25 @@
+services:
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes
+    restart: unless-stopped
+    command: gateway run
+    environment:
+      HERMES_UID: '1000'
+      HERMES_GID: '1000'
+      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace/jarvis-artifacts:/workspace/shared:/workspace/jarvis-tasks:/workspace/robot-tasks
+    volumes:
+    - /srv/hermes/data:/opt/data:rw
+    - /srv/hermes-dev/jarvis/baseline:/workspace/jarvis-baseline:ro
+    - /srv/hermes-dev/jarvis/tasks:/workspace/jarvis-tasks:rw
+    - /srv/git/jarvis:/workspace/git/jarvis:ro
+    - /srv/hermes-dev/robot_ws/baseline:/workspace/robot-baseline:ro
+    - /srv/hermes-dev/robot_ws/tasks:/workspace/robot-tasks:rw
+    - /srv/git/robot_ws:/workspace/git/robot_ws:ro
+    - /srv/notes/jarvis-artifacts:/workspace/jarvis-artifacts:rw
+    - /srv/shared/jarvis:/workspace/shared:rw
+    networks:
+    - jarvis-net
+networks:
+  jarvis-net:
+    external: true

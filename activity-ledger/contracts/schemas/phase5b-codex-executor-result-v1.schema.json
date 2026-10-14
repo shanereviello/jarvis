@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/schemas/phase5b-codex-executor-result-v1.schema.json",
+  "title": "Phase 5B Codex Executor Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_name", "schema_version", "request_id", "claim_id", "run_id", "attempt_number", "contract_sha256", "repository_registration_id", "allocation_id", "worktree_id", "baseline_commit", "task_branch", "executor_profile", "model_profile", "validation_plan_id", "outcome"],
+  "properties": {
+    "schema_name": {"const": "phase5b-codex-executor-result"}, "schema_version": {"const": "1"},
+    "request_id": {"$ref": "#/$defs/uuid"}, "claim_id": {"$ref": "#/$defs/uuid"}, "run_id": {"$ref": "#/$defs/uuid"}, "attempt_number": {"const": 1},
+    "contract_sha256": {"$ref": "#/$defs/sha256"}, "repository_registration_id": {"$ref": "#/$defs/identifier"}, "allocation_id": {"$ref": "#/$defs/uuid"}, "worktree_id": {"$ref": "#/$defs/uuid"},
+    "baseline_commit": {"$ref": "#/$defs/git_commit"}, "task_branch": {"type": "string", "pattern": "^(?!main$)(?!.*[\\\\\\x00])[^/][^\\x00]{0,127}$"},
+    "executor_profile": {"const": "phase5b-codex-executor-v1"}, "model_profile": {"const": "phase5b_model_profile_v1"}, "validation_plan_id": {"const": "phase5b-disposable-python-unit-v1"},
+    "changed_file_manifest": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/changed_file"}},
+    "patch_descriptor": {"$ref": "#/$defs/patch"}, "commit_descriptor": {"$ref": "#/$defs/commit"},
+    "validation_results": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/validation_result"}},
+    "model_summary": {"$ref": "#/$defs/model_summary"}, "outcome": {"enum": ["pass", "failed"]},
+    "failure_classification": {"enum": ["work_order_rejected", "repository_binding_failed", "instruction_validation_failed", "repository_policy_violation", "model_timeout", "model_error", "malformed_model_response", "tool_limit_exceeded", "output_limit_exceeded", "validation_failed", "validation_timeout", "git_policy_violation", "git_commit_failed", "evidence_generation_failed", "evidence_publication_failed"]},
+    "failure_code": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}, "safe_message": {"type": "string", "maxLength": 512},
+    "result_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [{"oneOf": [
+    {"properties": {"outcome": {"const": "pass"}}, "required": ["changed_file_manifest", "patch_descriptor", "commit_descriptor", "validation_results", "model_summary", "result_sha256"], "not": {"required": ["failure_classification", "failure_code", "safe_message"]}},
+    {"properties": {"outcome": {"const": "failed"}}, "required": ["failure_classification", "failure_code", "safe_message", "result_sha256"], "not": {"required": ["changed_file_manifest", "patch_descriptor", "commit_descriptor", "validation_results", "model_summary"]}}
+  ]}],
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "minLength": 36, "maxLength": 36},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64},
+    "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$", "minLength": 40, "maxLength": 40},
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", "minLength": 1, "maxLength": 128},
+    "relative_path": {"type": "string", "pattern": "^(?!\\.\\.?$)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!/)(?!.*[\\\\\\x00\\x01-\\x1f])[^/][^\\\\\\x00]{0,255}$"},
+    "changed_file": {"type": "object", "additionalProperties": false, "required": ["relative_path", "status", "sha256", "size_bytes", "media_type"], "properties": {"relative_path": {"$ref": "#/$defs/relative_path"}, "status": {"enum": ["added", "modified", "deleted"]}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 0, "maximum": 8192}, "media_type": {"type": "string", "minLength": 1, "maxLength": 128}}},
+    "patch": {"type": "object", "additionalProperties": false, "required": ["artifact_type", "media_type", "relative_name", "sha256", "size_bytes", "canonical"], "properties": {"artifact_type": {"const": "phase5b_codex_patch"}, "media_type": {"const": "text/x-diff"}, "relative_name": {"$ref": "#/$defs/relative_path"}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 1, "maximum": 65536}, "canonical": {"const": true}}},
+    "commit": {"type": "object", "additionalProperties": false, "required": ["commit_id", "parent_commit_id", "branch", "message", "tree_sha256", "changed_file_count"], "properties": {"commit_id": {"$ref": "#/$defs/git_commit"}, "parent_commit_id": {"$ref": "#/$defs/git_commit"}, "branch": {"type": "string", "pattern": "^(?!main$)[^/][^\\x00]{0,127}$"}, "message": {"type": "string", "minLength": 1, "maxLength": 200}, "tree_sha256": {"$ref": "#/$defs/sha256"}, "changed_file_count": {"type": "integer", "minimum": 1, "maximum": 8}}},
+    "validation_result": {"type": "object", "additionalProperties": false, "required": ["command_id", "argv_digest", "cwd_relative", "exit_code", "timed_out", "warnings_as_errors", "stdout_sha256", "stdout_size_bytes", "stdout_excerpt", "stderr_sha256", "stderr_size_bytes", "stderr_excerpt"], "properties": {"command_id": {"const": "unit"}, "argv_digest": {"$ref": "#/$defs/sha256"}, "cwd_relative": {"const": "."}, "exit_code": {"type": ["integer", "null"], "minimum": 0}, "timed_out": {"type": "boolean"}, "warnings_as_errors": {"type": "boolean"}, "stdout_sha256": {"$ref": "#/$defs/sha256"}, "stdout_size_bytes": {"type": "integer", "minimum": 0, "maximum": 16384}, "stdout_excerpt": {"type": "string", "maxLength": 16384}, "stderr_sha256": {"$ref": "#/$defs/sha256"}, "stderr_size_bytes": {"type": "integer", "minimum": 0, "maximum": 16384}, "stderr_excerpt": {"type": "string", "maxLength": 16384}}},
+    "model_summary": {"type": "object", "additionalProperties": false, "required": ["model_profile", "transport_profile", "client_version", "iteration_count", "tool_call_count", "input_bytes", "output_bytes", "duration_ms", "termination", "cost_units"], "properties": {"model_profile": {"const": "phase5b_model_profile_v1"}, "transport_profile": {"const": "phase5b_model_transport_v1"}, "client_version": {"type": "string", "minLength": 1, "maxLength": 128}, "iteration_count": {"type": "integer", "minimum": 0, "maximum": 8}, "tool_call_count": {"type": "integer", "minimum": 0, "maximum": 32}, "input_bytes": {"type": "integer", "minimum": 0}, "output_bytes": {"type": "integer", "minimum": 0}, "duration_ms": {"type": "integer", "minimum": 0}, "termination": {"enum": ["completed", "model_timeout", "tool_limit", "output_limit", "cancelled", "protocol_failure"]}, "cost_units": {"type": ["integer", "null"], "minimum": 0}}}
+  }
+}

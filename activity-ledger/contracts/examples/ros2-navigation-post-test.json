@@ -1,0 +1,22 @@
+{
+  "contract_version": "execution-request-v1",
+  "idempotency_key": "phase4a-ros2-post-test-001",
+  "task_key": "TASK-20260918-001",
+  "operation": "analyze",
+  "workflow_template": "ros2-navigation-post-test-v1",
+  "executor_profile": "ros2-analysis-v1",
+  "requested_by": "operator",
+  "objective": "Prepare structured robotics-debug findings from a bounded ROS 2 navigation post-test evidence set.",
+  "workspace": {"access": "no_workspace", "allowed_write_paths": []},
+  "input_artifacts": [
+    {"kind": "ros_bag_metadata", "path": "/srv/jarvis-activity/evidence/nav-bag.metadata.json", "access": "read_only", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0, "media_type": "application/json", "time_range": {"start": "2026-09-18T00:00:00Z", "end": "2026-09-18T00:05:00Z"}, "metadata": {"topics": ["/tf", "/cmd_vel", "/odom"]}},
+    {"kind": "operator_observation", "path": "/srv/jarvis-activity/evidence/nav-observations.json", "access": "read_only", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0, "media_type": "application/json", "metadata": {"observed_at": "2026-09-18T00:06:00Z"}},
+    {"kind": "git_context", "path": "/srv/jarvis-activity/evidence/nav-git-context.json", "access": "read_only", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0, "media_type": "application/json", "metadata": {"deployment_ref": "review-only"}}
+  ],
+  "context_references": ["task://TASK-20260918-001/robotics-review"],
+  "output_contract": {"schema_name": "robotics-debug-findings-v1", "schema_version": "1", "output_directory": "/srv/jarvis-activity/runner-state/execution", "retain": true, "required_artifact_types": ["robotics_findings_json"]},
+  "validation_profile": "robotics-findings-review-v1",
+  "limits": {"model": "gpt-5.6-luna", "reasoning_effort": "low", "timeout_seconds": 300, "maximum_attempts": 1, "network_policy": "none"},
+  "requested_capabilities": ["read_artifacts", "structured_analysis", "robotics_findings"],
+  "created_at": "2026-09-18T00:00:00Z"
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/schemas/phase5a-model-free-executor-work-order.schema.json",
+  "title": "Phase 5A Model-Free Executor Work Order",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "request_id",
+    "claim_id",
+    "run_id",
+    "contract_sha256",
+    "controller_id",
+    "attempt_number",
+    "executor_profile",
+    "artifact_type",
+    "deadline_unix_seconds",
+    "recipe"
+  ],
+  "properties": {
+    "schema_name": {"const": "phase5a-model-free-executor-work-order"},
+    "schema_version": {"const": "1"},
+    "request_id": {"$ref": "#/$defs/uuid"},
+    "claim_id": {"$ref": "#/$defs/uuid"},
+    "run_id": {"$ref": "#/$defs/uuid"},
+    "contract_sha256": {"$ref": "#/$defs/sha256"},
+    "controller_id": {"$ref": "#/$defs/identifier"},
+    "attempt_number": {"type": "integer", "minimum": 1, "maximum": 1000000},
+    "executor_profile": {"const": "phase5a-model-free-executor-v1"},
+    "artifact_type": {"const": "phase5a_model_free_executor_result"},
+    "deadline_unix_seconds": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "recipe": {"const": "phase5a-deterministic-pass-v1"}
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}

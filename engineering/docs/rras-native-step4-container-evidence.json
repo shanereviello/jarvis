@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "acceptance_passed": false,
+  "interpretation": "Original sibling denial is inconclusive: admitted writes failed to initialize sandbox. Future probe requires positive execution first. Original journals preserved.",
+  "runs": [
+    {
+      "run_id": "430178dd83874a9d8f9bfe9e026c7378",
+      "journal": "/tmp/rras-native-container-430178dd83874a9d8f9bfe9e026c7378/evidence.json",
+      "sha256": "ff53e715f00ef79865f7d4c3d8dad04d632d6dd3e04b877716fc8298c96cd03c",
+      "evidence": {
+        "schema_version": 1,
+        "run_id": "430178dd83874a9d8f9bfe9e026c7378",
+        "nonce": "1cd2979214ce437ea95d81ad86843d75",
+        "base_tag": "rras-native-base:430178dd83874a9d8f9bfe9e026c7378",
+        "image_tag": "rras-native-review:430178dd83874a9d8f9bfe9e026c7378",
+        "container_name": "rras-native-probe-430178dd83874a9d8f9bfe9e026c7378",
+        "success": false,
+        "api_calls": 0,
+        "installed_activation": false,
+        "manifest_sha256": "2aa101821c88c61cde3502a42ac912dfb1e9023d97a3d7b7a18eb68e189cdea2",
+        "gateway_before": {
+          "id": "4ad42374526759dadcfd996d6d7255e80caf8388bf24e7dcdd6aad699bed1cac",
+          "image": "sha256:b99f4564d5e17ec0183314c0d2f6f633657cff4916fad0f05f6e7667722da432",
+          "running": true
+        },
+        "base_tag_created": true,
+        "build_status": "confirmed",
+        "image_id": "sha256:38056656e277c24c3eea227cb7ac31eb88937d3b0edf75d82e1cf7d3b4eae2c9",
+        "name_absent_before_create": true,
+        "creation_status": "confirmed",
+        "container_id": "24d3511f944bd5a0723df3e9a5e2963ea44ed93e4ed205551f6b1318f3245e6f",
+        "exit_code": 127,
+        "error": "RuntimeError: native probe returned no evidence; inspect probe.log",
+        "container_removed": true,
+        "image_tag_removed": true,
+        "base_tag_removed": true
+      }
+    },
+    {
+      "run_id": "15eebfda4a0643e28c8c8705771701d8",
+      "journal": "/tmp/rras-native-container-15eebfda4a0643e28c8c8705771701d8/evidence.json",
+      "sha256": "40d9c28328f5b6314536de2aa5a89a0e3c34f91d00b7526d8aaec47a4acb68ee",
+      "evidence": {
+        "schema_version": 1,
+        "run_id": "15eebfda4a0643e28c8c8705771701d8",
+        "nonce": "48de5284a1b64e61ac3f87505ff32e71",
+        "base_tag": "rras-native-base:15eebfda4a0643e28c8c8705771701d8",
+        "image_tag": "rras-native-review:15eebfda4a0643e28c8c8705771701d8",
+        "container_name": "rras-native-probe-15eebfda4a0643e28c8c8705771701d8",
+        "success": false,
+        "api_calls": 0,
+        "installed_activation": false,
+        "manifest_sha256": "8aab4663673129cfb42a7dd1fac5fbbea350bdf3976975dc23733ca1a0791db2",
+        "gateway_before": {
+          "id": "4ad42374526759dadcfd996d6d7255e80caf8388bf24e7dcdd6aad699bed1cac",
+          "image": "sha256:b99f4564d5e17ec0183314c0d2f6f633657cff4916fad0f05f6e7667722da432",
+          "running": true
+        },
+        "base_tag_created": true,
+        "build_status": "confirmed",
+        "image_id": "sha256:cccb3d8dc7b1153ade3d6e6953912a6a474f885c3ad148b587340dbbe0cd82ab",
+        "name_absent_before_create": true,
+        "creation_status": "confirmed",
+        "container_id": "b1032bade77c681d3a3d590c4d7a1e77f6e295a942d7cb36438d9c2cf788dc26",
+        "exit_code": 1,
+        "probe": {
+          "schema_version": 1,
+          "scope": "disposable-native-container",
+          "inference_requests": 0,
+          "real_environment_helper": true,
+          "full_dispatch_tested": false,
+          "success": false,
+          "cases": [
+            {
+              "name": "real_helper_isolated_home",
+              "passed": true
+            },
+            {
+              "name": "synthetic_unrelated_token_stripped",
+              "passed": true
+            },
+            {
+              "name": "native_initialize",
+              "passed": true
+            },
+            {
+              "name": "reported_isolated_home",
+              "passed": true
+            },
+            {
+              "name": "task_write",
+              "passed": false,
+              "exit_code": 1,
+              "stderr_tail": "bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\n"
+            },
+            {
+              "name": "board_write",
+              "passed": false,
+              "exit_code": 1,
+              "stderr_tail": "bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\n"
+            },
+            {
+              "name": "sibling_write_denied",
+              "passed": true,
+              "exit_code": 1,
+              "stderr_tail": "bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. On e.g. debian this can be enabled with 'sysctl kernel.unprivileged_userns_clone=1'.\n"
+            }
+          ],
+          "source_sha256": "1bd7e181aa18e7a1417708ed8b691f3523657096d4fae51a268d8fa6d7afca57",
+          "native_stderr_tail": [
+            "\u001b[2m2026-10-05T15:29:03.411339Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_app_server\u001b[0m\u001b[2m:\u001b[0m Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime."
+          ]
+        },
+        "gateway_unchanged": true,
+        "container_removed": true,
+        "image_tag_removed": true,
+        "base_tag_removed": true
+      }
+    }
+  ]
+}

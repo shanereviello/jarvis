@@ -1,0 +1,16 @@
+{
+  "profile_version": "workflow-profile-v1",
+  "profile_name": "ros2-navigation-post-test-v1",
+  "allowed_operations": ["analyze", "review"],
+  "executor_profile": "ros2-analysis-v1",
+  "pinned_executor_image": "ros:humble-ros-base@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "accepted_input_kinds": ["ros_bag_metadata", "json", "log", "text", "git_context", "operator_observation"],
+  "workspace_access": "no_workspace",
+  "preprocessor_profiles": ["ros2-bag-metadata-v1", "ros2-time-window-v1"],
+  "validation_profile": "robotics-findings-review-v1",
+  "output_schema": {"schema_name": "robotics-debug-findings-v1", "schema_version": "1"},
+  "allowed_capabilities": ["read_artifacts", "structured_analysis", "robotics_findings"],
+  "network_policy": "none",
+  "resource_limits": {"timeout_seconds": 300, "maximum_attempts": 1},
+  "enabled": false
+}

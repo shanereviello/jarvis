@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/workflow-profile-v2.schema.json",
+  "title": "Jarvis Workflow Profile v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_version", "profile_name", "allowed_operations", "executor_profile", "pinned_executor_image", "accepted_input_kinds", "workspace_access", "preprocessor_profiles", "validation_profile", "output_contract", "allowed_capabilities", "resource_limits", "enabled"],
+  "properties": {
+    "profile_version": {"const": "workflow-profile-v2"},
+    "profile_name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"},
+    "allowed_operations": {"type": "array", "items": {"enum": ["analyze", "review", "modify", "verify"]}, "minItems": 1, "uniqueItems": true},
+    "executor_profile": {"type": "string", "minLength": 1},
+    "pinned_executor_image": {"type": "string", "pattern": "^.+@sha256:[0-9a-f]{64}$"},
+    "accepted_input_kinds": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "workspace_access": {"enum": ["no_workspace", "read_only_repository", "leased_write_worktree"]},
+    "preprocessor_profiles": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"}, "uniqueItems": true},
+    "validation_profile": {"type": "string", "minLength": 1},
+    "output_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_name", "schema_version", "required_artifact_types"],
+      "properties": {
+        "schema_name": {"type": "string", "minLength": 1},
+        "schema_version": {"type": "string", "minLength": 1},
+        "required_artifact_types": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "allowed_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "resource_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "timeout_seconds", "maximum_attempts", "network_policy"],
+      "properties": {
+        "model": {"type": "string"},
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "maximum_attempts": {"const": 1},
+        "network_policy": {"enum": ["none", "runner_egress"]}
+      }
+    },
+    "enabled": {"type": "boolean"}
+  }
+}

@@ -9,10 +9,15 @@ from app.tools import (
     register_notes_read_tool,
     register_notes_write_tool,
     register_retrieve_engineering_db_schema_context_tool,
+    register_linear_action_tools,
 )
 
 
-def register_tools(server: FastMCP) -> None:
+def register_tools(server: FastMCP, profile: str = "engineering") -> None:
+    if profile == "linear-actions":
+        register_linear_action_tools(server)
+        return
+
     register_retrieve_engineering_db_schema_context_tool(server)
     register_engineering_db_lookup_tool(server)
     register_engineering_db_connection_lookup_tool(server)

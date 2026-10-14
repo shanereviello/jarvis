@@ -1,0 +1,75 @@
+{
+  "success": {
+    "scope": "native-integrated-runner-fake-coding",
+    "uid": 1000,
+    "case": "success",
+    "api_calls": 0,
+    "success": true,
+    "dedicated_cgroup": false,
+    "native_task": "t_812f39e5",
+    "native_run": 1,
+    "workspace": "/tmp/rras-integrated-success-20261012-02/repo/.worktrees/t_812f39e5",
+    "wait": {
+      "outcome": "completed",
+      "success": true,
+      "exit_code": 0,
+      "native_status": "done",
+      "worker_stop_verified": true
+    },
+    "validation_exit": 0,
+    "export": {
+      "export_id": "2b56545af8442851dc9c0fbd11d642b65f49ab30fc88627010792268a67c7cfb",
+      "path": "/tmp/rras-integrated-success-20261012-02/index/TASK-canary/exports/2b56545af8442851dc9c0fbd11d642b65f49ab30fc88627010792268a67c7cfb",
+      "database_indexed": false
+    },
+    "lifecycle_mutated_by_runner": false
+  },
+  "crash": {
+    "scope": "native-integrated-runner-fake-coding",
+    "uid": 1000,
+    "case": "crash",
+    "api_calls": 0,
+    "success": true,
+    "dedicated_cgroup": false,
+    "native_task": "t_140dcfff",
+    "native_run": 1,
+    "workspace": "/tmp/rras-integrated-crash-20261012-01/repo/.worktrees/t_140dcfff",
+    "wait": {
+      "outcome": "failed",
+      "success": false,
+      "exit_code": 7,
+      "native_status": "running",
+      "worker_stop_verified": true
+    },
+    "validation_exit": 1,
+    "export": {
+      "export_id": "52380a0ebe4f284daaf99e58a1a25a883da0a29d2c7bbfd77155a15467104b97",
+      "path": "/tmp/rras-integrated-crash-20261012-01/index/TASK-canary/exports/52380a0ebe4f284daaf99e58a1a25a883da0a29d2c7bbfd77155a15467104b97",
+      "database_indexed": false
+    },
+    "lifecycle_mutated_by_runner": false
+  },
+  "timeout": {
+    "scope": "native-integrated-runner-fake-coding",
+    "uid": 1000,
+    "case": "timeout",
+    "api_calls": 0,
+    "success": true,
+    "dedicated_cgroup": false,
+    "native_task": "t_bd1f4043",
+    "native_run": 1,
+    "workspace": "/tmp/rras-integrated-timeout-20261012-01/repo/.worktrees/t_bd1f4043",
+    "wait": {
+      "outcome": "timeout",
+      "success": false,
+      "exit_code": null,
+      "native_status": "running",
+      "remaining_pids": [
+        19
+      ],
+      "worker_stop_verified": false,
+      "lifecycle_mutated": false
+    },
+    "lifecycle_mutated_by_runner": false
+  }
+}

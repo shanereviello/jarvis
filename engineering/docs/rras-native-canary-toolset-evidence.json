@@ -1,0 +1,9 @@
+{
+  "scope": "actual-native-toolset-resolution",
+  "effective_cli_toolsets": [
+    "kanban",
+    "skills"
+  ],
+  "api_calls": 0,
+  "success": true
+}

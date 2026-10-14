@@ -1,0 +1,16 @@
+{
+  "profile_version": "workflow-profile-v1",
+  "profile_name": "code-change-v1",
+  "allowed_operations": ["modify", "verify"],
+  "executor_profile": "codex-canary-v1",
+  "pinned_executor_image": "node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5",
+  "accepted_input_kinds": ["repository", "text", "log"],
+  "workspace_access": "leased_write_worktree",
+  "preprocessor_profiles": [],
+  "validation_profile": "python-unit-static-v1",
+  "output_schema": {"schema_name": "execution-result-v1", "schema_version": "1"},
+  "allowed_capabilities": ["git_read", "git_write_workspace", "test_python"],
+  "network_policy": "none",
+  "resource_limits": {"timeout_seconds": 180, "maximum_attempts": 1},
+  "enabled": true
+}

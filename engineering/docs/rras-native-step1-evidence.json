@@ -1,0 +1,62 @@
+{
+  "schema": "rras-native-deployment-assessment-v1",
+  "date": "2026-10-05",
+  "scope": "read-only-installed-capability-assessment",
+  "repository": {
+    "branch": "phase5b/guarded-host-orchestration",
+    "head": "f0d8a6eaf016153708c3e46a32e204a93bd11a97"
+  },
+  "hermes": {
+    "container_id": "4ad42374526759dadcfd996d6d7255e80caf8388bf24e7dcdd6aad699bed1cac",
+    "image_id": "sha256:b99f4564d5e17ec0183314c0d2f6f633657cff4916fad0f05f6e7667722da432",
+    "declared_source_version": "0.20.4",
+    "oci_revision_label": "76952ba54f5dd83f4f5bd0246059171b4b9d1c4a",
+    "revision_independently_verified": false,
+    "git_metadata_present": false,
+    "pid1_uid": 0,
+    "pid1_gid": 0,
+    "privileged": false,
+    "network": "jarvis-net",
+    "engineering_profile_exists": false,
+    "engineering_profile_path_checked": "/opt/data/profiles/rras-engineering",
+    "codex_on_clean_standard_path": false,
+    "codex_paths_checked_absent": [
+      "/usr/local/bin/codex",
+      "/usr/bin/codex",
+      "/root/.local/bin/codex",
+      "/opt/data/.local/bin/codex"
+    ],
+    "source_sha256": {
+      "agent/transports/codex_app_server.py": "1bd7e181aa18e7a1417708ed8b691f3523657096d4fae51a268d8fa6d7afca57",
+      "hermes_cli/codex_runtime_switch.py": "fbd0b2b4eb706b33fd88dd412d5fa3eccea0d27ad216a7a6ee08ccd91dc24a07",
+      "hermes_cli/kanban_db.py": "e5974182db556462b7cf85719ed5b40045aea7ea8f648ff82305c8e3b674603c",
+      "hermes_cli/profiles.py": "db1b0ae8657d1731597d33e63502482246b0fd7d7df37b5af13f2d13a65e5ec0"
+    },
+    "app_server_source_minimum_cli": "0.125.0",
+    "source_kanban_extra_writable_root": "board-database-directory",
+    "source_kanban_tool_network_access": false
+  },
+  "host_codex": {
+    "path": "/home/shanereviello/.local/bin/codex",
+    "reported_version": "0.159.0",
+    "personal_auth_inspected_or_reused": false
+  },
+  "installed_reconcile": {
+    "timer": "disabled",
+    "service": "inactive"
+  },
+  "gates": {
+    "native_runtime_acceptance": "pending",
+    "profile_configuration": "pending",
+    "api_credential_provisioning": "pending",
+    "hard_budget_enforcement": "unresolved"
+  },
+  "operations": {
+    "services_changed": false,
+    "profiles_created": false,
+    "secrets_read": false,
+    "api_calls": 0,
+    "production_migrations": 0,
+    "runtime_records_or_fences_modified": false
+  }
+}

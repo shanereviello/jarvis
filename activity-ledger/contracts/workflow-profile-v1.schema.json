@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/workflow-profile-v1.schema.json",
+  "title": "Jarvis Workflow Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_version", "profile_name", "allowed_operations", "executor_profile", "pinned_executor_image", "accepted_input_kinds", "workspace_access", "preprocessor_profiles", "validation_profile", "output_schema", "allowed_capabilities", "network_policy", "resource_limits", "enabled"],
+  "properties": {
+    "profile_version": {"const": "workflow-profile-v1"},
+    "profile_name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"},
+    "allowed_operations": {"type": "array", "items": {"enum": ["analyze", "review", "modify", "verify"]}, "minItems": 1, "uniqueItems": true},
+    "executor_profile": {"type": "string"},
+    "pinned_executor_image": {"type": "string", "pattern": "^.+@sha256:[0-9a-f]{64}$"},
+    "accepted_input_kinds": {"type": "array", "items": {"type": "string"}},
+    "workspace_access": {"enum": ["no_workspace", "read_only_repository", "leased_write_worktree"]},
+    "preprocessor_profiles": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"}},
+    "validation_profile": {"type": "string"},
+    "output_schema": {"type": "object", "required": ["schema_name", "schema_version"], "properties": {"schema_name": {"type": "string"}, "schema_version": {"type": "string"}}},
+    "allowed_capabilities": {"type": "array", "items": {"type": "string"}},
+    "network_policy": {"enum": ["none", "runner_egress"]},
+    "resource_limits": {"type": "object", "additionalProperties": false, "required": ["timeout_seconds", "maximum_attempts"], "properties": {"timeout_seconds": {"type": "integer", "minimum": 1}, "maximum_attempts": {"const": 1}}},
+    "enabled": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "original_required_commit": "3d6433b",
+  "files": {
+    "db/migrations/001_initial.sql": "208f12000b61ac02d2c0ff0e20f51b0d56176f752f95af00469318538d5691cf",
+    "db/migrations/002_role_grants.sql": "80707d0a67adf10aca83477a023512e09121f5e7c2da3c9acd385030959c8392",
+    "db/migrations/003_task_summary.sql": "d365736f090264e79dc9d01edc523961b5639355116d8b773f797b35f1e698be",
+    "db/migrations/004_execution_requests.sql": "21f983f40411b193c51e8536bad4afa7d4c013f2044c252d501cf5ad8ba3991a",
+    "db/migrations/005_execution_state_integrity.sql": "f2c32ebe917d18104640b6ba27bfab5e773057e760bdf41415d52afbb9fcd577",
+    "db/migrations/006_execution_controller_leases.sql": "9fe08dc51a29328147bff01a9cd73026b2f63ae3c2fbe7f55d2dcbb067b5d2c0",
+    "db/migrations/007_execution_request_runtime_summary.sql": "0598b4fe88c186fe7839f8de71f3aea84ed50da2f3a6324d1b101068fbb1d435"
+  }
+}

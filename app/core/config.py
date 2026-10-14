@@ -36,6 +36,10 @@ class Settings:
         self.mcp_mount_path = os.getenv("MCP_MOUNT_PATH", "/")
         self.mcp_streamable_http_path = os.getenv("MCP_STREAMABLE_HTTP_PATH", "/mcp")
         self.mcp_name = os.getenv("MCP_SERVER_NAME", "jarvis")
+        self.mcp_profile = os.getenv("JARVIS_MCP_PROFILE", "engineering")
+        self.linear_gateway_url = os.getenv("LINEAR_GATEWAY_URL", "")
+        self.linear_gateway_secret_file = os.getenv("LINEAR_GATEWAY_SECRET_FILE", "")
+        self.linear_gateway_timeout_seconds = float(os.getenv("LINEAR_GATEWAY_TIMEOUT_SECONDS", "20"))
 
 
 @lru_cache(maxsize=1)

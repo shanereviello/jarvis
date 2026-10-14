@@ -1,0 +1,44 @@
+{
+  "api_calls": 0,
+  "installed": false,
+  "dedicated_uid_tested": false,
+  "cases": [
+    {
+      "command": [
+        "kanban",
+        "--help"
+      ],
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "command": [
+        "kanban",
+        "create",
+        "--help"
+      ],
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "command": [
+        "kanban",
+        "dispatch",
+        "--help"
+      ],
+      "exit_code": 0,
+      "passed": true
+    }
+  ],
+  "dependency_inventory_sha256": "dcbb0a1924222eeef45a92628e1d57f66e97d95e6bf10ac4edf045605f79129e",
+  "success": true,
+  "hermes_revision": "76952ba54f5dd83f4f5bd0246059171b4b9d1c4a",
+  "python": "3.13.16",
+  "uv": "0.12.23",
+  "frozen_core_sync_passed": true,
+  "installed_packages": 61,
+  "review_bundle": "/tmp/rras-native-host-review-20261005-02",
+  "manifest_sha256": "c31c023f01ec11a38cf4e521e48fa9928ba569b4d5bc027537377b533d9a8aeb",
+  "build_directory": "/tmp/rras-native-host-build-20261005-01",
+  "dependency_lock_sha256": "8fd868b9da8b6bc2f4aa94a845e210eccdd5e31be7a0b404f0a8527ced0fddec"
+}

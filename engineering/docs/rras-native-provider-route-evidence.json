@@ -1,0 +1,20 @@
+{
+  "scope": "native-full-provider-resolver-offline-fixture",
+  "success": true,
+  "api_calls": 0,
+  "real_credentials_used": false,
+  "cli_agent_constructed": false,
+  "systemd_credential_delivery_tested": false,
+  "checks": {
+    "app_server_selected": true,
+    "api_platform_provider": true,
+    "narrow_toolsets": true,
+    "same_fixture_delivery": true
+  },
+  "provider": "openai-api",
+  "api_mode": "codex_app_server",
+  "toolsets": [
+    "kanban",
+    "skills"
+  ]
+}

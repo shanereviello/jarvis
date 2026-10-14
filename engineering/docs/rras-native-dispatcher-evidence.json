@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "scope": "native-dispatcher-with-fake-coding-child",
+  "root": "/tmp/rras-native-dispatcher-id39auaz",
+  "api_calls": 0,
+  "actual_coding_session_tested": false,
+  "dedicated_uid_tested": false,
+  "systemd_cgroup_tested": false,
+  "success": true,
+  "cases": [
+    {
+      "name": "one_native_spawn",
+      "passed": true
+    },
+    {
+      "name": "concurrency_cap",
+      "passed": true
+    },
+    {
+      "name": "child_survives_dispatcher_exit",
+      "passed": true
+    },
+    {
+      "name": "profile_selected",
+      "passed": true
+    },
+    {
+      "name": "isolated_codex_home",
+      "passed": true
+    },
+    {
+      "name": "native_worktree_cwd",
+      "passed": true
+    },
+    {
+      "name": "profile_toolsets",
+      "passed": true
+    },
+    {
+      "name": "board_and_workspace_roots",
+      "passed": true
+    },
+    {
+      "name": "child_exited_after_completion",
+      "passed": true
+    },
+    {
+      "name": "native_completion",
+      "passed": true
+    },
+    {
+      "name": "rras_patch_export",
+      "passed": true
+    }
+  ],
+  "native": {
+    "tasks": [
+      "t_12acfbf9",
+      "t_2ec9cab3"
+    ],
+    "first_spawned": [
+      [
+        "t_12acfbf9",
+        "rras-engineering",
+        "/tmp/rras-native-dispatcher-id39auaz/repo/.worktrees/t_12acfbf9"
+      ]
+    ],
+    "second_spawned": [],
+    "pid": 18,
+    "workspace": "/tmp/rras-native-dispatcher-id39auaz/repo/.worktrees/t_12acfbf9",
+    "run_id": 1
+  },
+  "child": {
+    "pid": 18,
+    "cwd": "/tmp/rras-native-dispatcher-id39auaz/repo/.worktrees/t_12acfbf9",
+    "argv": [
+      "-p",
+      "rras-engineering",
+      "--cli",
+      "--accept-hooks",
+      "--toolsets",
+      "bfl,kanban,skills",
+      "chat",
+      "-q",
+      "work kanban task t_12acfbf9"
+    ],
+    "environment": {
+      "HERMES_HOME": "/tmp/rras-native-dispatcher-id39auaz/home/profiles/rras-engineering",
+      "HERMES_PROFILE": "rras-engineering",
+      "CODEX_HOME": "/tmp/rras-native-dispatcher-id39auaz/home/codex",
+      "HERMES_KANBAN_DB": "/tmp/rras-native-dispatcher-id39auaz/home/kanban/kanban.db",
+      "HERMES_KANBAN_WORKSPACES_ROOT": "/tmp/rras-native-dispatcher-id39auaz/workspaces",
+      "HERMES_KANBAN_RUN_ID": "1"
+    }
+  },
+  "fixture_child_stopped": true,
+  "receipt_sha256": "23a1cca536b0eb81bbe725e2177e57857b1dbe6fceb845cff360da0b48e07798",
+  "scope_notes": [
+    "Native APIs exercised directly; coding executable substitution only. Not the CLI dispatch handler itself.",
+    "No real coding turn, provider request, systemd unit or dedicated UID tested.",
+    "Native worktree lives under admitted repository .worktrees, not HERMES_KANBAN_WORKSPACES_ROOT.",
+    "Child adds native bfl toolset; effective callbacks not exercised."
+  ]
+}

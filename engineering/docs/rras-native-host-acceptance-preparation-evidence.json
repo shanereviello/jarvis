@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "dedicated_uid_tested": false,
+  "systemd_tested": false,
+  "host_boundary_probe": {
+    "schema_version": 1,
+    "scope": "host-native-codex-model-free",
+    "binary_sha256": "d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f",
+    "inference_requests": 0,
+    "hermes_dispatch_tested": false,
+    "success": true,
+    "cases": [
+      {
+        "name": "initialize",
+        "passed": true
+      },
+      {
+        "name": "workspace_write",
+        "passed": true,
+        "exit_code": 0,
+        "stderr_tail": ""
+      },
+      {
+        "name": "board_write",
+        "passed": true,
+        "exit_code": 0,
+        "stderr_tail": ""
+      },
+      {
+        "name": "sibling_write_denied",
+        "passed": true,
+        "exit_code": 2,
+        "stderr_tail": "probe: 1: cannot create /srv/hermes-dev/jarvis/tasks/TASK-20260916-001-central-codex-activity-prototype/repo/.rras-codex-probe-k9d4h6xw/sibling/probe.txt: Read-only file system\n"
+      },
+      {
+        "name": "network_denied",
+        "passed": true,
+        "exit_code": 0,
+        "stdout": "NETWORK_DENIED\n"
+      }
+    ],
+    "configuration_source_sha256": "15920278361773ab24336a2bb4c48f9a8d5f15c117d6a02ba1c88075b1fe3990",
+    "version": "codex-cli 0.159.0",
+    "stderr_tail": "\u001b[2m2026-10-05T21:01:58.441807Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_app_server\u001b[0m\u001b[2m:\u001b[0m Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.\n"
+  },
+  "foreground_attempt": {
+    "api_calls_requested": 0,
+    "tasks_submitted": 0,
+    "production_modified": false,
+    "root": "/tmp/rras-native-foreground-ucf9j29n",
+    "ready": false,
+    "success": false,
+    "pid": 4,
+    "exit_code": -9,
+    "stopped": true
+  },
+  "foreground_interpretation": "No verified readiness; forced termination. No production runner selected.",
+  "diagnostic_foreground_attempt": {
+    "api_calls_requested": 0,
+    "tasks_submitted": 0,
+    "production_modified": false,
+    "root": "/tmp/rras-native-foreground-zgt6znd9",
+    "ready": false,
+    "success": false,
+    "pid": 4,
+    "exit_code": -9,
+    "stopped": true
+  },
+  "diagnostic_log": "/tmp/rras-native-foreground-zgt6znd9/gateway.log",
+  "source_tests_passed": 25,
+  "review_bundle": "/tmp/rras-native-host-review-20261005-05",
+  "review_manifest_sha256": "78ff7c9b5a19a1c3789c2d3123ba0427a1907bb5bc0dad8fe086236208ab5da6"
+}

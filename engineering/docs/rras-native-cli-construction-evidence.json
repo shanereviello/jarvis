@@ -1,0 +1,45 @@
+{
+  "scope": "native-cli-construction-offline-sentinel",
+  "uid": 1000,
+  "success": true,
+  "real_credentials_used": false,
+  "model_turns": 0,
+  "api_calls": 0,
+  "systemd_delivery": false,
+  "cases": [
+    {
+      "name": "native_agent_constructed",
+      "passed": true
+    },
+    {
+      "name": "app_server_mode",
+      "passed": true
+    },
+    {
+      "name": "no_inference_attempt",
+      "passed": true
+    },
+    {
+      "name": "network_guard_installed",
+      "passed": true
+    },
+    {
+      "name": "no_network_attempt",
+      "passed": true
+    },
+    {
+      "name": "narrow_cli_toolsets",
+      "passed": true
+    },
+    {
+      "name": "approval_bypass_off",
+      "passed": true
+    },
+    {
+      "name": "fixture_delivery",
+      "passed": true
+    }
+  ],
+  "blocked_attempts": [],
+  "blocked_call_sites": []
+}

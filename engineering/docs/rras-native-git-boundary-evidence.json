@@ -1,0 +1,40 @@
+{
+  "scope": "git-metadata-model-free",
+  "api_calls": 0,
+  "success": true,
+  "cases": [
+    {
+      "name": "sandbox_git_read_control",
+      "passed": true,
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "board_only",
+      "passed": true,
+      "exit_code": 128,
+      "readonly_error": true,
+      "stdout": "",
+      "stderr": "fatal: Unable to create '/tmp/rras-git-boundary-1p2hfg8p/repo/.git/worktrees/task/index.lock': Read-only file system\n"
+    },
+    {
+      "name": "repository_code_outside_worktree_denied",
+      "passed": true,
+      "exit_code": 2,
+      "stderr": "probe: 1: cannot create /tmp/rras-git-boundary-1p2hfg8p/repo/outside.txt: Read-only file system\n"
+    },
+    {
+      "name": "board_only_server_stopped",
+      "passed": true
+    },
+    {
+      "name": "trusted_parent_validates_and_commits_after_server_stop",
+      "passed": true
+    }
+  ],
+  "root": "/tmp/rras-git-boundary-1p2hfg8p",
+  "process_limits": {
+    "pids.max": "max",
+    "pids.events": "max 0"
+  }
+}

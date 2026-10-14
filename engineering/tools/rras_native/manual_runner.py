@@ -1,0 +1,199 @@
+"""Operator-selected admitted task using native Hermes dispatch and retained evidence."""
+import argparse
+import base64
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+
+
+def local(name):
+    s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(name+'.py'))
+    m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+
+
+def request(path):
+    return validate_request(local('activity').load(path))
+
+
+def validate_request(r):
+    a=local('activity')
+    fields={'schema_version','task_id','repository_id','objective','allowed_paths','validation_argv',
+            'worker_timeout_seconds','validation_timeout_seconds','commit_policy'}
+    if set(r)!=fields or r['schema_version']!=1:raise ValueError('invalid task request')
+    a.identifier(r['task_id']);a.identifier(r['repository_id'])
+    if not isinstance(r['objective'],str) or not r['objective'].strip() or len(r['objective'].encode())>16384:
+        raise ValueError('bounded objective required')
+    paths=r['allowed_paths']
+    if not isinstance(paths,list) or not 0<len(paths)<=128 or len(set(paths))!=len(paths):raise ValueError('exact allowed paths required')
+    for name in paths:
+        if not isinstance(name,str) or not name or '\x00' in name:raise ValueError('invalid allowed path')
+        p=Path(name)
+        if p.is_absolute() or str(p)!=name or any(x in ('.','..','.git') for x in p.parts) or name in ('AGENTS.md','RRAS_TASK.md'):
+            raise ValueError('unsafe or reserved allowed path')
+    argv=r['validation_argv']
+    if not isinstance(argv,list) or not 0<len(argv)<=64 or any(not isinstance(x,str) or not x or '\x00' in x or len(x)>4096 for x in argv) or not Path(argv[0]).is_absolute():
+        raise ValueError('reviewed absolute validation argv required')
+    for key,maximum in [('worker_timeout_seconds',300),('validation_timeout_seconds',60)]:
+        if type(r[key]) is not int or not 0<r[key]<=maximum:raise ValueError('invalid timeout')
+    if r['commit_policy']!='leave_uncommitted':raise ValueError('only review-first edits admitted')
+    return r
+
+
+def changed_paths(a, workspace, baseline):
+    names=a.git(workspace,'diff','--no-renames','--name-only','-z',baseline,'--').split(b'\0')
+    names+=a.git(workspace,'ls-files','--others','--exclude-standard','-z').split(b'\0')
+    return sorted({x.decode() for x in names if x})
+
+
+def scope(a, workspace, record, r):
+    if a.git(workspace,'rev-parse','HEAD').decode().strip()!=record['baseline_commit']:
+        raise ValueError('unexpected worker commit')
+    names=changed_paths(a,workspace,record['baseline_commit'])
+    if not set(names)<=set(r['allowed_paths']):raise ValueError('changes outside admitted paths')
+    for name in names:
+        p=workspace/name
+        for part in (p,*p.parents):
+            if part==workspace:break
+            if part.is_symlink():raise ValueError('changed symlink refused')
+        if p.exists() and not p.is_file():raise ValueError('nonregular changed file')
+    return names
+
+
+def install_instructions(workspace, root, r, python):
+    originals={};injected={}
+    for name in ('AGENTS.md','RRAS_TASK.md'):
+        p=workspace/name
+        if p.is_symlink() or (p.exists() and not p.is_file()):raise ValueError('instruction file unsafe')
+        originals[name]=p.read_bytes() if p.exists() else None
+        if originals[name] is not None and len(originals[name])>65536:raise ValueError('instruction file too large')
+    cli=shlex.join([str(python),'-I','-B',str(Path(__file__).with_name('native_task_cli.py').resolve()),'--context',str(root/'native-task-context.json')])
+    text=('RRAS assigned task: '+r['task_id']+'\n'+r['objective']+'\nAllowed change paths: '+json.dumps(r['allowed_paths'])+
+          '\nValidation: '+shlex.join(r['validation_argv'])+'\nInspect: '+cli+' show\nAfter passing validation: '+cli+' complete --result "validation passed"\n'
+          'Preserve AGENTS.md and RRAS_TASK.md. No git add/commit/push, merge or deployment. Do not inspect credentials or dump environment variables. Use the explicit assigned context, not inherited task variables.\n')
+    injected['RRAS_TASK.md']=(originals['RRAS_TASK.md'] or b'')+b'\n'+text.encode()
+    injected['AGENTS.md']=(originals['AGENTS.md'] or b'')+b'\nRead RRAS_TASK.md for the assigned RRAS task and exact native completion command.\n'
+    for name,data in injected.items():(workspace/name).write_bytes(data)
+    local('activity').absent(root/'instruction-overlay.json',local('activity').encoded({n:base64.b64encode(v).decode() for n,v in injected.items()}))
+    return originals,injected
+
+
+def restore_instructions(workspace, originals, injected):
+    # Verify every control before changing any of them. Never erase a worker's tampering.
+    for name,data in injected.items():
+        p=workspace/name
+        if p.is_symlink() or not p.is_file() or p.read_bytes()!=data:raise ValueError('instruction overlay changed; preserve it')
+    for name,data in originals.items():
+        if data is None:(workspace/name).unlink()
+        else:(workspace/name).write_bytes(data)
+
+
+def _run(source, python, profile, codex_config, registry, task_request, root, *, dedicated=True, token=None, spawn_delegate=None):
+    a=local('activity');w=local('wait_worker');bridge=local('native_task_cli')
+    root=Path(root).resolve(strict=True);a.private_dir(root)
+    if any(root.iterdir()):raise ValueError('fresh empty run directory required')
+    if set(os.environ)-{'PATH','HOME','LANG','LC_CTYPE','PYTHONDONTWRITEBYTECODE'}:raise ValueError('empty launch environment required')
+    if spawn_delegate is None and (os.getuid()!=996 or not dedicated or not token):raise ValueError('authorized dedicated execution required')
+    r=request(task_request);row=a.registration(registry,r['repository_id']);repo=Path(row['path'])
+    # Native worktrees live under the repo; ignore only that native workspace directory.
+    dirty=[x for x in a.git(repo,'status','--porcelain','--untracked-files=all').decode().splitlines() if not x.startswith('?? .worktrees/')]
+    if dirty:raise ValueError('registered repository must have a clean baseline')
+    record=a.admit(root/'index',registry,r['task_id'],r['repository_id'],r['objective'])
+    a.absent(root/'request.json',a.encoded(r))
+    home=root/'home';profile_home=home/'profiles/rras-engineering';profile_home.mkdir(parents=True,mode=0o700)
+    (profile_home/'config.yaml').write_bytes(Path(profile).read_bytes());(home/'codex').mkdir(mode=0o700)
+    (home/'codex/config.toml').write_bytes(Path(codex_config).read_bytes())
+    os.environ.update(HOME=str(home),HERMES_HOME=str(home),CODEX_HOME=str(home/'codex'),HERMES_KANBAN_DB=str(home/'kanban/kanban.db'),HERMES_KANBAN_WORKSPACES_ROOT=str(root/'workspaces'))
+    if token:os.environ.update(OPENAI_API_KEY=token,RRAS_OPENAI_API_KEY=token)
+    os.environ['PATH']=str(Path(python).parent)+':'+str(Path(source).parent/'runtime/bin')+':/usr/bin:/bin'
+    sys.path.insert(0,str(source))
+    from hermes_cli import kanban_db as k,projects_db as projects
+    result={'scope':'native-manual-admitted-task','success':False,'uid':os.getuid(),'api_calls':None if token else 0,
+            'model_backed':spawn_delegate is None,'commit_policy':r['commit_policy'],'lifecycle_mutated_by_runner':False}
+    try:
+        k.init_db()
+        with projects.connect_closing() as c:project=projects.create_project(c,name=r['repository_id'],slug=row['hermes_project'],primary_path=str(repo))
+        with k.connect_closing() as c:
+            task=k.create_task(c,title=r['task_id'],body=r['objective'],assignee='rras-engineering',workspace_kind='worktree',workspace_path=str(repo),project_id=project,max_runtime_seconds=r['worker_timeout_seconds'],max_retries=0)
+            overlay={}
+            def spawn(claimed,workspace,board=None):
+                workspace=Path(workspace);a.worktree(record,workspace)
+                if a.git(workspace,'rev-parse','HEAD').decode().strip()!=record['baseline_commit']:raise ValueError('baseline changed before launch')
+                originals,injected=install_instructions(workspace,root,r,python);overlay.update(originals=originals,injected=injected)
+                bridge.write_context(root/'native-task-context.json',claimed.id,claimed.current_run_id,profile_home,home/'kanban/kanban.db',python)
+                a.bind(root/'index',r['task_id'],'default',claimed.id,str(claimed.current_run_id))
+                return (spawn_delegate or k._default_spawn)(claimed,str(workspace),board=board)
+            dispatched=k.dispatch_once(c,spawn_fn=spawn,max_spawn=1,max_in_progress=1,max_in_progress_per_profile=1,reconcile_orphans=False)
+            t=k.get_task(c,task);result.update(native_task=task,native_run=t.current_run_id,workspace=t.workspace_path)
+            if len(dispatched.spawned)!=1:raise RuntimeError('native launch failed; retain records')
+            child=w.NativeChild(t.worker_pid);workspace=Path(t.workspace_path);run_id=t.current_run_id
+            def status():
+                current=k.get_task(c,task);latest=k.latest_run(c,task)
+                if not latest or latest.id!=run_id or current.current_run_id not in (None,run_id):raise RuntimeError('native run changed')
+                return current.status
+            peers=w.cgroup_peers if dedicated else lambda:[child.pid] if child.poll() is None else []
+            result['wait']=w.wait_worker(child,status,peers,r['worker_timeout_seconds'])
+            if result['wait']['worker_stop_verified']:
+                restore_instructions(workspace,**overlay)
+                names=scope(a,workspace,record,r);result['changed_paths']=names
+                env={'PATH':'/usr/bin:/bin','HOME':str(home),'LANG':'C.UTF-8','PYTHONDONTWRITEBYTECODE':'1'}
+                try:
+                    v=subprocess.run(r['validation_argv'],cwd=workspace,env=env,stdin=subprocess.DEVNULL,capture_output=True,timeout=r['validation_timeout_seconds'])
+                    output=v.stdout+v.stderr;result['validation_exit']=v.returncode
+                except subprocess.TimeoutExpired:
+                    # Descendant stop cannot be attested after a validation timeout. Retain unit/worktree.
+                    result['validation_timeout']=True;result['validation_stop_verified']=False;raise RuntimeError('validation timed out; preserve unit')
+                if len(output)>4*1024*1024:raise ValueError('validation output too large')
+                a.absent(root/'validation.log',output)
+                if dedicated and w.cgroup_peers():
+                    result['validation_stop_verified']=False;raise RuntimeError('validation descendants remain; retain unit')
+                result['validation_stop_verified']=True
+                scope(a,workspace,record,r)  # Validation must not expand the admitted change set.
+                extras={}
+                for name in a.git(workspace,'ls-files','--others','--exclude-standard','-z').split(b'\0'):
+                    if name:
+                        p=workspace/name.decode()
+                        if p.stat().st_size>1024*1024:raise ValueError('new file too large')
+                        data=p.read_bytes()
+                        if token and token.encode() in data:raise ValueError('credential in new file')
+                        if len(data)>1024*1024:raise ValueError('new file too large')
+                        extras[name.decode()]=base64.b64encode(data).decode()
+                data=a.encoded(extras)
+                if len(data)>4*1024*1024:raise ValueError('new-file evidence too large')
+                a.absent(root/'new-files.json',data)
+                logs=[root/'validation.log',k.worker_log_path(task)]
+                if token:
+                    for p in logs+[root/'new-files.json',root/'request.json']:
+                        if token.encode() in p.read_bytes():raise ValueError('credential in evidence; export refused')
+                    if token.encode() in a.snapshot(record,workspace)[1]:raise ValueError('credential in patch')
+                result['export']=a.export(root/'index',r['task_id'],workspace,logs=logs,artifacts=[root/'new-files.json',root/'request.json'])
+                a.verify_export(Path(result['export']['path']))
+                result['new_files']={'path':str(Path(result['export']['path'])/'additional-artifact-0.json'),'sha256':a.digest(data),'count':len(extras)}
+                result['success']=result['wait']['success'] and v.returncode==0
+    except Exception as e:result['error_type']=type(e).__name__
+    finally:a.absent(root/'evidence.json',a.encoded(result))
+    return result
+
+def run(source, python, profile, codex_config, registry, task_request, root, **options):
+    a=local('activity');root=Path(root).resolve(strict=True);a.private_dir(root)
+    if any(root.iterdir()):raise ValueError('fresh empty run directory required; preserve existing records')
+    try:
+        return _run(source,python,profile,codex_config,registry,task_request,root,**options)
+    except Exception as e:
+        result={'scope':'native-manual-admitted-task','success':False,'phase':'preflight',
+                'error_type':type(e).__name__,'worker_started':False,'lifecycle_mutated_by_runner':False}
+        if not (root/'evidence.json').exists():a.absent(root/'evidence.json',a.encoded(result))
+        return result
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser(description=__doc__)
+    for name in ('source','python','profile','codex-config','registry','request','work','credential'):p.add_argument('--'+name,required=True)
+    p.add_argument('--authorize-one-paid-task',action='store_true');args=p.parse_args()
+    if not args.authorize_one_paid_task or os.getuid()!=996:p.error('explicit authorization and UID996 required')
+    token=local('manual_paid_canary').delivered_key(args.credential);os.environ.pop('CREDENTIALS_DIRECTORY',None)
+    e=run(args.source,args.python,args.profile,args.codex_config,args.registry,args.request,args.work,token=token)
+    print(json.dumps(e));raise SystemExit(0 if e['success'] else 1)

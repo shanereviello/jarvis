@@ -1,0 +1,18 @@
+{
+  "contract_version": "execution-request-v1",
+  "idempotency_key": "phase4a-artifact-analysis-001",
+  "task_key": "TASK-20260918-001",
+  "operation": "analyze",
+  "workflow_template": "generic-artifact-analysis-v1",
+  "executor_profile": "codex-artifact-analysis-v1",
+  "requested_by": "operator",
+  "objective": "Analyze the retained structured artifact metadata and produce deterministic findings.",
+  "workspace": {"access": "no_workspace", "allowed_write_paths": []},
+  "input_artifacts": [{"kind": "log", "path": "/srv/jarvis-activity/evidence/example.log", "access": "read_only", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_bytes": 0, "media_type": "text/plain", "metadata": {}}],
+  "context_references": [],
+  "output_contract": {"schema_name": "artifact-analysis-v1", "schema_version": "1", "output_directory": "/srv/jarvis-activity/runner-state/execution", "retain": true, "required_artifact_types": ["analysis_json"]},
+  "validation_profile": "analysis-structured-v1",
+  "limits": {"model": "gpt-5.6-luna", "reasoning_effort": "low", "timeout_seconds": 180, "maximum_attempts": 1, "network_policy": "none"},
+  "requested_capabilities": ["read_artifacts", "structured_analysis"],
+  "created_at": "2026-09-18T00:00:00Z"
+}

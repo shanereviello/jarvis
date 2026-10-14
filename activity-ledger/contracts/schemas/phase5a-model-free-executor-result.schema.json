@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/schemas/phase5a-model-free-executor-result.schema.json",
+  "title": "Phase 5A Model-Free Executor Deterministic Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "request_id",
+    "claim_id",
+    "run_id",
+    "contract_sha256",
+    "executor_profile",
+    "recipe",
+    "outcome",
+    "observations",
+    "work_order_sha256"
+  ],
+  "properties": {
+    "schema_name": {"const": "phase5a-model-free-executor-result"},
+    "schema_version": {"const": "1"},
+    "request_id": {"$ref": "#/$defs/uuid"},
+    "claim_id": {"$ref": "#/$defs/uuid"},
+    "run_id": {"$ref": "#/$defs/uuid"},
+    "contract_sha256": {"$ref": "#/$defs/sha256"},
+    "executor_profile": {"const": "phase5a-model-free-executor-v1"},
+    "recipe": {"const": "phase5a-deterministic-pass-v1"},
+    "outcome": {"const": "pass"},
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "prefixItems": [{"const": "deterministic executor completed"}],
+      "items": false
+    },
+    "work_order_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}

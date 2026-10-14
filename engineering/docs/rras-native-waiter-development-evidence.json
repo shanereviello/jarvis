@@ -1,0 +1,61 @@
+{
+  "scope": "manual-waiter-model-free",
+  "uid": 1000,
+  "dedicated_cgroup_tested": false,
+  "api_calls": 0,
+  "success": true,
+  "cases": [
+    {
+      "name": "done_before_exit",
+      "passed": true,
+      "result": {
+        "outcome": "completed",
+        "success": true,
+        "exit_code": 0,
+        "native_status": "done",
+        "worker_stop_verified": true
+      },
+      "elapsed": 0.45430896058678627
+    },
+    {
+      "name": "crash",
+      "passed": true,
+      "result": {
+        "outcome": "failed",
+        "success": false,
+        "exit_code": 7,
+        "native_status": "running",
+        "worker_stop_verified": true
+      },
+      "elapsed": 0.15176331624388695
+    },
+    {
+      "name": "exit_without_completion",
+      "passed": true,
+      "result": {
+        "outcome": "failed",
+        "success": false,
+        "exit_code": 0,
+        "native_status": "running",
+        "worker_stop_verified": true
+      },
+      "elapsed": 0.20195308420807123
+    },
+    {
+      "name": "timeout",
+      "passed": true,
+      "result": {
+        "outcome": "timeout",
+        "success": false,
+        "exit_code": null,
+        "native_status": "running",
+        "remaining_pids": [
+          9
+        ],
+        "worker_stop_verified": false,
+        "lifecycle_mutated": false
+      },
+      "elapsed": 0.2022179737687111
+    }
+  ]
+}
