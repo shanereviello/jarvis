@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/execution-request-v2.schema.json",
+  "title": "Jarvis Execution Request v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "idempotency_key", "task_key", "operation", "workflow_template", "executor_profile", "requested_by", "objective", "acceptance_criteria", "permitted_context_manifest", "workspace", "input_artifacts", "context_references", "output_contract", "validation_profile", "limits", "requested_capabilities", "created_at"],
+  "properties": {
+    "contract_version": {"const": "execution-request-v2"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._:-]+$"},
+    "task_key": {"type": "string", "pattern": "^TASK-[0-9]{8}-[0-9]{3}$"},
+    "operation": {"const": "modify"},
+    "workflow_template": {"const": "phase5b-bounded-codex-code-change-v2"},
+    "executor_profile": {"const": "phase5b-codex-executor-v2"},
+    "requested_by": {"type": "string", "minLength": 1, "maxLength": 200},
+    "objective": {"type": "string", "minLength": 1, "maxLength": 8192},
+    "acceptance_criteria": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/criterion"}},
+    "permitted_context_manifest": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/context"}},
+    "workspace": {"type": "object", "additionalProperties": false, "required": ["access"], "properties": {"access": {"const": "leased_write_worktree"}}},
+    "input_artifacts": {"const": []},
+    "context_references": {"const": []},
+    "output_contract": {"type": "object", "additionalProperties": false, "required": ["schema_name", "schema_version", "output_directory", "retain", "required_artifact_types"], "properties": {"schema_name": {"const": "phase5b-codex-executor-result"}, "schema_version": {"const": "2"}, "output_directory": {"const": "/phase5b/derived"}, "retain": {"const": true}, "required_artifact_types": {"const": ["phase5b_codex_executor_result", "phase5b_codex_patch"]}}},
+    "validation_profile": {"const": "phase5b-disposable-python-unit-v1"},
+    "limits": {"type": "object", "additionalProperties": false, "required": ["model", "reasoning_effort", "timeout_seconds", "maximum_attempts", "network_policy"], "properties": {"model": {"const": "phase5b_model_profile_v1"}, "reasoning_effort": {"enum": ["low", "medium", "high"]}, "timeout_seconds": {"const": 180}, "maximum_attempts": {"const": 1}, "network_policy": {"const": "phase5b_model_egress_v1"}}},
+    "requested_capabilities": {"const": ["git_read", "git_write_workspace", "test_structured_argv"]},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "criterion": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "statement", "required"], "properties": {"criterion_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"}, "statement": {"type": "string", "minLength": 1, "maxLength": 2048}, "required": {"type": "boolean"}}},
+    "context": {"type": "object", "additionalProperties": false, "required": ["context_id", "relative_path", "sha256", "size_bytes", "media_type", "purpose"], "properties": {"context_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"}, "relative_path": {"type": "string", "pattern": "^(?!\\.\\.?$)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!/)(?!.*[\\\\\\x00])[^/][^\\\\\\x00]{0,254}$"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "size_bytes": {"type": "integer", "minimum": 0, "maximum": 65536}, "media_type": {"type": "string", "minLength": 1, "maxLength": 128}, "purpose": {"type": "string", "minLength": 1, "maxLength": 512}}}
+  }
+}

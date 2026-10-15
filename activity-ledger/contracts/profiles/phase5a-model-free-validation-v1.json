@@ -1,0 +1,24 @@
+{
+  "profile_version": "workflow-profile-v2",
+  "profile_name": "phase5a-model-free-validation-v1",
+  "allowed_operations": ["verify"],
+  "executor_profile": "phase5a-model-free-executor-v1",
+  "pinned_executor_image": "phase5a-model-free-executor-v1@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "accepted_input_kinds": [],
+  "workspace_access": "no_workspace",
+  "preprocessor_profiles": [],
+  "validation_profile": "phase5a-model-free-validation-v1",
+  "output_contract": {
+    "schema_name": "phase5a-model-free-executor-result",
+    "schema_version": "1",
+    "required_artifact_types": ["phase5a_model_free_executor_result"]
+  },
+  "allowed_capabilities": [],
+  "resource_limits": {
+    "model": "none",
+    "timeout_seconds": 120,
+    "maximum_attempts": 1,
+    "network_policy": "none"
+  },
+  "enabled": true
+}

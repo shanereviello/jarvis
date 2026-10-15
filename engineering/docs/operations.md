@@ -1,0 +1,15 @@
+# Supported engineering entrypoints
+
+Source CLI help is safe; do not invoke paid execution during installation or testing.
+
+- `stdio_intake.py --policy <reviewed-policy> --state <private-state>`: stdio proposals only, fixed Hermes identity, no execution/publication credential.
+- `intake.py --policy ... --proposal ... --state ... --operator-identity ...`: operator preparation CLI; identity flag is not network authentication.
+- `manual_runner.py`: separately authorized paid task, UID996, systemd-delivered credential, reviewed registry/request/profile/config, fresh empty task state. No automatic commits or GitHub actions.
+- `acceptance.py --case ...`: the single model-free acceptance interface. Supported cases: manual, session-policy, live-session (no turn), git-boundary, credentials (fixed harmless sentinel), waiter. Each is a disposable fixture, not a production task. Required flags are shown by `--help`; missing inputs fail closed. Host-boundary cases require a separately reviewed dedicated unit; CLI does not install or elevate itself.
+- `prepare_host.py`, `package_host_runtime.py`, `prepare_profile.py`: absent-only host review packaging. `install_host_review.py` is an administrator-only initial installation tool; it refuses existing state/releases and is not an upgrade tool. Never run it against the current installation as a cleanup step.
+
+Current installed pins: `/opt/rras-engineering/releases/native-10`; Hermes commit `76952ba54f5dd83f4f5bd0246059171b4b9d1c4a`; Codex0.159.0; Python3.13.16. Its Python ultimately depends on `/opt/jarvis-codex/runtime`; do not delete that legacy path until runtime relocation is tested. Runtime source pins remain in packaging/context checks. Existing vendor/runtime installations are unchanged by source cleanup.
+
+Canonical source `/srv/git/jarvis` and `/srv/git/robot_ws` is human-controlled. Dedicated worker state/clones/evidence belong under `/var/lib/rras-engineering`. Hermes proposals will use host `/srv/hermes/data/rras-coding-proposals`0700 via `/opt/data`, separate from worker state. Keep secrets outside Git; use only systemd-delivered task credentials and never personal Codex login for unattended work. API project portal spending policy is operator-controlled; no local hard cap is claimed.
+
+No dated experimental launcher is supported. Before deployment: human-review/merge the source PR, regenerate an immutable release/config bundle, verify mounted bytes and identity, run model-free host acceptance, then approve actual task execution separately. Copy only the absent new MCP entry; preserve other tools and exact previous configuration for rollback. No container pull/rebuild, migration, legacy directory deletion or activation is implied by source merge.

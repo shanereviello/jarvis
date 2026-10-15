@@ -1,0 +1,90 @@
+{
+  "profile_version": "workflow-profile-v3",
+  "profile_name": "phase5b-bounded-codex-code-change-v1",
+  "allowed_operations": ["modify"],
+  "executor_profile": "phase5b-codex-executor-v1",
+  "pinned_executor_image": "node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5",
+  "accepted_input_kinds": ["repository", "text"],
+  "workspace_access": "leased_write_worktree",
+  "preprocessor_profiles": [],
+  "validation_profile": "phase5b-disposable-python-unit-v1",
+  "output_contract": {
+    "schema_name": "phase5b-codex-executor-result",
+    "schema_version": "1",
+    "required_artifact_types": ["phase5b_codex_executor_result", "phase5b_codex_patch"]
+  },
+  "allowed_capabilities": ["git_read", "git_write_workspace", "test_structured_argv"],
+  "model_policy": {
+    "policy_id": "phase5b_model_policy_v1",
+    "model_profile_id": "phase5b_model_profile_v1",
+    "caller_selectable": false,
+    "allow_future_local_worker": true
+  },
+  "transport_policy": {
+    "policy_id": "phase5b_model_transport_v1",
+    "endpoint_binding": "protected_deployment_configuration",
+    "caller_selectable": false,
+    "approved_endpoint_count": 1
+  },
+  "network_policy": "phase5b_model_egress_v1",
+  "resource_limits": {
+    "overall_timeout_seconds": 180,
+    "model_deadline_seconds": 120,
+    "validation_deadline_seconds": 45,
+    "maximum_attempts": 1,
+    "max_model_iterations": 8,
+    "max_tool_calls": 32,
+    "max_changed_files": 8,
+    "max_total_changed_bytes": 32768,
+    "max_changed_file_bytes": 8192,
+    "max_patch_bytes": 65536,
+    "max_validation_commands": 1,
+    "max_stdout_bytes": 16384,
+    "max_stderr_bytes": 16384,
+    "max_instruction_files": 1,
+    "max_instruction_bytes": 16384,
+    "max_model_summary_bytes": 16384,
+    "max_result_bytes": 131072,
+    "max_failure_bytes": 32768,
+    "max_commit_message_bytes": 200
+  },
+  "instruction_policy": {
+    "policy_id": "root-agents-only-v1",
+    "allowed_paths": ["AGENTS.md"],
+    "nested_allowed": false,
+    "require_sha256": true,
+    "max_files": 1,
+    "max_bytes": 16384
+  },
+  "validation_policy": {
+    "plan_id": "phase5b-disposable-python-unit-v1",
+    "command_form": "structured_argv",
+    "shell_allowed": false,
+    "caller_commands_allowed": false,
+    "repository_commands_allowed": false,
+    "max_commands": 1,
+    "max_stdout_bytes": 16384,
+    "max_stderr_bytes": 16384,
+    "warnings_as_errors_controlled": true
+  },
+  "git_policy": {
+    "output_policy": "local-commit-no-remote-v1",
+    "local_commit_required": true,
+    "remote_push_allowed": false,
+    "merge_allowed": false,
+    "force_allowed": false,
+    "tag_creation_allowed": false,
+    "hooks_enabled": false
+  },
+  "repository_policy": {
+    "submodules_allowed": false,
+    "lfs_allowed": false,
+    "nested_repositories_allowed": false,
+    "sparse_checkout_allowed": false,
+    "alternates_allowed": false,
+    "symlinked_root_allowed": false,
+    "special_files_allowed": false,
+    "dependency_install_allowed": false
+  },
+  "enabled": true
+}

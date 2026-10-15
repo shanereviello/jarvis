@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/execution-request-v1.schema.json",
+  "title": "Jarvis Execution Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "idempotency_key", "task_key", "operation", "workflow_template", "executor_profile", "requested_by", "objective", "workspace", "input_artifacts", "context_references", "output_contract", "validation_profile", "limits", "requested_capabilities", "created_at"],
+  "properties": {
+    "contract_version": {"const": "execution-request-v1"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9._:-]+$"},
+    "task_key": {"type": "string", "pattern": "^TASK-[0-9]{8}-[0-9]{3}$"},
+    "operation": {"enum": ["analyze", "review", "modify", "verify"]},
+    "workflow_template": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"},
+    "executor_profile": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"},
+    "requested_by": {"type": "string", "minLength": 1, "maxLength": 200},
+    "objective": {"type": "string", "minLength": 1, "maxLength": 20000},
+    "workspace": {
+      "type": "object", "additionalProperties": false,
+      "required": ["access"],
+      "properties": {
+        "access": {"enum": ["no_workspace", "read_only_repository", "leased_write_worktree"]},
+        "repository_path": {"type": "string", "pattern": "^/[^\\0]*$"},
+        "base_ref": {"type": "string", "minLength": 1},
+        "allowed_write_paths": {"type": "array", "items": {"type": "string", "pattern": "^/[^\\0]*$"}, "uniqueItems": true}
+      }
+    },
+    "input_artifacts": {
+      "type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "access", "sha256", "size_bytes", "media_type", "metadata"], "properties": {
+        "kind": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"}, "path": {"type": "string", "pattern": "^/[^\\0]*$"}, "access": {"const": "read_only"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "size_bytes": {"type": "integer", "minimum": 0}, "media_type": {"type": "string", "minLength": 1}, "time_range": {"type": ["object", "null"]}, "metadata": {"type": "object"}
+      }}
+    },
+    "context_references": {"type": "array", "items": {"type": "string"}},
+    "output_contract": {"type": "object", "additionalProperties": false, "required": ["schema_name", "schema_version", "output_directory", "retain", "required_artifact_types"], "properties": {"schema_name": {"type": "string"}, "schema_version": {"type": "string"}, "output_directory": {"type": "string", "pattern": "^/[^\\0]*$"}, "retain": {"type": "boolean"}, "required_artifact_types": {"type": "array", "items": {"type": "string"}}}},
+    "validation_profile": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$"},
+    "limits": {"type": "object", "additionalProperties": false, "required": ["model", "reasoning_effort", "timeout_seconds", "maximum_attempts", "network_policy"], "properties": {"model": {"type": "string"}, "reasoning_effort": {"enum": ["low", "medium", "high"]}, "timeout_seconds": {"type": "integer", "minimum": 1}, "maximum_attempts": {"const": 1}, "network_policy": {"enum": ["none", "runner_egress"]}}},
+    "requested_capabilities": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"}, "uniqueItems": true},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "profile_version": "workflow-profile-v1",
+  "profile_name": "generic-artifact-analysis-v1",
+  "allowed_operations": ["analyze", "review"],
+  "executor_profile": "codex-artifact-analysis-v1",
+  "pinned_executor_image": "node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5",
+  "accepted_input_kinds": ["text", "log", "json", "csv", "image", "video_metadata", "ros_bag_metadata"],
+  "workspace_access": "no_workspace",
+  "preprocessor_profiles": ["artifact-metadata-v1"],
+  "validation_profile": "analysis-structured-v1",
+  "output_schema": {"schema_name": "artifact-analysis-v1", "schema_version": "1"},
+  "allowed_capabilities": ["read_artifacts", "structured_analysis"],
+  "network_policy": "none",
+  "resource_limits": {"timeout_seconds": 180, "maximum_attempts": 1},
+  "enabled": true
+}

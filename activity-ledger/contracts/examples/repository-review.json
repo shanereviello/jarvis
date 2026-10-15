@@ -1,0 +1,18 @@
+{
+  "contract_version": "execution-request-v1",
+  "idempotency_key": "phase4a-review-001",
+  "task_key": "TASK-20260918-001",
+  "operation": "review",
+  "workflow_template": "repository-review-v1",
+  "executor_profile": "codex-review-v1",
+  "requested_by": "operator",
+  "objective": "Review the repository for correctness, security, and maintainability findings.",
+  "workspace": {"access": "read_only_repository", "repository_path": "/srv/hermes-dev/jarvis/tasks/TASK-20260918-001/repo", "base_ref": "main", "allowed_write_paths": []},
+  "input_artifacts": [],
+  "context_references": [],
+  "output_contract": {"schema_name": "repository-review-v1", "schema_version": "1", "output_directory": "/srv/jarvis-activity/runner-state/execution", "retain": true, "required_artifact_types": ["review_json"]},
+  "validation_profile": "review-structured-v1",
+  "limits": {"model": "gpt-5.6-luna", "reasoning_effort": "low", "timeout_seconds": 180, "maximum_attempts": 1, "network_policy": "none"},
+  "requested_capabilities": ["git_read", "test_read"],
+  "created_at": "2026-09-18T00:00:00Z"
+}

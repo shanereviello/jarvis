@@ -1,0 +1,109 @@
+name: jarvis-activity
+services:
+  jarvis-activity-postgres:
+    image: postgres:16.4-bookworm
+    restart: 'no'
+    environment:
+      POSTGRES_DB: jarvis_activity
+      POSTGRES_USER: jarvis_activity_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_bootstrap_password
+    secrets:
+    - postgres_bootstrap_password
+    - jarvis_activity_migrator_password
+    - jarvis_activity_app_password
+    - jarvis_activity_reader_password
+    - jarvis_activity_backup_password
+    volumes:
+    - jarvis_activity_pgdata:/var/lib/postgresql/data
+    - ../../db/init:/docker-entrypoint-initdb.d:ro
+    - ../../db/migrations:/opt/jarvis-activity/migrations:ro
+    networks:
+    - activity_internal
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U jarvis_activity_migrator -d jarvis_activity
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  jarvis-activity-migrate:
+    image: postgres:16.4-bookworm
+    restart: 'no'
+    environment:
+      PGHOST: jarvis-activity-postgres
+      PGDATABASE: jarvis_activity
+      PGUSER: jarvis_activity_migrator
+    secrets:
+    - jarvis_activity_migrator_password
+    volumes:
+    - ../../db/migrations:/migrations:ro
+    command:
+    - bash
+    - -c
+    - export PGPASSWORD=$$(cat /run/secrets/jarvis_activity_migrator_password); exec
+      bash /migrations/run_migrations.sh
+    depends_on:
+      jarvis-activity-postgres:
+        condition: service_healthy
+    networks:
+    - activity_internal
+    profiles:
+    - migration
+  jarvis-activity-adapter:
+    build:
+      context: ../..
+      dockerfile: adapter/Dockerfile
+    restart: 'no'
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    environment:
+      JARVIS_ACTIVITY_DB_HOST: jarvis-activity-postgres
+      JARVIS_ACTIVITY_DB_NAME: jarvis_activity
+      JARVIS_ACTIVITY_DB_USER: jarvis_activity_app
+      JARVIS_ACTIVITY_DB_PASSWORD_FILE: /run/secrets/jarvis_activity_app_password
+      JARVIS_ADAPTER_TOKEN_FILE: /run/secrets/adapter_api_token
+      JARVIS_CONTROLLER_TOKEN_FILE: /run/secrets/controller_api_token
+    secrets:
+    - jarvis_activity_app_password
+    - adapter_api_token
+    - controller_api_token
+    volumes:
+    - ${JARVIS_PHASE4B_STAGING_ROOT:-/srv/jarvis-activity/runner-state/phase4b-controller-staging}:/srv/jarvis-activity/runner-state/phase4b-controller-staging:ro
+    - ${JARVIS_PHASE4B_RETAINED_ROOT:-/srv/jarvis-activity/runner-state/phase4b-controller-retained}:/srv/jarvis-activity/runner-state/phase4b-controller-retained:rw
+    depends_on:
+      jarvis-activity-postgres:
+        condition: service_healthy
+    networks:
+    - activity_internal
+    - controller_internal
+networks:
+  activity_internal:
+    internal: true
+  controller_internal:
+    internal: true
+volumes:
+  jarvis_activity_pgdata: null
+secrets:
+  postgres_bootstrap_password:
+    file: ${JARVIS_ACTIVITY_BOOTSTRAP_PASSWORD_FILE:?Set JARVIS_ACTIVITY_BOOTSTRAP_PASSWORD_FILE
+      outside the repository}
+  jarvis_activity_migrator_password:
+    file: ${JARVIS_ACTIVITY_MIGRATOR_PASSWORD_FILE:?Set JARVIS_ACTIVITY_MIGRATOR_PASSWORD_FILE
+      outside the repository}
+  jarvis_activity_app_password:
+    file: ${JARVIS_ACTIVITY_APP_PASSWORD_FILE:?Set JARVIS_ACTIVITY_APP_PASSWORD_FILE
+      outside the repository}
+  jarvis_activity_reader_password:
+    file: ${JARVIS_ACTIVITY_READER_PASSWORD_FILE:?Set JARVIS_ACTIVITY_READER_PASSWORD_FILE
+      outside the repository}
+  jarvis_activity_backup_password:
+    file: ${JARVIS_ACTIVITY_BACKUP_PASSWORD_FILE:?Set JARVIS_ACTIVITY_BACKUP_PASSWORD_FILE
+      outside the repository}
+  adapter_api_token:
+    file: ${JARVIS_ADAPTER_TOKEN_FILE:?Set JARVIS_ADAPTER_TOKEN_FILE outside the repository}
+  controller_api_token:
+    file: ${JARVIS_CONTROLLER_TOKEN_FILE:?Set JARVIS_CONTROLLER_TOKEN_FILE outside
+      the repository}

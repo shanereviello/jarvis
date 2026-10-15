@@ -1,0 +1,18 @@
+# Merge only this entry into existing mcp_servers after reviewed source promotion.
+# Leave existing MCP entries and Linear unchanged.
+mcp_servers:
+  rras-coding-preparation:
+    command: /opt/hermes/.venv/bin/python3
+    args:
+      - -I
+      - -B
+      - /workspace/git/jarvis/engineering/tools/rras_native/stdio_intake.py
+      - --policy
+      - /workspace/git/jarvis/engineering/config/coding-preparation-policy.json
+      - --state
+      - /opt/data/rras-coding-proposals
+    env: {}
+    timeout: 30
+    connect_timeout: 30
+    sampling:
+      enabled: false

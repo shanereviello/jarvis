@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/workflow-profile-v3.schema.json",
+  "title": "Jarvis Workflow Profile v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_version", "profile_name", "allowed_operations", "executor_profile", "pinned_executor_image", "accepted_input_kinds", "workspace_access", "preprocessor_profiles", "validation_profile", "output_contract", "allowed_capabilities", "model_policy", "transport_policy", "network_policy", "resource_limits", "instruction_policy", "validation_policy", "git_policy", "repository_policy", "enabled"],
+  "properties": {
+    "profile_version": {"const": "workflow-profile-v3"},
+    "profile_name": {"$ref": "#/$defs/profile_id"},
+    "allowed_operations": {"const": ["modify"]},
+    "executor_profile": {"const": "phase5b-codex-executor-v1"},
+    "pinned_executor_image": {"type": "string", "pattern": "^.+@sha256:[0-9a-f]{64}$", "minLength": 1, "maxLength": 512},
+    "accepted_input_kinds": {"const": ["repository", "text"]},
+    "workspace_access": {"const": "leased_write_worktree"},
+    "preprocessor_profiles": {"const": []},
+    "validation_profile": {"const": "phase5b-disposable-python-unit-v1"},
+    "output_contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_name", "schema_version", "required_artifact_types"],
+      "properties": {
+        "schema_name": {"const": "phase5b-codex-executor-result"},
+        "schema_version": {"const": "1"},
+        "required_artifact_types": {"const": ["phase5b_codex_executor_result", "phase5b_codex_patch"]}
+      }
+    },
+    "allowed_capabilities": {"const": ["git_read", "git_write_workspace", "test_structured_argv"]},
+    "model_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_id", "model_profile_id", "caller_selectable", "allow_future_local_worker"],
+      "properties": {
+        "policy_id": {"const": "phase5b_model_policy_v1"},
+        "model_profile_id": {"const": "phase5b_model_profile_v1"},
+        "caller_selectable": {"const": false},
+        "allow_future_local_worker": {"const": true}
+      }
+    },
+    "transport_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_id", "endpoint_binding", "caller_selectable", "approved_endpoint_count"],
+      "properties": {
+        "policy_id": {"const": "phase5b_model_transport_v1"},
+        "endpoint_binding": {"const": "protected_deployment_configuration"},
+        "caller_selectable": {"const": false},
+        "approved_endpoint_count": {"const": 1}
+      }
+    },
+    "network_policy": {"const": "phase5b_model_egress_v1"},
+    "resource_limits": {
+      "type": "object", "additionalProperties": false,
+      "required": ["overall_timeout_seconds", "model_deadline_seconds", "validation_deadline_seconds", "maximum_attempts", "max_model_iterations", "max_tool_calls", "max_changed_files", "max_total_changed_bytes", "max_changed_file_bytes", "max_patch_bytes", "max_validation_commands", "max_stdout_bytes", "max_stderr_bytes", "max_instruction_files", "max_instruction_bytes", "max_model_summary_bytes", "max_result_bytes", "max_failure_bytes", "max_commit_message_bytes"],
+      "properties": {
+        "overall_timeout_seconds": {"const": 180}, "model_deadline_seconds": {"const": 120}, "validation_deadline_seconds": {"const": 45}, "maximum_attempts": {"const": 1}, "max_model_iterations": {"const": 8}, "max_tool_calls": {"const": 32}, "max_changed_files": {"const": 8}, "max_total_changed_bytes": {"const": 32768}, "max_changed_file_bytes": {"const": 8192}, "max_patch_bytes": {"const": 65536}, "max_validation_commands": {"const": 1}, "max_stdout_bytes": {"const": 16384}, "max_stderr_bytes": {"const": 16384}, "max_instruction_files": {"const": 1}, "max_instruction_bytes": {"const": 16384}, "max_model_summary_bytes": {"const": 16384}, "max_result_bytes": {"const": 131072}, "max_failure_bytes": {"const": 32768}, "max_commit_message_bytes": {"const": 200}
+      }
+    },
+    "instruction_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_id", "allowed_paths", "nested_allowed", "require_sha256", "max_files", "max_bytes"],
+      "properties": {
+        "policy_id": {"const": "root-agents-only-v1"}, "allowed_paths": {"const": ["AGENTS.md"]}, "nested_allowed": {"const": false}, "require_sha256": {"const": true}, "max_files": {"const": 1}, "max_bytes": {"const": 16384}
+      }
+    },
+    "validation_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_id", "command_form", "shell_allowed", "caller_commands_allowed", "repository_commands_allowed", "max_commands", "max_stdout_bytes", "max_stderr_bytes", "warnings_as_errors_controlled"],
+      "properties": {
+        "plan_id": {"const": "phase5b-disposable-python-unit-v1"}, "command_form": {"const": "structured_argv"}, "shell_allowed": {"const": false}, "caller_commands_allowed": {"const": false}, "repository_commands_allowed": {"const": false}, "max_commands": {"const": 1}, "max_stdout_bytes": {"const": 16384}, "max_stderr_bytes": {"const": 16384}, "warnings_as_errors_controlled": {"const": true}
+      }
+    },
+    "git_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["output_policy", "local_commit_required", "remote_push_allowed", "merge_allowed", "force_allowed", "tag_creation_allowed", "hooks_enabled"],
+      "properties": {
+        "output_policy": {"const": "local-commit-no-remote-v1"}, "local_commit_required": {"const": true}, "remote_push_allowed": {"const": false}, "merge_allowed": {"const": false}, "force_allowed": {"const": false}, "tag_creation_allowed": {"const": false}, "hooks_enabled": {"const": false}
+      }
+    },
+    "repository_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["submodules_allowed", "lfs_allowed", "nested_repositories_allowed", "sparse_checkout_allowed", "alternates_allowed", "symlinked_root_allowed", "special_files_allowed", "dependency_install_allowed"],
+      "properties": {
+        "submodules_allowed": {"const": false}, "lfs_allowed": {"const": false}, "nested_repositories_allowed": {"const": false}, "sparse_checkout_allowed": {"const": false}, "alternates_allowed": {"const": false}, "symlinked_root_allowed": {"const": false}, "special_files_allowed": {"const": false}, "dependency_install_allowed": {"const": false}
+      }
+    },
+    "enabled": {"const": true}
+  },
+  "$defs": {
+    "profile_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*-v[0-9]+$", "minLength": 3, "maxLength": 128}
+  }
+}

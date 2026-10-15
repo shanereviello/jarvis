@@ -6,9 +6,15 @@ from app.servers.mcp.registry import register_tools
 
 def create_server() -> FastMCP:
     settings = get_settings()
-    server = FastMCP(
-        name=settings.mcp_name,
-        instructions=(
+    if settings.mcp_profile == "linear-actions":
+        instructions = (
+            "Jarvis Linear action server. It exposes ticket-centric Linear reads and writes through an "
+            "authenticated, audited gateway. Use lookup tools to resolve names to IDs before mutations. "
+            "Issue deletion and raw GraphQL are intentionally unavailable. Never claim an action succeeded "
+            "unless the tool result reports success=true."
+        )
+    else:
+        instructions = (
             "Jarvis MCP server for engineering DB exploration and approved-baseline note access. "
             "Start by reading engineering DB schema resources or calling retrieve-engineering-db-schema-context. "
             "Then use engineering-db-lookup with narrowed tables. Use notes-read for the approved Git baseline. "
@@ -17,13 +23,16 @@ def create_server() -> FastMCP:
             "Follow pagination cursors until has_more is false before claiming a list or search is complete. "
             "Use notes-write only for reviewable Jarvis drafts; its output is not authoritative until a human approves "
             "and commits it. Never treat review-worktree drafts as verified source material."
-        ),
+        )
+    server = FastMCP(
+        name=settings.mcp_name,
+        instructions=instructions,
         host=settings.mcp_host,
         port=settings.mcp_port,
         mount_path=settings.mcp_mount_path,
         streamable_http_path=settings.mcp_streamable_http_path,
     )
-    register_tools(server)
+    register_tools(server, settings.mcp_profile)
     return server
 
 

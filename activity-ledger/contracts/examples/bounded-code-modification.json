@@ -1,0 +1,18 @@
+{
+  "contract_version": "execution-request-v1",
+  "idempotency_key": "phase4a-code-change-001",
+  "task_key": "TASK-20260918-001",
+  "operation": "modify",
+  "workflow_template": "code-change-v1",
+  "executor_profile": "codex-canary-v1",
+  "requested_by": "operator",
+  "objective": "Apply the reviewed minimal change and preserve the repository validation contract.",
+  "workspace": {"access": "leased_write_worktree", "repository_path": "/srv/hermes-dev/jarvis/tasks/TASK-20260918-001/repo", "base_ref": "main", "allowed_write_paths": ["/workspace/src", "/workspace/tests"]},
+  "input_artifacts": [],
+  "context_references": ["task://TASK-20260918-001/requirements"],
+  "output_contract": {"schema_name": "execution-result-v1", "schema_version": "1", "output_directory": "/srv/jarvis-activity/runner-state/execution", "retain": true, "required_artifact_types": ["jsonl", "git_diff"]},
+  "validation_profile": "python-unit-static-v1",
+  "limits": {"model": "gpt-5.6-luna", "reasoning_effort": "low", "timeout_seconds": 180, "maximum_attempts": 1, "network_policy": "none"},
+  "requested_capabilities": ["git_read", "git_write_workspace", "test_python"],
+  "created_at": "2026-09-18T00:00:00Z"
+}

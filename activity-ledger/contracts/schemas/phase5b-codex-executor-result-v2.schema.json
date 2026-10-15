@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.local/contracts/schemas/phase5b-codex-executor-result-v2.schema.json",
+  "title": "Phase 5B Codex Executor Result v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_name", "schema_version", "request_id", "claim_id", "run_id", "attempt_number", "contract_sha256", "repository_registration_id", "allocation_id", "worktree_id", "baseline_commit", "task_branch", "executor_profile", "model_profile", "validation_plan_id", "outcome"],
+  "properties": {
+    "schema_name": {"const": "phase5b-codex-executor-result"}, "schema_version": {"const": "2"}, "request_id": {"type": "string"}, "claim_id": {"type": "string"}, "run_id": {"type": "string"}, "attempt_number": {"const": 1}, "contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "repository_registration_id": {"type": "string"}, "allocation_id": {"type": "string"}, "worktree_id": {"type": "string"}, "baseline_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "task_branch": {"type": "string"}, "executor_profile": {"const": "phase5b-codex-executor-v2"}, "model_profile": {"const": "phase5b_model_profile_v1"}, "validation_plan_id": {"const": "phase5b-disposable-python-unit-v1"}, "outcome": {"enum": ["pass", "failed"]},
+    "changed_file_manifest": {"type": "array", "maxItems": 8}, "patch_descriptor": {"type": "object"}, "commit_descriptor": {"type": "object"}, "validation_results": {"type": "array", "maxItems": 1}, "model_summary": {"type": "object"}, "criterion_evidence": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "object", "additionalProperties": false, "required": ["criterion_id", "outcome", "evidence_refs"], "properties": {"criterion_id": {"type": "string"}, "outcome": {"const": "not_independently_verified"}, "evidence_refs": {"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 255}}}}},
+    "failure_classification": {"type": "string"}, "failure_code": {"type": "string"}, "safe_message": {"type": "string", "maxLength": 512}, "result_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

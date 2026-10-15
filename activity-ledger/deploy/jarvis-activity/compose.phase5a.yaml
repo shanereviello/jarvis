@@ -1,0 +1,15 @@
+services:
+  jarvis-activity-adapter:
+    volumes:
+    - type: bind
+      source: /srv/jarvis-activity/runner-state/phase5a-executor-staging
+      target: /srv/jarvis-activity/runner-state/phase5a-executor-staging
+      read_only: false
+      bind:
+        create_host_path: false
+    - type: bind
+      source: /srv/jarvis-activity/runner-state/phase5a-executor-retained
+      target: /srv/jarvis-activity/runner-state/phase5a-executor-retained
+      read_only: false
+      bind:
+        create_host_path: false

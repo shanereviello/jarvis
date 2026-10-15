@@ -1,0 +1,54 @@
+services:
+  jarvis-mcp:
+    image: jarvis-mcp:${JARVIS_MCP_VERSION:-notes-v1}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: jarvis-mcp
+    restart: unless-stopped
+    env_file:
+    - .env
+    user: ${JARVIS_UID:-1000}:${JARVIS_GID:-1000}
+    environment:
+      JARVIS_NOTES_REPOSITORY: /srv/notes/repo.git
+      JARVIS_NOTES_BASELINE: /srv/notes/baseline
+      JARVIS_NOTES_REVIEW: /srv/notes/review
+      JARVIS_NOTES_BASELINE_REF: ${JARVIS_NOTES_BASELINE_REF:-main}
+      JARVIS_DRAFT_ROOT: Jarvis Drafts
+      JARVIS_SECOND_BRAIN_ROOT: Jarvis Second Brain
+      JARVIS_AUDIT_PATH: /srv/jarvis/audit/note-actions.jsonl
+      JARVIS_NOTES_MAX_RESULTS: ${JARVIS_NOTES_MAX_RESULTS:-100}
+      JARVIS_NOTES_MAX_CONTENT_BYTES: ${JARVIS_NOTES_MAX_CONTENT_BYTES:-100000}
+    networks:
+    - jarvis-net
+    volumes:
+    - /srv/notes/repo.git:/srv/notes/repo.git:ro
+    - /srv/notes/baseline:/srv/notes/baseline:ro
+    - /srv/notes/review:/srv/notes/review:rw
+    - /srv/jarvis/audit:/srv/jarvis/audit:rw
+  linear-action-mcp:
+    image: jarvis-mcp:${JARVIS_MCP_VERSION:-notes-v1}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: linear-action-mcp
+    restart: unless-stopped
+    user: ${JARVIS_UID:-1000}:${JARVIS_GID:-1000}
+    environment:
+      JARVIS_MCP_PROFILE: linear-actions
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+      MCP_MOUNT_PATH: /
+      MCP_STREAMABLE_HTTP_PATH: /mcp
+      MCP_SERVER_NAME: jarvis-linear-actions
+      LINEAR_GATEWAY_URL: http://n8n:5678/webhook/linear-action-gateway
+      LINEAR_GATEWAY_SECRET_FILE: /run/secrets/n8n_bridge_secret
+      LINEAR_GATEWAY_TIMEOUT_SECONDS: 20
+    networks:
+    - jarvis-net
+    volumes:
+    - /srv/n8n/backups/linear-replacement-2026-10-08/N8N_BRIDGE_SECRET.txt:/run/secrets/n8n_bridge_secret:ro
+networks:
+  jarvis-net:
+    external: true

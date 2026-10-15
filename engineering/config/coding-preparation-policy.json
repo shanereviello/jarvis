@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "identities": {"hermes": ["robot_ws"]},
+  "repositories": {
+    "robot_ws": {
+      "enabled": true,
+      "allowed_paths": [
+        "src/pi/roboclaw_driver/roboclaw_driver/roboclaw_node.py",
+        "src/pi/roboclaw_driver/config/roboclaw.yaml"
+      ],
+      "validations": {
+        "manual-velocity": [
+          "/opt/rras-engineering/releases/native-10/venv/bin/python",
+          "-I", "-B",
+          "/opt/rras-robot-product-review-20261013-01/validate_velocity.py"
+        ]
+      },
+      "worker_timeout_seconds": 300,
+      "validation_timeout_seconds": 60
+    }
+  }
+}
