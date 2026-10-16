@@ -74,3 +74,27 @@ class LaunchIntegrationTests(unittest.TestCase):
         auth,jobs,workers,key=self.fixture();self.profile.write_text('changed')
         with self.assertRaises(ValueError):self.invoke(auth,jobs,workers,key)
         self.assertFalse((self.state/(auth+'.consumed.json')).exists());self.assertEqual(list(jobs.iterdir()),[])
+
+class AssignedBranchLaunchTests(unittest.TestCase):
+    setUp=fixtures.ApprovalTests.setUp
+    proposal=fixtures.ApprovalTests.proposal
+    fixture=LaunchIntegrationTests.fixture
+    invoke=LaunchIntegrationTests.invoke
+    def capture(self):
+        return m.local('approval').capture(self.proposals,self.proposal(),self.policy,self.registry,self.state,self.profile,self.codex,review_branch='codex/docs-task')
+    def test_operator_branch_retained_in_launch_and_result(self):
+        auth,jobs,workers,key=self.fixture();result,_=self.invoke(auth,jobs,workers,key)
+        self.assertEqual(result['review_branch'],'codex/docs-task')
+        self.assertEqual(json.loads((self.state/(auth+'.launch.json')).read_text())['review_branch'],'codex/docs-task')
+
+    def test_named_dev_baseline_is_the_actual_worker_clone_head(self):
+        a=m.local('activity');head=a.git(self.repo,'rev-parse','HEAD').decode().strip()
+        a.git(self.repo,'checkout','-qb','dev');(self.repo/'code.py').write_text('dev baseline\n');a.git(self.repo,'add','code.py')
+        a.git(self.repo,'-c','user.name=Fixture','-c','user.email=f@localhost','commit','-qm','dev')
+        dev=a.git(self.repo,'rev-parse','HEAD').decode().strip();a.git(self.repo,'checkout','--detach',head)
+        def capture():return m.local('approval').capture(self.proposals,self.proposal(),self.policy,self.registry,self.state,self.profile,self.codex,baseline_ref='refs/heads/dev',expected_baseline=dev,review_branch='codex/docs-task')
+        self.capture=capture
+        auth,jobs,workers,key=self.fixture();result,_=self.invoke(auth,jobs,workers,key)
+        registry=json.loads((Path(result['job'])/'registry.json').read_text());clone=Path(registry['repositories'][0]['path'])
+        self.assertEqual(a.git(clone,'rev-parse','HEAD').decode().strip(),dev)
+        self.assertEqual(a.git(self.repo,'rev-parse','HEAD').decode().strip(),head)

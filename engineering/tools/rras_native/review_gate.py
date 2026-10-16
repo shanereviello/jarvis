@@ -13,11 +13,13 @@ def render(record):
     if not re.fullmatch('[0-9a-f]{64}',p['export_id']):raise ValueError('exact export required')
     if not re.fullmatch('codex/[A-Za-z0-9][A-Za-z0-9_-]{0,120}',p['branch']):raise ValueError('review branch required')
     if type(p['native_run']) is not int or p['native_run']<1:raise ValueError('native run identity required')
+    if not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_/-]{0,120}',p['pr_base_branch']):raise ValueError('invalid PR base branch')
     remote=re.fullmatch(r'git@github\.com:([A-Za-z0-9_-]+/[A-Za-z0-9_.-]+)\.git',p['remote'])
     comparison=('https://github.com/'+remote[1]+'/compare/'+p['baseline']+'...'+p['commit']) if remote else 'Local fixture; no GitHub comparison.'
     return '\n'.join([
         '# Task review: '+p['task_id'], '',
         'Branch: `'+p['branch']+'`',
+        'PR base branch: `'+p['pr_base_branch']+'`',
         'Baseline: `'+p['baseline']+'`',
         'Review commit: `'+p['commit']+'`',
         'Native task/run: `'+p['native_task']+'` / `'+str(p['native_run'])+'`',

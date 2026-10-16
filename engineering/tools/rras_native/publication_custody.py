@@ -36,7 +36,8 @@ def load(custody):
         data[name]=content
     objects={name:json.loads(data[name+'.json']) for name in ('review','host-result','evidence','manifest')}
     result=objects['host-result']
-    if receipt['authorization_id']!=result['authorization_id'] or receipt['assigned_branch']!='codex/task-'+result['run_id'] or receipt['export_id']!=objects['evidence']['export']['export_id']:
+    if objects['review'].get('review_branch')!=result.get('review_branch'):raise ValueError('review branch binding changed')
+    if receipt['authorization_id']!=result['authorization_id'] or receipt['assigned_branch']!=result.get('review_branch','codex/task-'+result['run_id']) or receipt['export_id']!=objects['evidence']['export']['export_id']:
         raise ValueError('custody identity mismatch')
     files={name.removeprefix('artifacts/'):content for name,content in data.items() if name.startswith('artifacts/')}
     return dict(assigned_branch=receipt['assigned_branch'],review=objects['review'],host_result=result,

@@ -1,18 +1,52 @@
 {
   "schema_version": 1,
-  "identities": {"hermes": ["robot_ws"]},
+  "identities": {
+    "hermes": [
+      "robot_ws"
+    ]
+  },
   "repositories": {
     "robot_ws": {
       "enabled": true,
       "allowed_paths": [
         "src/pi/roboclaw_driver/roboclaw_driver/roboclaw_node.py",
-        "src/pi/roboclaw_driver/config/roboclaw.yaml"
+        "src/pi/roboclaw_driver/config/roboclaw.yaml",
+        "docs/README.md",
+        "docs/00-system-overview.md",
+        "docs/architecture/README.md",
+        "docs/architecture/mk1-system-context.md",
+        "docs/ros/README.md",
+        "docs/ros/packages/roboclaw-driver.md",
+        "docs/ros/nodes/roboclaw.md",
+        "docs/interfaces/README.md",
+        "docs/hardware/README.md",
+        "docs/hardware/roboclaw.md",
+        "docs/hosts/README.md",
+        "docs/hosts/raspberry-pi.md",
+        "docs/procedures/README.md",
+        "docs/decisions/README.md",
+        "docs/observations/README.md",
+        "docs/assets/README.md",
+        "docs/templates/ros-package.md",
+        "docs/templates/ros-node.md",
+        "docs/templates/hardware-component.md",
+        "docs/templates/host.md",
+        "docs/templates/interface.md",
+        "docs/templates/procedure.md",
+        "docs/templates/architecture-decision-record.md"
       ],
       "validations": {
         "manual-velocity": [
           "/opt/rras-engineering/releases/native-10/venv/bin/python",
-          "-I", "-B",
+          "-I",
+          "-B",
           "/opt/rras-robot-product-review-20261013-01/validate_velocity.py"
+        ],
+        "mk1-phase1-docs": [
+          "/opt/rras-engineering/releases/native-10/venv/bin/python",
+          "-I",
+          "-B",
+          "/opt/rras-engineering/releases/operator-docs-v1/validate_mk1_docs.py"
         ]
       },
       "worker_timeout_seconds": 300,

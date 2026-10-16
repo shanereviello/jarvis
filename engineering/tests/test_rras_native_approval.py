@@ -50,3 +50,22 @@ class ApprovalTests(unittest.TestCase):
     def test_review_tampering_blocks_approval(self):
         result=self.capture();(self.state/(result['review_id']+'.review.json')).write_text('{}')
         with self.assertRaises(ValueError):m.approve(self.state,result['review_id'])
+
+class NamedBaselineTests(unittest.TestCase):
+    setUp=ApprovalTests.setUp
+    proposal=ApprovalTests.proposal
+    def selected(self,**overrides):
+        return m.capture(self.proposals,self.proposal(),self.policy,self.registry,self.state,self.profile,self.codex,**overrides)
+    def test_dev_can_differ_from_checked_out_head_without_checkout(self):
+        head=a.git(self.repo,'rev-parse','HEAD').decode().strip()
+        subprocess.run(['git','-C',str(self.repo),'checkout','-qb','dev'],check=True)
+        (self.repo/'code.py').write_text('dev value\n');a.git(self.repo,'add','code.py')
+        a.git(self.repo,'-c','user.name=Fixture','-c','user.email=f@localhost','commit','-qm','dev baseline')
+        dev=a.git(self.repo,'rev-parse','HEAD').decode().strip()
+        a.git(self.repo,'checkout','--detach',head)
+        result=self.selected(baseline_ref='refs/heads/dev',expected_baseline=dev,review_branch='codex/docs-task')['review']
+        self.assertEqual(result['baseline_commit'],dev);self.assertEqual(result['review_branch'],'codex/docs-task')
+        self.assertEqual(a.git(self.repo,'rev-parse','HEAD').decode().strip(),head)
+    def test_moving_ref_or_incomplete_pair_refused(self):
+        for options in ({'baseline_ref':'refs/heads/dev'},{'expected_baseline':'a'*40},{'baseline_ref':'HEAD','expected_baseline':'a'*40},{'baseline_ref':'refs/heads/master','expected_baseline':'a'*40},{'review_branch':'master'}):
+            with self.assertRaises(ValueError):self.selected(**options)

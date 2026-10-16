@@ -45,7 +45,7 @@ def export(prepared_path,policy_path,destination,operator='shanereviello'):
     # No private custody paths, requests, logs or credentials in this manifest.
     keys=('repository_id','remote','branch','refspec','commit','baseline','export_id','action','force',
           'human_publication_confirmation_required','merge_authorized','deploy_authorized',
-          'task_id','native_task','native_run','validation_exit','worker_stop_verified','host_stop_verified')
+          'pr_base_branch','task_id','native_task','native_run','validation_exit','worker_stop_verified','host_stop_verified')
     record={'schema_version':1,'operator_uid':uid,'prepared':{k:prepared[k] for k in keys},
             'policy':policy,'bundle_sha256':a.digest(data),'bundle_size':len(data)}
     a.absent(destination/'handoff.json',a.encoded(record))
