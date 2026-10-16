@@ -9,6 +9,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 
 
 def local(name):
@@ -45,7 +46,10 @@ def prepare(canonical, destination, policy, assigned_branch, review, host_result
     def git(*args,input=None):
         return subprocess.run(['/usr/bin/git','-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false',*args],
             env=env,input=input,capture_output=True,check=True,timeout=60).stdout
-    git('clone','--quiet','--no-hardlinks','--no-checkout',str(canonical),str(destination))
+    with tempfile.TemporaryDirectory(prefix='.publication-source-',dir=destination.parent) as temporary:
+        bundle=Path(temporary)/'source.bundle'
+        git('-c','safe.directory='+str(Path(canonical).resolve()),'-C',str(canonical),'bundle','create',str(bundle),'--all')
+        git('clone','--quiet','--no-hardlinks','--no-checkout',str(bundle),str(destination))
     def run(*args,input=None):return git('-C',str(destination),*args,input=input)
     run('remote','remove','origin');run('checkout','--quiet','--detach',baseline)
     run('checkout','--quiet','-b',assigned_branch)

@@ -64,8 +64,8 @@ def absent(path, data):
 def git(repo, *args):
     env = {"PATH": os.defpath, "HOME": "/nonexistent", "LANG": "C.UTF-8",
            "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
-           "GIT_TERMINAL_PROMPT": "0"}
-    result = subprocess.run(["git", "-c", "core.fsmonitor=false", "-c",
+           "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0"}
+    result = subprocess.run(["git", "-c", "safe.directory=" + str(Path(repo).resolve()), "-c", "core.fsmonitor=false", "-c",
                              "core.hooksPath=/dev/null", "-C", str(repo), *args],
                             env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
     if result.returncode:
