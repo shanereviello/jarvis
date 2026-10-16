@@ -15,7 +15,7 @@ def server(policy, state):
     spec.loader.exec_module(adapter)
     instructions = (
         'Prepare coding task proposals only. A proposal is not an execution approval. '
-        'Human approval is separately required to launch work and publish a GitHub branch. '
+        'Human execution approval is required. Dedicated-branch publication follows standing policy; merge and deployment require human approval. '
         'Use configured repository and validation IDs. No merge or deployment tools exist here.')
     from importlib.metadata import version
     major = int(version('mcp').split('.')[0])

@@ -8,7 +8,7 @@ def register(server, *, policy, state, authenticated_identity):
     """Caller supplies identity from trusted transport context, never tool arguments.
 
     No server is started here. Do not attach this to an unauthenticated endpoint.
-    This tool prepares a receipt; launch and publication are operator actions.
+    This tool prepares a receipt; launch needs operator approval; publication follows a separate standing policy.
     """
     spec = importlib.util.spec_from_file_location('intake', Path(__file__).with_name('intake.py'))
     intake = importlib.util.module_from_spec(spec)

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "review_branch_publication": "standing-authorized",
+  "repositories": {
+    "jarvis": {"remote": "git@github.com:shanereviello/jarvis.git", "default_branch": "main"},
+    "robot_ws": {"remote": "git@github.com:shanereviello/robot_ws.git", "default_branch": "master"}
+  },
+  "branch_prefix": "codex/",
+  "human_required_actions": ["merge", "deploy"]
+}

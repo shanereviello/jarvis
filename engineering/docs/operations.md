@@ -2,7 +2,7 @@
 
 Source CLI help is safe; do not invoke paid execution during installation or testing.
 
-- `stdio_intake.py --policy <reviewed-policy> --state <private-state>`: stdio proposals only, fixed Hermes identity, no execution/publication credential.
+- `stdio_intake.py --policy <reviewed-policy> --state <private-state>`: stdio proposals only, fixed Hermes identity, no execution/publication credential. Dedicated-branch publication is separately standing-authorized by publication-policy.json; no publisher tool is exposed here.
 - `intake.py --policy ... --proposal ... --state ... --operator-identity ...`: operator preparation CLI; identity flag is not network authentication.
 - `manual_runner.py`: separately authorized paid task, UID996, systemd-delivered credential, reviewed registry/request/profile/config, fresh empty task state. No automatic commits or GitHub actions.
 - `acceptance.py --case ...`: the single model-free acceptance interface. Supported cases: manual, session-policy, live-session (no turn), git-boundary, credentials (fixed harmless sentinel), waiter. Each is a disposable fixture, not a production task. Required flags are shown by `--help`; missing inputs fail closed. Host-boundary cases require a separately reviewed dedicated unit; CLI does not install or elevate itself.

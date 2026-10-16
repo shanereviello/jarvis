@@ -1,0 +1,11 @@
+# Standing agent publication authorization
+
+Operator decision2026-10-15: coding agents may push admitted coding changes to their own dedicated review branches and open/update draft PRs without requesting confirmation for each push. Human approval remains required for merge and deployment. Paid task execution approval remains separate.
+
+`config/publication-policy.json` admits jarvis and robot_ws remotes. `publication_policy.py` plans only push/draft-PR actions for the exact task-assigned codex/ branch, after verified worker/host stop, successful validation/task outcome and admitted scope. Default branches, other tasks' branches, refspec/tag injection, force-push, branch deletion, merge and deployment are refused. Publication must occur through a trusted adapter; model arguments are not trusted evidence or branch assignment.
+
+Proposal/execution receipts retain publication_authorized=false because those records do not grant remote authority. The separate operator-controlled standing policy supplies that authority to a publication adapter after its evidence checks. Do not change false to true in a Hermes-writable proposal. Failed tasks can retain local evidence without automatic publication.
+
+Current state: publication policy/planner is source-tested, not an installed automatic publisher. The existing runner still leaves changes uncommitted. A trusted post-validation publisher must prepare/verify the review commit and use the planned exact refspec and admitted remote. GitHub credentials remain outside the coding worker; do not give a model a general SSH key/token or broaden coding-sandbox networking. Standard Git push must remain non-forced so an unexpected remote branch history fails safely.
+
+No GitHub branch-protection rules, automation identity or credential permissions were changed by this source policy. A siloed branch alone does not restrict the powers of a general GitHub credential. For this internal workflow the trusted publisher's narrow interface is the intended boundary; repository protection/separate automation identity are upgrade points if stronger server-side enforcement is needed. The human operator can explicitly authorize a merge through a separate action. RRAS policy cannot override external tool/platform automatic approval review.
