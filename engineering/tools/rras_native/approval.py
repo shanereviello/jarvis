@@ -22,7 +22,7 @@ def exact_digest(value):
     return value
 
 
-def capture(proposals,submission_id,policy,registry,state,profile,codex_config):
+def capture(proposals,submission_id,policy,registry,state,profile,codex_config,*,baseline_ref=None,expected_baseline=None,review_branch=None):
     a=local('activity');contract=local('task_contract');submission_id=exact_digest(submission_id)
     receipt=a.load(Path(proposals)/(submission_id+'.json'))
     if a.digest(a.encoded(receipt))!=submission_id:raise ValueError('proposal digest mismatch')
@@ -41,14 +41,22 @@ def capture(proposals,submission_id,policy,registry,state,profile,codex_config):
         if request[field]!=row[field]:raise ValueError('execution limits changed')
     registered=a.registration(registry,repo_id);repo=Path(registered['path'])
     if a.git(repo,'status','--porcelain','--untracked-files=all').strip():raise ValueError('clean canonical baseline required')
+    if (baseline_ref is None)!=(expected_baseline is None):raise ValueError('named baseline and exact commit required together')
+    ref=baseline_ref or 'HEAD'
+    if baseline_ref and not re.fullmatch(r'refs/(heads|remotes/origin)/[A-Za-z0-9][A-Za-z0-9_/-]{0,120}',ref):raise ValueError('explicit branch ref required')
+    if expected_baseline and not re.fullmatch('[0-9a-f]{40}',expected_baseline):raise ValueError('exact baseline commit required')
+    baseline=a.git(repo,'rev-parse','--verify','--end-of-options',ref+'^{commit}').decode().strip()
+    if expected_baseline and baseline!=expected_baseline:raise ValueError('baseline ref moved; review again')
+    if review_branch and not re.fullmatch(r'codex/[A-Za-z0-9][A-Za-z0-9_-]{0,120}',review_branch):raise ValueError('dedicated review branch required')
     review={'schema_version':1,'submission_id':submission_id,'policy_sha256':receipt['policy_sha256'],
             'request':request,'canonical_repository':str(repo),
-            'baseline_commit':a.git(repo,'rev-parse','HEAD').decode().strip(),
+            'baseline_commit':baseline,'baseline_ref':ref,
             'hermes_project':registered['hermes_project'],
             'profile':str(Path(profile).resolve(strict=True)), 'profile_sha256':a.digest(Path(profile).read_bytes()),
             'codex_config':str(Path(codex_config).resolve(strict=True)), 'codex_config_sha256':a.digest(Path(codex_config).read_bytes()),
             'runner_files':{n:a.digest(Path(__file__).with_name(n).read_bytes()) for n in ('manual_runner.py','task_contract.py','activity.py','credentials.py','wait_worker.py','native_task_cli.py')},
             'execution_authorized':False,'publication_authorized':False}
+    if review_branch:review['review_branch']=review_branch
     review_id=a.digest(a.encoded(review));base=a.private_dir(state)
     a.absent(base/(review_id+'.review.json'),a.encoded(review))
     return {'review_id':review_id,'review':review}
@@ -92,6 +100,7 @@ if __name__=='__main__':
     parser.add_argument('--proposals',type=Path);parser.add_argument('--submission-id')
     parser.add_argument('--policy',type=Path);parser.add_argument('--registry',type=Path)
     parser.add_argument('--profile',type=Path);parser.add_argument('--codex-config',type=Path)
+    parser.add_argument('--baseline-ref');parser.add_argument('--expected-baseline');parser.add_argument('--review-branch')
     parser.add_argument('--review-id');parser.add_argument('--approve-one-execution',action='store_true')
     args=parser.parse_args()
     if os.geteuid()!=0:parser.error('operator administrator invocation required')
@@ -101,7 +110,7 @@ if __name__=='__main__':
         if parent.is_symlink() or info.st_uid!=0 or info.st_mode&0o022:parser.error('root-protected approval ancestors required')
     if args.action=='capture':
         if not all((args.proposals,args.submission_id,args.policy,args.registry,args.profile,args.codex_config)):parser.error('proposal, policy and registry required')
-        result=capture(args.proposals,args.submission_id,args.policy,args.registry,args.state,args.profile,args.codex_config)
+        result=capture(args.proposals,args.submission_id,args.policy,args.registry,args.state,args.profile,args.codex_config,baseline_ref=args.baseline_ref,expected_baseline=args.expected_baseline,review_branch=args.review_branch)
     else:
         info=args.state.stat()
         if args.state.is_symlink() or not args.state.is_dir() or info.st_uid!=0 or info.st_mode&0o077:parser.error('root-private approval state required')

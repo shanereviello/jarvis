@@ -77,3 +77,9 @@ def test_existing_publication_directory_preserved(fixture):
     fixture['destination'].mkdir();(fixture['destination']/'retained').write_text('keep')
     with pytest.raises(ValueError):m.prepare(**fixture)
     assert (fixture['destination']/'retained').read_text()=='keep'
+
+def test_selected_dev_baseline_preserves_pr_target(fixture):
+    fixture['review']['baseline_ref']='refs/remotes/origin/dev'
+    fixture['host_result']['review_id']=a.digest(a.encoded(fixture['review']))
+    result=m.prepare(**fixture)
+    assert result['pr_base_branch']=='dev'

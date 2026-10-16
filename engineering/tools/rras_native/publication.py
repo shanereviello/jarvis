@@ -69,7 +69,9 @@ def prepare(canonical, destination, policy, assigned_branch, review, host_result
         if line and line.split(b' ',1)[0] not in (b'100644',b'100755'):raise ValueError('non-regular tracked entry refused')
     run('-c','user.name=RRAS reviewed worker','-c','user.email=rras-worker@localhost','commit','--quiet','-m',request['task_id']+': reviewed task changes')
     if run('status','--porcelain'):raise ValueError('publication checkout not clean')
-    return dict(plan,commit=run('rev-parse','HEAD').decode().strip(),baseline=baseline,
+    ref=review.get('baseline_ref','HEAD')
+    pr_base=ref.removeprefix('refs/heads/').removeprefix('refs/remotes/origin/') if ref!='HEAD' else policy['repositories'][request['repository_id']]['default_branch']
+    return dict(plan,pr_base_branch=pr_base,commit=run('rev-parse','HEAD').decode().strip(),baseline=baseline,
                 export_id=evidence['export']['export_id'],checkout=str(destination),
                 task_id=request['task_id'],native_task=evidence['native_task'],native_run=evidence['native_run'],
                 validation_exit=evidence['validation_exit'],worker_stop_verified=True,host_stop_verified=True)

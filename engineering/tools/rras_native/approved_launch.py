@@ -107,6 +107,7 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
         a.absent(job/name,a.encoded(data));os.chown(job/name,0,996);(job/name).chmod(0o440)
     link={'authorization_id':authorization_id,'review_id':record['review_id'],'submission_id':review['submission_id'],
           'run_id':run_id,'unit':UNIT,'work':str(work),'job':str(job),'publication_authorized':False}
+    if review.get('review_branch'):link['review_branch']=review['review_branch']
     a.absent(state/(authorization_id+'.launch.json'),a.encoded(link))
     # systemd enforces fixed-name exclusivity even if concurrent operators both passed slot().
     result=command(argv(work,job,review,credential),timeout=430)

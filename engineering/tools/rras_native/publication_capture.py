@@ -52,6 +52,7 @@ def capture(state,authorization_id,destination):
     if not re.fullmatch('[0-9a-f]{32}',link['run_id']):raise ValueError('exact run identity required')
     review=approval.read_review(state,link['review_id'])
     if review['submission_id']!=link['submission_id']:raise ValueError('submission mismatch')
+    if link.get('review_branch')!=review.get('review_branch'):raise ValueError('assigned review branch mismatch')
     launch.slot()  # Require current unit absence and no UID996 processes, not just an old receipt.
     work=Path(link['work'])
     evidence_bytes=worker_bytes(work/'evidence.json',1024*1024)
@@ -77,7 +78,7 @@ def capture(state,authorization_id,destination):
     artifacts=destination/'artifacts';artifacts.mkdir(mode=0o700)
     for name,data in files.items():a.absent(artifacts/name,data)
     receipt={'schema_version':1,'authorization_id':authorization_id,'export_id':export_id,
-             'assigned_branch':'codex/task-'+link['run_id'],'worker_state_mutated':False,
+             'assigned_branch':link.get('review_branch','codex/task-'+link['run_id']),'worker_state_mutated':False,
              'files':{str(p.relative_to(destination)):a.digest(p.read_bytes()) for p in destination.rglob('*') if p.is_file()}}
     a.absent(destination/'capture.json',a.encoded(receipt))
     return receipt
