@@ -11,6 +11,7 @@ from pathlib import Path
 import pwd
 import stat
 import subprocess
+import tempfile
 import uuid
 
 UNIT='rras-coding-task.service'
@@ -96,7 +97,14 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
     repo=root/'repo';work=root/'work';work.mkdir(mode=0o700);os.chown(work,996,996)
     env={'PATH':'/usr/bin:/bin','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_TERMINAL_PROMPT':'0'}
     def git(*args):subprocess.run(['/usr/bin/git',*args],env=env,stdin=subprocess.DEVNULL,capture_output=True,check=True,timeout=60)
-    git('-c','core.hooksPath=/dev/null','clone','--quiet','--no-hardlinks',review['canonical_repository'],str(repo))
+    # Git's local-clone ownership check rejects the operator-owned source under
+    # root even when the outer command trusts it. Bridge via a private bundle;
+    # no wildcard/global trust, source ownership change or network transport.
+    with tempfile.TemporaryDirectory(prefix='.source-',dir=job) as temporary:
+        bundle=Path(temporary)/'source.bundle'
+        git('-c','core.hooksPath=/dev/null','-c','safe.directory='+review['canonical_repository'],
+            '-C',review['canonical_repository'],'bundle','create',str(bundle),'--all')
+        git('-c','core.hooksPath=/dev/null','clone','--quiet','--no-hardlinks',str(bundle),str(repo))
     git('-C',str(repo),'remote','remove','origin')
     git('-C',str(repo),'-c','core.hooksPath=/dev/null','checkout','--detach',review['baseline_commit'])
     if a.git(repo,'rev-parse','HEAD').decode().strip()!=review['baseline_commit']:raise ValueError('baseline mismatch')

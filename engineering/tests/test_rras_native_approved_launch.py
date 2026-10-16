@@ -98,3 +98,15 @@ class AssignedBranchLaunchTests(unittest.TestCase):
         registry=json.loads((Path(result['job'])/'registry.json').read_text());clone=Path(registry['repositories'][0]['path'])
         self.assertEqual(a.git(clone,'rev-parse','HEAD').decode().strip(),dev)
         self.assertEqual(a.git(self.repo,'rev-parse','HEAD').decode().strip(),head)
+
+class BundleSourceCleanupTests(unittest.TestCase):
+    setUp=fixtures.ApprovalTests.setUp
+    proposal=fixtures.ApprovalTests.proposal
+    capture=fixtures.ApprovalTests.capture
+    fixture=LaunchIntegrationTests.fixture
+    invoke=LaunchIntegrationTests.invoke
+    def test_private_source_bundle_removed_and_source_unchanged(self):
+        baseline=m.local('activity').git(self.repo,'rev-parse','HEAD')
+        auth,jobs,workers,key=self.fixture();result,_=self.invoke(auth,jobs,workers,key)
+        self.assertFalse(list(Path(result['job']).glob('.source-*')))
+        self.assertEqual(m.local('activity').git(self.repo,'rev-parse','HEAD'),baseline)
