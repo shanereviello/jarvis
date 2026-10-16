@@ -36,3 +36,9 @@ def test_capture_copies_exact_bytes_and_refuses_changed_artifact(tmp_path):
         with pytest.raises(ValueError):m.capture(state,auth,tmp_path/'bad')
         assert not (tmp_path/'bad').exists()
         with pytest.raises(ValueError):m.capture(state,auth,out)
+
+def test_probe_refuses_nonadministrator_before_any_host_action():
+    probe=m.local('probe_publication_capture')
+    with patch.object(probe.os,'geteuid',return_value=1000),patch.object(probe,'local') as imported:
+        with pytest.raises(ValueError):probe.probe()
+        imported.assert_not_called()

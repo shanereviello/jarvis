@@ -15,7 +15,7 @@ def local(name):
 
 def worker_bytes(path,limit):
     path=Path(path)
-    if not path.is_absolute():raise ValueError('absolute worker evidence required')
+    if not path.is_absolute() or path.is_symlink():raise ValueError('absolute non-symlink worker evidence required')
     # After global UID stop, ancestors must exclude every other untrusted writer.
     for parent in path.parents:
         st=parent.lstat()
@@ -48,6 +48,8 @@ def capture(state,authorization_id,destination):
     link=a.load(launch.trusted(state/(authorization_id+'.launch.json')))
     if result!={**link,'service_exit':0,'host_stop_verified':True} or link['authorization_id']!=authorization_id:
         raise ValueError('successful stopped launch result required')
+    launch.trusted(state/(link['review_id']+'.review.json'))
+    if not re.fullmatch('[0-9a-f]{32}',link['run_id']):raise ValueError('exact run identity required')
     review=approval.read_review(state,link['review_id'])
     if review['submission_id']!=link['submission_id']:raise ValueError('submission mismatch')
     launch.slot()  # Require current unit absence and no UID996 processes, not just an old receipt.
