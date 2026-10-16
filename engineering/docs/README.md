@@ -1,6 +1,7 @@
 # Engineering documentation
 
 - [Architecture](architecture.md): ownership, current boundaries and unfinished work.
+- [Publication policy](publication-policy.md): standing dedicated-branch pushes, human merge/deploy.
 - [Operations](operations.md): supported entrypoints, runtime pins and review gates.
 - [Cleanup](cleanup.md): source removed and dependencies deliberately retained.
 - [Hermes intake review](rras-native-hermes-intake-review.md): source/actual-container transport acceptance and deployment gate.
