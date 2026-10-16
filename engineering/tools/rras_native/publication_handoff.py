@@ -44,7 +44,8 @@ def export(prepared_path,policy_path,destination,operator='shanereviello'):
     data=bundle.read_bytes()
     # No private custody paths, requests, logs or credentials in this manifest.
     keys=('repository_id','remote','branch','refspec','commit','baseline','export_id','action','force',
-          'human_publication_confirmation_required','merge_authorized','deploy_authorized')
+          'human_publication_confirmation_required','merge_authorized','deploy_authorized',
+          'task_id','native_task','native_run','validation_exit','worker_stop_verified','host_stop_verified')
     record={'schema_version':1,'operator_uid':uid,'prepared':{k:prepared[k] for k in keys},
             'policy':policy,'bundle_sha256':a.digest(data),'bundle_size':len(data)}
     a.absent(destination/'handoff.json',a.encoded(record))
@@ -84,10 +85,13 @@ def publish(package,workspace):
     return local('publication_transport').publish(prepared,record['policy'],workspace/'publication-receipt.json')
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--action',choices=('export','import','publish'),required=True)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--action',choices=('export','import','publish','review'),required=True)
     for name in ('prepared','policy','package','workspace'):p.add_argument('--'+name)
     args=p.parse_args()
     if args.action=='export':answer=export(args.prepared,args.policy,args.package)
     elif args.action=='import':answer=import_review(args.package,args.workspace)
+    elif args.action=='review':
+        record,_=read(args.package)
+        print(local('review_gate').render(record));raise SystemExit(0)
     else:answer=publish(args.package,args.workspace)
     print(json.dumps(answer));raise SystemExit(0 if answer.get('status','published')=='published' else 1)

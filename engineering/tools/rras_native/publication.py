@@ -70,7 +70,9 @@ def prepare(canonical, destination, policy, assigned_branch, review, host_result
     run('-c','user.name=RRAS reviewed worker','-c','user.email=rras-worker@localhost','commit','--quiet','-m',request['task_id']+': reviewed task changes')
     if run('status','--porcelain'):raise ValueError('publication checkout not clean')
     return dict(plan,commit=run('rev-parse','HEAD').decode().strip(),baseline=baseline,
-                export_id=evidence['export']['export_id'],checkout=str(destination))
+                export_id=evidence['export']['export_id'],checkout=str(destination),
+                task_id=request['task_id'],native_task=evidence['native_task'],native_run=evidence['native_run'],
+                validation_exit=evidence['validation_exit'],worker_stop_verified=True,host_stop_verified=True)
 
 
 def push_argv(prepared):
