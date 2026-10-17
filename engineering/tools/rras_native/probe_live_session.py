@@ -1,6 +1,7 @@
 """Model-free native session initialization; no turn/start or credentials."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -9,7 +10,7 @@ import sys
 SESSION_SHA = '6788277acd880a900faaedfdf948caca5bcad7f33e8fa2db3815cd47b7d7c651'
 
 
-def probe(source, binary, config, work, uid, expected_instructions=None):
+def probe(source, binary, config, work, uid, expected_instructions=None, exercise_project_trust=False):
     source, binary, config = (Path(p).resolve(strict=True) for p in (source, binary, config))
     work = Path(work).resolve(strict=True)
     if os.getuid() != uid or work.stat().st_uid != uid or work.stat().st_mode & 0o077:
@@ -54,6 +55,17 @@ def probe(source, binary, config, work, uid, expected_instructions=None):
         }
         if expected_instructions is not None:
             checks['full_native_developer_instructions']=c.get('developer_instructions')==expected_instructions
+        if exercise_project_trust:
+            expected_bytes=(home/'config.toml').read_bytes()
+            session._client.request('config/value/write',{'keyPath':'projects','value':{str(workspace):{'trust_level':'trusted'}},'mergeStrategy':'upsert'},timeout=15)
+            spec=importlib.util.spec_from_file_location('reviewed_manual',Path(__file__).with_name('manual_runner.py'))
+            manual=importlib.util.module_from_spec(spec);spec.loader.exec_module(manual)
+            verified=manual.verify_instructions(home/'config.toml',expected_bytes,workspace)
+            result['configuration_integrity']=verified
+            checks['native_project_trust_persistence']=verified['mode']=='assigned-project-trust'
+            # Re-read effective policy after the native settings writer.
+            updated=session._client.request('config/read',{'includeLayers':False},timeout=15)['config']
+            checks['policy_unchanged_after_project_trust']=all(updated.get(k)==c.get(k) for k in ('sandbox_mode','approval_policy','sandbox_workspace_write','developer_instructions','features','model_provider','model_providers','mcp_servers','apps'))
         result['cases'] = [{'name':n,'passed':v} for n,v in checks.items()]
         result['success'] = all(checks.values())
     except Exception as e:

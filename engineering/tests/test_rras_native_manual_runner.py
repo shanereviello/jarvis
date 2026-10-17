@@ -79,3 +79,46 @@ class ManualRunnerTests(unittest.TestCase):
    result=m.run(None,None,None,None,None,None,work)
   self.assertEqual(result['error_code'],'preflight_failed')
   self.assertFalse(result['worker_started']);self.assertNotIn('sensitive',json.dumps(result))
+
+ def test_native_project_trust_for_exact_workspace_is_accepted(self):
+  config=self.root/'config.toml';config.write_text('approval_policy="on-request"\n')
+  expected=config.read_bytes()
+  for level in ('trusted','untrusted'):
+   config.write_bytes(expected+('\n[projects.'+json.dumps(str(self.repo))+']\ntrust_level='+json.dumps(level)+'\n').encode())
+   result=m.verify_instructions(config,expected,self.repo)
+   self.assertEqual(result['mode'],'assigned-project-trust');self.assertEqual(result['project_records_added'],1)
+ def test_formatting_only_change_is_accepted(self):
+  config=self.root/'config.toml';config.write_text('approval_policy = "on-request"\n')
+  result=m.verify_instructions(config,b'approval_policy="on-request"\n')
+  self.assertEqual(result['mode'],'semantic-identical')
+ def test_invalid_project_trust_and_changed_policy_are_refused(self):
+  expected=b'approval_policy="on-request"\n[sandbox_workspace_write]\nnetwork_access=false\n'
+  cases=[{str(self.root):{'trust_level':'trusted'}},{str(self.repo):{'trust_level':'invalid'}},
+         {str(self.repo):{'trust_level':'trusted','extra':True}},
+         {str(self.repo):{'trust_level':'trusted'},str(self.root):{'trust_level':'trusted'}}]
+  config=self.root/'config.toml'
+  for projects in cases:
+   text=expected
+   for name,row in projects.items():
+    text+=('\n[projects.'+json.dumps(name)+']\n'+''.join(k+'='+json.dumps(v)+'\n' for k,v in row.items())).encode()
+   config.write_bytes(text)
+   with self.assertRaises(m.HandoffError):m.verify_instructions(config,expected,self.repo)
+  for changed in (expected.replace(b'false',b'0'),expected.replace(b'on-request',b'never'),expected+b'\n[mcp_servers.fixture]\ncommand="/usr/bin/true"\n',expected+b'\n[notice]\nfixture=true\n'):
+   config.write_bytes(changed)
+   with self.assertRaises(m.HandoffError):m.verify_instructions(config,expected,self.repo)
+ def test_existing_trust_cannot_be_changed_and_project_layers_require_review(self):
+  config=self.root/'config.toml';expected=('approval_policy="on-request"\n[projects.'+json.dumps(str(self.repo))+']\ntrust_level="untrusted"\n').encode()
+  config.write_bytes(expected.replace(b'untrusted',b'trusted'))
+  with self.assertRaises(m.HandoffError):m.verify_instructions(config,expected,self.repo)
+  plain=b'approval_policy="on-request"\n';config.write_bytes(expected)
+  (self.repo/'.codex').mkdir()
+  with self.assertRaises(m.HandoffError) as caught:m.verify_instructions(config,plain,self.repo)
+  self.assertEqual(caught.exception.code,'project_scoped_configuration_requires_review')
+
+ def test_exact_disposable_repository_and_worktree_records_only(self):
+  workspace=self.repo/'.worktrees/task';workspace.mkdir(parents=True)
+  expected=b'approval_policy="on-request"\n';config=self.root/'config.toml'
+  config.write_bytes(expected+b''.join(('\n[projects.'+json.dumps(str(p))+']\ntrust_level="trusted"\n').encode() for p in (self.repo,workspace)))
+  result=m.verify_instructions(config,expected,workspace,self.repo)
+  self.assertEqual(result['project_roles'],['repository','workspace'])
+  self.assertEqual(result['project_records_added'],2)
