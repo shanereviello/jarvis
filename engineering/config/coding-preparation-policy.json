@@ -47,6 +47,12 @@
           "-I",
           "-B",
           "/opt/rras-engineering/releases/operator-docs-v1/validate_mk1_docs.py"
+        ],
+        "mk1-template-navigation": [
+          "/opt/rras-engineering/releases/native-10/venv/bin/python",
+          "-I",
+          "-B",
+          "/opt/rras-engineering/releases/operator-navigation-v1/validate_template_navigation.py"
         ]
       },
       "worker_timeout_seconds": 300,
