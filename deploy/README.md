@@ -24,10 +24,20 @@ digests, resolved dependency artifacts and final image IDs must be recorded at
 build acceptance. The ledger dependency range remains unpinned and must be
 resolved in that slice before claiming a reproducible image.
 
-The tracked Compose files remain deployment source, not ready-to-activate release
-definitions. MCP's `.env` reference, Linear's legacy secret bind, Hermes's legacy
-mounts and ledger's old state paths still require the reviewed migration changes.
-No candidate should be activated directly from this export.
+The original tracked Compose files remain deployment source. The separate
+`mcp/compose.release.yml` requires independently selected exact MCP and Linear
+images, forbids pulls/builds, preserves existing identities/networks/data mounts,
+and references protected `/etc/jarvis/mcp/runtime.env` and
+`/etc/jarvis/linear/n8n_bridge_secret`. Missing bind sources cannot be silently
+created. Protected config staging, actual image acceptance and rollback are still
+required before activation. Hermes's legacy mounts and ledger's old state paths
+remain unchanged.
+
+The MCP Dockerfile pins the existing Python3.11.17 patch release by registry
+digest. `mcp/requirements.lock` preserves all32 deployed Linear runtime dependency
+versions and permits only the accepted Linux x86_64/CPython3.11 wheel hashes.
+No model/runtime feature upgrade is included. Other architectures require their
+own reviewed artifact hashes. The ledger's runtime pinning remains a later slice.
 
 The MCP Dockerfile no longer copies `scripts/`: the maintained source removed
 those dated debug helpers, and the application does not import them. This fixes a
