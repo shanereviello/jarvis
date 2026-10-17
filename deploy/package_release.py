@@ -12,7 +12,8 @@ import subprocess
 
 SELECTIONS = {
     "mcp": ("app/", "tests/", "Dockerfile", "requirements.txt",
-            "requirements-dev.txt", "pytest.ini", ".dockerignore", "deploy/mcp/"),
+            "requirements-dev.txt", "pytest.ini", ".dockerignore", "deploy/mcp/",
+            "deploy/package_release.py", "deploy/README.md"),
     "hermes": ("deploy/hermes/", "deploy/rras-coding-preparation/"),
     "activity-ledger": ("activity-ledger/",),
 }
