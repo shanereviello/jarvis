@@ -13,7 +13,7 @@ def run(source,python,profile,codex_config,parent,dedicated=False):
     root=Path(tempfile.mkdtemp(prefix='rras-manual-runner-',dir=parent));root.chmod(0o700)
     s=importlib.util.spec_from_file_location('manual',Path(__file__).with_name('manual_runner.py'));m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
     cases=[]
-    for case in ('success','validation_failure','unexpected_changes','crash','timeout','validation_timeout','delete_absent_controls','alter_repository_instructions','alter_session_config'):
+    for case in ('success','validation_failure','unexpected_changes','crash','timeout','validation_timeout','delete_absent_controls','alter_repository_instructions','alter_session_config','persist_project_trust'):
         base=root/case;base.mkdir(mode=0o700);repo=base/'repo';repo.mkdir();work=base/'work';work.mkdir(mode=0o700)
         def git(*args):subprocess.run(['git','-C',str(repo),*args],check=True,capture_output=True)
         git('init','-q');(repo/'maths.py').write_text('def total(a,b):\n return a-b\n')
@@ -28,7 +28,7 @@ def run(source,python,profile,codex_config,parent,dedicated=False):
             spec['validation_argv']=[str(python),'-I','-B','-c','import time; time.sleep(5)'];spec['validation_timeout_seconds']=1
         request=base/'request.json';request.write_text(json.dumps(spec))
         child=base/'fake.py'
-        code='import subprocess,time\nfrom pathlib import Path\n'
+        code='import subprocess,time,json\nfrom pathlib import Path\n'
         if case=='timeout':code+='time.sleep(30)\n'
         elif case=='crash':code+='raise SystemExit(7)\n'
         else:
@@ -37,6 +37,9 @@ def run(source,python,profile,codex_config,parent,dedicated=False):
             if case=='delete_absent_controls':code+='Path("AGENTS.md").unlink(missing_ok=True);Path("RRAS_TASK.md").unlink(missing_ok=True)\n'
             if case=='alter_repository_instructions':code+='Path("AGENTS.md").unlink()\n'
             if case=='alter_session_config':code+='Path('+repr(str(work/'home/codex/config.toml'))+').write_text("altered")\n'
+            if case=='persist_project_trust':
+                code+='config=Path('+repr(str(work/'home/codex/config.toml'))+')\n'
+                code+='config.write_text(config.read_text()+"\\n[projects."+json.dumps(str(Path.cwd()))+"]\\ntrust_level=\\"trusted\\"\\n")\n'
             if case=='unexpected_changes':code+='Path("unexpected.txt").write_text("refuse this change\\n")\n'
             code+='subprocess.run('+repr([str(python),'-I','-B',str(Path(__file__).with_name('native_task_cli.py').resolve()),'--context',str(work/'native-task-context.json'),'complete','--result','fixture completed'])+',check=True)\n'
         child.write_text(code);children=[];births={}
@@ -51,8 +54,9 @@ def run(source,python,profile,codex_config,parent,dedicated=False):
             os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME=str(work),LANG='C.UTF-8')
             result=m.run(source,python,profile,codex_config,registry,request,work,dedicated=dedicated,spawn_delegate=spawn)
         finally:os.environ.clear();os.environ.update(original)
-        if case in ('success','delete_absent_controls'):
+        if case in ('success','delete_absent_controls','persist_project_trust'):
             passed=result['success'] and result['wait']['worker_stop_verified'] and result['validation_exit']==0 and result['new_files']['count']==1
+            if case=='persist_project_trust':passed=passed and result['instruction_integrity']['mode']=='assigned-project-trust'
             capture=json.loads(Path(result['new_files']['path']).read_text());passed=passed and 'notes.txt' in capture
         elif case=='alter_repository_instructions':passed=not result['success'] and result['error_code']=='outside_admitted_paths' and 'export' not in result
         elif case=='alter_session_config':passed=not result['success'] and result['error_code']=='session_configuration_changed' and 'export' not in result

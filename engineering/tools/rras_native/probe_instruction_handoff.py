@@ -24,7 +24,7 @@ def run(source,python,binary,profile,config,parent,dedicated=False):
     expected=tomllib.loads(candidate.read_text())['developer_instructions']
     env=dict(os.environ);cwd=Path.cwd()
     try:
-        session=local('probe_live_session').probe(source,binary,candidate,work,os.getuid(),expected)
+        session=local('probe_live_session').probe(source,binary,candidate,work,os.getuid(),expected,exercise_project_trust=True)
     finally:
         os.environ.clear();os.environ.update(env);os.chdir(cwd)
     # No inference is implemented by the session probe: initialize/thread/start/config/read only.

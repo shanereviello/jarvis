@@ -73,10 +73,48 @@ def configure_instructions(root, r, python, config):
     return content
 
 
-def verify_instructions(config, expected):
+def _typed_equal(left, right):
+    # Python considers False == 0; TOML policy comparison must not.
+    if type(left) is not type(right):return False
+    if isinstance(left,dict):return left.keys()==right.keys() and all(_typed_equal(left[k],right[k]) for k in left)
+    if isinstance(left,list):return len(left)==len(right) and all(_typed_equal(a,b) for a,b in zip(left,right))
+    return left==right
+
+
+def verify_instructions(config, expected, workspace=None, repository=None):
     config=Path(config)
-    if config.is_symlink() or not config.is_file() or config.read_bytes()!=expected:
+    if config.is_symlink() or not config.is_file() or config.stat().st_size>1048576:
         raise HandoffError('session_configuration_changed')
+    current=config.read_bytes()
+    if current==expected:return {'mode':'byte-identical','project_records_added':0}
+    try:before=tomllib.loads(expected.decode());after=tomllib.loads(current.decode())
+    except (ValueError,UnicodeError):raise HandoffError('session_configuration_changed') from None
+    if _typed_equal(before,after):return {'mode':'semantic-identical','project_records_added':0}
+    old_projects=before.pop('projects',{});new_projects=after.pop('projects',{})
+    if not _typed_equal(before,after):raise HandoffError('session_configuration_changed')
+    if not isinstance(old_projects,dict) or not isinstance(new_projects,dict):raise HandoffError('unapproved_project_trust')
+    if any(k not in new_projects or not _typed_equal(v,new_projects[k]) for k,v in old_projects.items()):
+        raise HandoffError('unapproved_project_trust')
+    roots={}
+    for label,value in (('workspace',workspace),('repository',repository)):
+        if value is not None:
+            p=Path(value)
+            if not p.is_absolute() or str(p)!=str(p.resolve(strict=True)):
+                raise HandoffError('unapproved_project_trust')
+            roots[str(p)]=label
+    added=set(new_projects)-set(old_projects)
+    if not added or not added<=roots.keys():raise HandoffError('unapproved_project_trust')
+    for name in added:
+        row=new_projects[name]
+        if not isinstance(row,dict) or set(row)!={'trust_level'} or row['trust_level'] not in ('trusted','untrusted'):
+            raise HandoffError('unapproved_project_trust')
+    # Trust may enable project-local config/hooks/rules. Do not silently admit
+    # those layers in this narrow compatibility exception.
+    for name in roots:
+        p=Path(name)/'.codex'
+        if p.exists() or p.is_symlink():raise HandoffError('project_scoped_configuration_requires_review')
+    return {'mode':'assigned-project-trust','project_records_added':len(added),
+            'project_roles':sorted(roots[k] for k in added)}
 
 
 def _run(source, python, profile, codex_config, registry, task_request, root, *, dedicated=True, token=None, spawn_delegate=None):
@@ -130,7 +168,7 @@ def _run(source, python, profile, codex_config, registry, task_request, root, *,
             result['wait']=w.wait_worker(child,status,peers,r['worker_timeout_seconds'])
             if result['wait']['worker_stop_verified']:
                 result['phase']='instruction_verification'
-                verify_instructions(home/'codex/config.toml',handoff['expected'])
+                result['instruction_integrity']=verify_instructions(home/'codex/config.toml',handoff['expected'],workspace,repo)
                 result['phase']='scope_check'
                 names=scope(a,workspace,record,r);result['changed_paths']=names
                 result['validation_eligible']=True

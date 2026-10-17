@@ -21,3 +21,15 @@ Deployment order: review source PR; run disposable credential-free UID996/system
 ## Source validation checkpoint
 
 The source suite passed 206 tests with two existing dependency/deprecation warnings. The final supported acceptance entrypoint passed nine native no-turn configuration checks and nine fake-worker cases under the operator UID, with zero inference requests and no real credentials. These process checks do not establish installed UID996/systemd acceptance. That remains the next administrator step; no installed production release has changed.
+
+## Project trust persistence correction
+
+A paid navigation canary later completed normally and produced the exact requested edits, but byte-level config verification rejected an added `projects` table. Independent diagnosis established unchanged developer instructions and all checked policy fields; the run remains failed and its one paid approval consumed.
+
+Verification now compares parsed TOML with type-sensitive equality. It permits formatting-only changes or narrowly added native project records: exact assigned worktree and/or its fresh disposable clone, each containing only `trust_level = "trusted"` or `"untrusted"`. Existing project entries must remain unchanged. Unrelated/ancestor paths, additional fields, malformed records, removed settings, changed instructions/providers/sandbox/approvals/features/MCP, and even bool-to-integer substitutions are refused. No global project whitelist or restoration is introduced. Evidence records which comparison mode passed.
+
+Trust can enable project-local config/hooks/rules ([official configuration reference](https://developers.openai.com/codex/config-reference)), so this narrow exception refuses a `.codex` layer at the assigned worktree or clone root, including a symlink. Such a repository requires separate configuration review; no broad new trust is assumed. A matching trust record does not establish who wrote it.
+
+Model-free acceptance now invokes the pinned App Server's actual `config/value/write` RPC in a disposable private home, without a turn, verifies the persisted trust record and rechecks effective policy. A tenth fake-worker case exercises the same persistence transition. This closes the previous no-turn test gap without claiming it exercises real model completion. The exact retained host config still requires a privileged read-only compatibility check; do not reclassify that failed run or repeat paid execution automatically.
+
+Correction validation: 219 source/application tests passed (two existing warnings). The pinned native no-turn probe passed 11 checks, including actual project-trust persistence and an effective-policy reread; all 10 fake-worker cases passed. These ran under the operator account, not UID996/systemd. A new disposable host acceptance also checks the retained failed configuration with the candidate comparator while preserving its failed evidence. Host compatibility, source merge, new release staging and any further paid execution remain separate pending gates.
