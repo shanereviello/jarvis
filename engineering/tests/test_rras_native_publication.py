@@ -83,3 +83,57 @@ def test_selected_dev_baseline_preserves_pr_target(fixture):
     fixture['host_result']['review_id']=a.digest(a.encoded(fixture['review']))
     result=m.prepare(**fixture)
     assert result['pr_base_branch']=='dev'
+
+
+def baseline_special(fixture,kind):
+    repo=fixture['canonical'];name='vendor-fixture'
+    if kind=='gitlink':
+        git(repo,'update-index','--add','--cacheinfo','160000,'+fixture['review']['baseline_commit']+','+name)
+    else:
+        (repo/name).symlink_to('calc.py');git(repo,'add',name)
+    git(repo,'commit','-qm','baseline special entry')
+    baseline=git(repo,'rev-parse','HEAD').decode().strip()
+    fixture['review']['baseline_commit']=baseline
+    fixture['host_result']['review_id']=a.digest(a.encoded(fixture['review']))
+    fixture['manifest']['task']['baseline_commit']=baseline;fixture['manifest']['head_commit']=baseline
+    fixture['evidence']['export']['export_id']=a.digest(a.encoded(fixture['manifest']))
+    return name
+
+@pytest.mark.parametrize('kind',['gitlink','symlink'])
+def test_unchanged_baseline_special_entry_is_preserved(fixture,kind):
+    name=baseline_special(fixture,kind);before=git(fixture['canonical'],'ls-tree','HEAD',name)
+    prepared=m.prepare(**fixture)
+    assert git(Path(prepared['checkout']),'ls-tree','HEAD',name)==before
+    assert git(fixture['canonical'],'rev-parse','HEAD').decode().strip()==prepared['baseline']
+
+@pytest.mark.parametrize('kind',['gitlink','symlink'])
+@pytest.mark.parametrize('change',['modify','delete','regular-replacement'])
+def test_existing_special_entry_cannot_be_changed(fixture,kind,change):
+    name=baseline_special(fixture,kind);repo=fixture['canonical']
+    if change=='regular-replacement':
+        git(repo,'rm','--cached',name)
+        if (repo/name).is_symlink():(repo/name).unlink()
+        (repo/name).write_text('replacement');git(repo,'add',name)
+    elif change=='delete':git(repo,'rm','--cached',name)
+    elif kind=='gitlink':git(repo,'update-index','--cacheinfo','160000,'+fixture['review']['baseline_commit']+','+name)
+    else:
+        (repo/name).unlink();(repo/name).symlink_to('other');git(repo,'add',name)
+    fixture['files']['changes.patch']=git(repo,'diff','--cached','--binary')
+    git(repo,'reset','--hard','-q','HEAD')
+    fixture['review']['request']['allowed_paths'].append(name)
+    fixture['host_result']['review_id']=a.digest(a.encoded(fixture['review']))
+    fixture['files']['additional-artifact-1.json']=a.encoded(fixture['review']['request'])
+    fixture['manifest']['files']={k:dict(sha256=a.digest(v),size_bytes=len(v)) for k,v in fixture['files'].items()}
+    fixture['evidence']['export']['export_id']=a.digest(a.encoded(fixture['manifest']))
+    with pytest.raises(ValueError,match='nonregular'):m.prepare(**fixture)
+
+@pytest.mark.parametrize('kind',['gitlink','symlink'])
+def test_new_nonregular_entry_is_refused_even_for_admitted_path(fixture,kind):
+    repo=fixture['canonical']
+    if kind=='gitlink':git(repo,'update-index','--cacheinfo','160000,'+fixture['review']['baseline_commit']+',calc.py')
+    else:
+        (repo/'calc.py').unlink();(repo/'calc.py').symlink_to('outside');git(repo,'add','calc.py')
+    fixture['files']['changes.patch']=git(repo,'diff','--cached','--binary');git(repo,'reset','--hard','-q','HEAD')
+    fixture['manifest']['files']={k:dict(sha256=a.digest(v),size_bytes=len(v)) for k,v in fixture['files'].items()}
+    fixture['evidence']['export']['export_id']=a.digest(a.encoded(fixture['manifest']))
+    with pytest.raises(ValueError,match='nonregular'):m.prepare(**fixture)
