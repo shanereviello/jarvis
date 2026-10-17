@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
+import tomllib
 
 
 def local(name):
@@ -31,44 +32,51 @@ def changed_paths(a, workspace, baseline):
 
 def scope(a, workspace, record, r):
     if a.git(workspace,'rev-parse','HEAD').decode().strip()!=record['baseline_commit']:
-        raise ValueError('unexpected worker commit')
+        raise HandoffError('unexpected_worker_commit')
     names=changed_paths(a,workspace,record['baseline_commit'])
-    if not set(names)<=set(r['allowed_paths']):raise ValueError('changes outside admitted paths')
+    if not set(names)<=set(r['allowed_paths']):raise HandoffError('outside_admitted_paths')
     for name in names:
         p=workspace/name
         for part in (p,*p.parents):
             if part==workspace:break
-            if part.is_symlink():raise ValueError('changed symlink refused')
-        if p.exists() and not p.is_file():raise ValueError('nonregular changed file')
+            if part.is_symlink():raise HandoffError('changed_symlink')
+        if p.exists() and not p.is_file():raise HandoffError('nonregular_changed_file')
     return names
 
 
-def install_instructions(workspace, root, r, python):
-    originals={};injected={}
-    for name in ('AGENTS.md','RRAS_TASK.md'):
-        p=workspace/name
-        if p.is_symlink() or (p.exists() and not p.is_file()):raise ValueError('instruction file unsafe')
-        originals[name]=p.read_bytes() if p.exists() else None
-        if originals[name] is not None and len(originals[name])>65536:raise ValueError('instruction file too large')
+class HandoffError(ValueError):
+    """Safe, fixed diagnostic code; never expose exception payloads."""
+    def __init__(self, code):
+        self.code=code
+        super().__init__(code)
+
+
+def configure_instructions(root, r, python, config):
+    # Native Codex developer instructions, outside the editable worktree. The
+    # root-owned approved job remains authoritative, not this worker-owned copy.
+    config=Path(config)
+    raw=config.read_text(encoding='utf-8');settings=tomllib.loads(raw)
     cli=shlex.join([str(python),'-I','-B',str(Path(__file__).with_name('native_task_cli.py').resolve()),'--context',str(root/'native-task-context.json')])
     text=('RRAS assigned task: '+r['task_id']+'\n'+r['objective']+'\nAllowed change paths: '+json.dumps(r['allowed_paths'])+
           '\nValidation: '+shlex.join(r['validation_argv'])+'\nInspect: '+cli+' show\nAfter passing validation: '+cli+' complete --result "validation passed"\n'
-          'Preserve AGENTS.md and RRAS_TASK.md. No git add/commit/push, merge or deployment. Do not inspect credentials or dump environment variables. Use the explicit assigned context, not inherited task variables.\n')
-    injected['RRAS_TASK.md']=(originals['RRAS_TASK.md'] or b'')+b'\n'+text.encode()
-    injected['AGENTS.md']=(originals['AGENTS.md'] or b'')+b'\nRead RRAS_TASK.md for the assigned RRAS task and exact native completion command.\n'
-    for name,data in injected.items():(workspace/name).write_bytes(data)
-    local('activity').absent(root/'instruction-overlay.json',local('activity').encoded({n:base64.b64encode(v).decode() for n,v in injected.items()}))
-    return originals,injected
+          'Leave repository instruction files unchanged. No git add/commit/push, merge or deployment. Do not inspect credentials or dump environment variables. Use the explicit assigned context, not inherited task variables.\n'
+          'Complete every requested deliverable; passing mechanical validation alone does not establish factual correctness or human acceptance. Report unresolved requirements honestly.\n')
+    # Prefix the root key before any tables, retaining every other setting.
+    # Remove only a pre-existing root key through a native TOML roundtrip is
+    # deliberately unsupported; refuse rather than use a brittle text rewrite.
+    if 'developer_instructions' in settings:raise HandoffError('existing_session_instructions')
+    content=('developer_instructions = '+json.dumps(text,ensure_ascii=False)+'\n'+raw).encode()
+    tomllib.loads(content.decode())
+    config.write_bytes(content);config.chmod(0o600)
+    evidence={'mode':'native-codex-developer-instructions','sha256':local('activity').digest(content),'workspace_files_injected':False}
+    local('activity').absent(root/'instruction-handoff.json',local('activity').encoded(evidence))
+    return content
 
 
-def restore_instructions(workspace, originals, injected):
-    # Verify every control before changing any of them. Never erase a worker's tampering.
-    for name,data in injected.items():
-        p=workspace/name
-        if p.is_symlink() or not p.is_file() or p.read_bytes()!=data:raise ValueError('instruction overlay changed; preserve it')
-    for name,data in originals.items():
-        if data is None:(workspace/name).unlink()
-        else:(workspace/name).write_bytes(data)
+def verify_instructions(config, expected):
+    config=Path(config)
+    if config.is_symlink() or not config.is_file() or config.read_bytes()!=expected:
+        raise HandoffError('session_configuration_changed')
 
 
 def _run(source, python, profile, codex_config, registry, task_request, root, *, dedicated=True, token=None, spawn_delegate=None):
@@ -92,18 +100,21 @@ def _run(source, python, profile, codex_config, registry, task_request, root, *,
     sys.path.insert(0,str(source))
     from hermes_cli import kanban_db as k,projects_db as projects
     result={'scope':'native-manual-admitted-task','success':False,'uid':os.getuid(),'api_calls':None if token else 0,
-            'model_backed':spawn_delegate is None,'commit_policy':r['commit_policy'],'lifecycle_mutated_by_runner':False}
+            'model_backed':spawn_delegate is None,'commit_policy':r['commit_policy'],'lifecycle_mutated_by_runner':False,'phase':'native_setup',
+            'deliverable_review':'pending-human-review','mechanical_validation':'not-run','validation_eligible':False,'retained_work':str(root)}
     try:
         k.init_db()
         with projects.connect_closing() as c:project=projects.create_project(c,name=r['repository_id'],slug=row['hermes_project'],primary_path=str(repo))
         with k.connect_closing() as c:
             task=k.create_task(c,title=r['task_id'],body=r['objective'],assignee='rras-engineering',workspace_kind='worktree',workspace_path=str(repo),project_id=project,max_runtime_seconds=r['worker_timeout_seconds'],max_retries=0)
-            overlay={}
+            handoff={}
             def spawn(claimed,workspace,board=None):
                 workspace=Path(workspace);a.worktree(record,workspace)
                 if a.git(workspace,'rev-parse','HEAD').decode().strip()!=record['baseline_commit']:raise ValueError('baseline changed before launch')
-                originals,injected=install_instructions(workspace,root,r,python);overlay.update(originals=originals,injected=injected)
                 bridge.write_context(root/'native-task-context.json',claimed.id,claimed.current_run_id,profile_home,home/'kanban/kanban.db',python)
+                handoff['expected']=configure_instructions(root,r,python,home/'codex/config.toml')
+                result['instruction_delivery']={'mode':'native-codex-developer-instructions','workspace_files_injected':False}
+                result['phase']='worker_launch'
                 a.bind(root/'index',r['task_id'],'default',claimed.id,str(claimed.current_run_id))
                 return (spawn_delegate or k._default_spawn)(claimed,str(workspace),board=board)
             dispatched=k.dispatch_once(c,spawn_fn=spawn,max_spawn=1,max_in_progress=1,max_in_progress_per_profile=1,reconcile_orphans=False)
@@ -115,23 +126,31 @@ def _run(source, python, profile, codex_config, registry, task_request, root, *,
                 if not latest or latest.id!=run_id or current.current_run_id not in (None,run_id):raise RuntimeError('native run changed')
                 return current.status
             peers=w.cgroup_peers if dedicated else lambda:[child.pid] if child.poll() is None else []
+            result['phase']='worker_wait'
             result['wait']=w.wait_worker(child,status,peers,r['worker_timeout_seconds'])
             if result['wait']['worker_stop_verified']:
-                restore_instructions(workspace,**overlay)
+                result['phase']='instruction_verification'
+                verify_instructions(home/'codex/config.toml',handoff['expected'])
+                result['phase']='scope_check'
                 names=scope(a,workspace,record,r);result['changed_paths']=names
+                result['validation_eligible']=True
+                result['phase']='validation'
                 env={'PATH':'/usr/bin:/bin','HOME':str(home),'LANG':'C.UTF-8','PYTHONDONTWRITEBYTECODE':'1'}
                 try:
                     v=subprocess.run(r['validation_argv'],cwd=workspace,env=env,stdin=subprocess.DEVNULL,capture_output=True,timeout=r['validation_timeout_seconds'])
                     output=v.stdout+v.stderr;result['validation_exit']=v.returncode
                 except subprocess.TimeoutExpired:
                     # Descendant stop cannot be attested after a validation timeout. Retain unit/worktree.
-                    result['validation_timeout']=True;result['validation_stop_verified']=False;raise RuntimeError('validation timed out; preserve unit')
+                    result['validation_timeout']=True;result['validation_stop_verified']=False;raise HandoffError('validation_timeout')
                 if len(output)>4*1024*1024:raise ValueError('validation output too large')
                 a.absent(root/'validation.log',output)
                 if dedicated and w.cgroup_peers():
-                    result['validation_stop_verified']=False;raise RuntimeError('validation descendants remain; retain unit')
+                    result['validation_stop_verified']=False;raise HandoffError('validation_descendants_remain')
                 result['validation_stop_verified']=True
+                result['mechanical_validation']='passed' if v.returncode==0 else 'failed'
+                result['phase']='post_validation_scope'
                 scope(a,workspace,record,r)  # Validation must not expand the admitted change set.
+                result['phase']='export'
                 extras={}
                 for name in a.git(workspace,'ls-files','--others','--exclude-standard','-z').split(b'\0'):
                     if name:
@@ -153,7 +172,14 @@ def _run(source, python, profile, codex_config, registry, task_request, root, *,
                 a.verify_export(Path(result['export']['path']))
                 result['new_files']={'path':str(Path(result['export']['path'])/'additional-artifact-0.json'),'sha256':a.digest(data),'count':len(extras)}
                 result['success']=result['wait']['success'] and v.returncode==0
-    except Exception as e:result['error_type']=type(e).__name__
+                if not result['success']:
+                    result['error_code']='validation_failed' if v.returncode else 'native_completion_failed'
+                result['phase']='finished'
+            else:
+                result['error_code']='worker_stop_unverified'
+    except Exception as e:
+        result['error_type']=type(e).__name__
+        result['error_code']=e.code if isinstance(e,HandoffError) else result['phase']+'_failed'
     finally:a.absent(root/'evidence.json',a.encoded(result))
     return result
 
@@ -164,7 +190,7 @@ def run(source, python, profile, codex_config, registry, task_request, root, **o
         return _run(source,python,profile,codex_config,registry,task_request,root,**options)
     except Exception as e:
         result={'scope':'native-manual-admitted-task','success':False,'phase':'preflight',
-                'error_type':type(e).__name__,'worker_started':False,'lifecycle_mutated_by_runner':False}
+                'error_type':type(e).__name__,'error_code':'preflight_failed','worker_started':False,'lifecycle_mutated_by_runner':False}
         if not (root/'evidence.json').exists():a.absent(root/'evidence.json',a.encoded(result))
         return result
 

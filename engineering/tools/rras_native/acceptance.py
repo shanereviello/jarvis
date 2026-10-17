@@ -12,7 +12,7 @@ def module(name):
 
 def parser():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--case',required=True,choices=('manual','session-policy','live-session','git-boundary','credentials','waiter'))
+    p.add_argument('--case',required=True,choices=('manual','session-policy','live-session','git-boundary','credentials','waiter','instruction-handoff'))
     p.add_argument('--source',required=True)
     p.add_argument('--python',required=True)
     p.add_argument('--work',type=Path,required=True)
@@ -35,6 +35,9 @@ def run(args):
     if args.case=='manual':
         if not args.profile or not args.codex_config:raise ValueError('reviewed profile/config required')
         return module('probe_manual_runner').run(args.source,args.python,args.profile,args.codex_config,args.work,args.dedicated_cgroup)
+    if args.case=='instruction-handoff':
+        if not args.binary or not args.profile or not args.codex_config:raise ValueError('reviewed binary/profile/config required')
+        return module('probe_instruction_handoff').run(args.source,args.python,args.binary,args.profile,args.codex_config,args.work,args.dedicated_cgroup)
     if args.case=='session-policy':return module('probe_session_policy').probe(args.source,args.work/'session-policy.json')
     if args.case=='live-session':
         if not args.binary or not args.codex_config:raise ValueError('reviewed binary/config required')
