@@ -43,6 +43,24 @@ The MCP Dockerfile no longer copies `scripts/`: the maintained source removed
 those dated debug helpers, and the application does not import them. This fixes a
 clean-source build failure without restoring obsolete helpers.
 
+`mcp/stage_release.py` is the explicit root administrator step after candidate
+review. It requires `--candidate` and the exact `--manifest-sha256`, copies verified
+source into a fresh `/opt/jarvis/releases/mcp-<commit-prefix>` directory, and copies
+the existing MCP environment and bridge credential privately into `/etc/jarvis`.
+It changes ownership of **only `/opt/jarvis` itself** to root, preserving its mode
+and all original child ownership. Approve that exact parent change before running.
+It does not touch `/opt/hermes`; that service has its own later cutover.
+
+Root-private intent/completion and rollback-config copies are retained under
+`/var/lib/jarvis-migration`. Config parents are0700; environment files0600; the bridge
+file is root:GID1000/0440 for a read-only file bind by the existing runtime group.
+No group membership changes occur. Original configuration and secret sources remain.
+The helper never calls Docker/systemd, activates a release or writes a current
+symlink. It refuses existing allocations. On any partial failure, preserve the
+journal and all paths, do not retry blindly, and inspect before further action.
+Disposable-container root tests validate helper behavior; they are not evidence of
+host installation, host isolation, service cutover or database recovery.
+
 Remaining host acceptance is service-specific: preserve actual images separately
 for MCP and Linear, test disposable protocol/read behavior, stage protected config,
 prepare exact rollback and then perform the approved maintenance action. Database

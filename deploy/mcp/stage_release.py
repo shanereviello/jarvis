@@ -17,6 +17,9 @@ def digest(data):
 
 
 def read_regular(path, limit=16 * 1024 * 1024):
+    path = Path(path)
+    if any(parent.is_symlink() for parent in path.parents):
+        raise ValueError("symlink input ancestor refused")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(descriptor, "rb") as stream:
         info = os.fstat(stream.fileno())
@@ -157,8 +160,8 @@ def stage(candidate, expected):
             # Parent0700 denies host users access; read-only container bind grants
             # the existing primary GID1000 access, without group changes.
             write(config / "linear/n8n_bridge_secret", bridge, 0o440, gid=1000)
-            assert read_regular(config / "mcp/runtime.env") == runtime
-            assert read_regular(config / "linear/n8n_bridge_secret") == bridge
+            if read_regular(config / "mcp/runtime.env") != runtime or read_regular(config / "linear/n8n_bridge_secret") != bridge:
+                raise ValueError("private copy equality check failed")
             for name, (data, mode) in files.items():
                 target = release / name
                 if read_regular(target) != data or stat.S_IMODE(target.stat().st_mode) != mode:
