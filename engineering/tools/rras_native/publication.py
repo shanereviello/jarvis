@@ -68,9 +68,21 @@ def prepare(canonical, destination, policy, assigned_branch, review, host_result
         run('add','--',name)
     changed=run('diff','--cached','--name-only','-z').decode().rstrip('\0').split('\0')
     if not changed or any(name not in allowed for name in changed):raise ValueError('commit outside admitted scope')
-    # Refuse symlinks/submodules, including binary patches that introduce them.
+    # Existing vendor gitlinks/symlinks are baseline content, not task changes.
+    # Preserve them byte-for-byte; refuse additions, replacements and deletions.
+    regular_modes=(b'100644',b'100755')
+    baseline_special={}
+    for line in run('ls-tree','-r','-z',baseline).split(b'\0'):
+        if line:
+            meta,name=line.split(b'\t',1);mode,kind,oid=meta.split(b' ')
+            if mode not in regular_modes:baseline_special[name]=(mode,oid)
+    index_special={}
     for line in run('ls-files','--stage','-z').split(b'\0'):
-        if line and line.split(b' ',1)[0] not in (b'100644',b'100755'):raise ValueError('non-regular tracked entry refused')
+        if line:
+            meta,name=line.split(b'\t',1);mode,oid,stage=meta.split(b' ')
+            if stage!=b'0':raise ValueError('unmerged index refused')
+            if mode not in regular_modes:index_special[name]=(mode,oid)
+    if index_special!=baseline_special:raise ValueError('new or changed nonregular entry refused')
     run('-c','user.name=RRAS reviewed worker','-c','user.email=rras-worker@localhost','commit','--quiet','-m',request['task_id']+': reviewed task changes')
     if run('status','--porcelain'):raise ValueError('publication checkout not clean')
     ref=review.get('baseline_ref','HEAD')
