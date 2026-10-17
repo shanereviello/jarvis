@@ -28,7 +28,8 @@ def render(record):
         'Scope: checked against the admitted task before commit preparation.', '',
         comparison, '',
         'Publication status is recorded separately in publication-receipt.json; this summary does not prove a push.',
-        'Human review: inspect the complete diff and retained validation evidence.',
+        'Human review: pending. Mechanical validation does not establish deliverable completeness or factual correctness.',
+        'Compare each requested deliverable with the diff, source references, known unknowns and validation limits.',
         'Merge: awaiting separate human decision.',
         'Deployment and robot hardware/field validation: awaiting separate human decision.', '',
     ])

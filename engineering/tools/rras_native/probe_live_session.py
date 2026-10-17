@@ -9,7 +9,7 @@ import sys
 SESSION_SHA = '6788277acd880a900faaedfdf948caca5bcad7f33e8fa2db3815cd47b7d7c651'
 
 
-def probe(source, binary, config, work, uid):
+def probe(source, binary, config, work, uid, expected_instructions=None):
     source, binary, config = (Path(p).resolve(strict=True) for p in (source, binary, config))
     work = Path(work).resolve(strict=True)
     if os.getuid() != uid or work.stat().st_uid != uid or work.stat().st_mode & 0o077:
@@ -52,6 +52,8 @@ def probe(source, binary, config, work, uid):
             'network_off':(c.get('sandbox_workspace_write') or {}).get('network_access') is False,
             'no_mcp':not c.get('mcp_servers'),
         }
+        if expected_instructions is not None:
+            checks['full_native_developer_instructions']=c.get('developer_instructions')==expected_instructions
         result['cases'] = [{'name':n,'passed':v} for n,v in checks.items()]
         result['success'] = all(checks.values())
     except Exception as e:

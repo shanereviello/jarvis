@@ -12,6 +12,8 @@ def test_review_links_exact_diff_and_keeps_merge_separate(fixture):
     assert 'Merge: awaiting separate human decision.' in text
     assert 'does not prove a push' in text
     assert 'fixture' in text
+    assert 'Mechanical validation does not establish deliverable completeness' in text
+    assert 'Human review: pending.' in text
 
 @pytest.mark.parametrize('field,value',[('worker_stop_verified',False),('merge_authorized',True),('task_id','bad\ntext')])
 def test_bad_review_refused(field,value):
