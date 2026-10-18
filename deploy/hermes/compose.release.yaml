@@ -1,0 +1,41 @@
+# Source-derived deployment assets; no image upgrade or private state in Git.
+name: hermes
+services:
+  hermes:
+    image: ${HERMES_IMAGE:?exact accepted Hermes image required}
+    pull_policy: never
+    container_name: hermes
+    restart: unless-stopped
+    command: gateway run
+    environment:
+      HERMES_UID: '1000'
+      HERMES_GID: '1000'
+      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace/jarvis-artifacts:/workspace/shared
+    volumes:
+      - type: bind
+        source: /srv/hermes/data
+        target: /opt/data
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/git/jarvis
+        target: /workspace/git/jarvis
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/git/robot_ws
+        target: /workspace/git/robot_ws
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/notes/jarvis-artifacts
+        target: /workspace/jarvis-artifacts
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/shared/jarvis
+        target: /workspace/shared
+        bind: {create_host_path: false}
+    networks:
+      - jarvis-net
+networks:
+  jarvis-net:
+    external: true
