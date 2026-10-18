@@ -2,7 +2,7 @@
 
 ## What the policy does
 
-`HERMES_WRITE_SAFE_ROOT` is an application-level allow-list for generic Hermes file operations. It is separate from Docker mount mode and Unix permissions. When set, the target must resolve beneath one of its entries.
+`HERMES_WRITE_SAFE_ROOT` is an application-level allow-list for Hermes write_file and patch checks. It is separate from Docker mount mode and Unix permissions. When set, the write target must resolve beneath one of its entries.
 
 ## Correct Compose form on Unix
 
