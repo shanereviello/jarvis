@@ -1,25 +1,41 @@
+# Source-derived deployment assets; no image upgrade or private state in Git.
+name: hermes
 services:
   hermes:
-    image: nousresearch/hermes-agent:latest
+    image: ${HERMES_IMAGE:?exact accepted Hermes image required}
+    pull_policy: never
     container_name: hermes
     restart: unless-stopped
     command: gateway run
     environment:
       HERMES_UID: '1000'
       HERMES_GID: '1000'
-      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace/jarvis-artifacts:/workspace/shared:/workspace/jarvis-tasks:/workspace/robot-tasks
+      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace/jarvis-artifacts:/workspace/shared
     volumes:
-    - /srv/hermes/data:/opt/data:rw
-    - /srv/hermes-dev/jarvis/baseline:/workspace/jarvis-baseline:ro
-    - /srv/hermes-dev/jarvis/tasks:/workspace/jarvis-tasks:rw
-    - /srv/git/jarvis:/workspace/git/jarvis:ro
-    - /srv/hermes-dev/robot_ws/baseline:/workspace/robot-baseline:ro
-    - /srv/hermes-dev/robot_ws/tasks:/workspace/robot-tasks:rw
-    - /srv/git/robot_ws:/workspace/git/robot_ws:ro
-    - /srv/notes/jarvis-artifacts:/workspace/jarvis-artifacts:rw
-    - /srv/shared/jarvis:/workspace/shared:rw
+      - type: bind
+        source: /srv/hermes/data
+        target: /opt/data
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/git/jarvis
+        target: /workspace/git/jarvis
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/git/robot_ws
+        target: /workspace/git/robot_ws
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/notes/jarvis-artifacts
+        target: /workspace/jarvis-artifacts
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/shared/jarvis
+        target: /workspace/shared
+        bind: {create_host_path: false}
     networks:
-    - jarvis-net
+      - jarvis-net
 networks:
   jarvis-net:
     external: true
