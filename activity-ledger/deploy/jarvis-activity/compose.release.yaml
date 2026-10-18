@@ -1,0 +1,120 @@
+# Relocation of existing service images; no schema or application upgrade.
+name: jarvis-activity
+services:
+  jarvis-activity-postgres:
+    image: ${JARVIS_ACTIVITY_POSTGRES_IMAGE:?exact accepted PostgreSQL image required}
+    pull_policy: never
+    restart: 'no'
+    environment:
+      POSTGRES_DB: jarvis_activity
+      POSTGRES_USER: jarvis_activity_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_bootstrap_password
+    volumes:
+      - type: volume
+        source: jarvis_activity_pgdata
+        target: /var/lib/postgresql/data
+      - type: bind
+        source: ../../db/init
+        target: /docker-entrypoint-initdb.d
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ../../db/migrations
+        target: /opt/jarvis-activity/migrations
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/postgres/postgres_bootstrap_password
+        target: /run/secrets/postgres_bootstrap_password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/postgres/jarvis_activity_migrator_password
+        target: /run/secrets/jarvis_activity_migrator_password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/postgres/jarvis_activity_app_password
+        target: /run/secrets/jarvis_activity_app_password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/postgres/jarvis_activity_reader_password
+        target: /run/secrets/jarvis_activity_reader_password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/postgres/jarvis_activity_backup_password
+        target: /run/secrets/jarvis_activity_backup_password
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [activity_internal]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U jarvis_activity_migrator -d jarvis_activity]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  jarvis-activity-adapter:
+    image: ${JARVIS_ACTIVITY_ADAPTER_IMAGE:?exact accepted adapter image required}
+    pull_policy: never
+    restart: 'no'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      JARVIS_ACTIVITY_DB_HOST: jarvis-activity-postgres
+      JARVIS_ACTIVITY_DB_NAME: jarvis_activity
+      JARVIS_ACTIVITY_DB_USER: jarvis_activity_app
+      JARVIS_ACTIVITY_DB_PASSWORD_FILE: /run/secrets/jarvis_activity_app_password
+      JARVIS_ADAPTER_TOKEN_FILE: /run/secrets/adapter_api_token
+      JARVIS_CONTROLLER_TOKEN_FILE: /run/secrets/controller_api_token
+    volumes:
+      - type: bind
+        source: /etc/jarvis/activity-ledger/adapter/jarvis_activity_app_password
+        target: /run/secrets/jarvis_activity_app_password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/adapter/adapter_api_token
+        target: /run/secrets/adapter_api_token
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/jarvis/activity-ledger/adapter/controller_api_token
+        target: /run/secrets/controller_api_token
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/jarvis-activity/runner-state/phase4b-controller-staging
+        target: /srv/jarvis-activity/runner-state/phase4b-controller-staging
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/jarvis-activity/runner-state/phase4b-controller-retained
+        target: /srv/jarvis-activity/runner-state/phase4b-controller-retained
+        read_only: false
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/jarvis-activity/runner-state/phase5a-executor-staging
+        target: /srv/jarvis-activity/runner-state/phase5a-executor-staging
+        read_only: false
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/jarvis-activity/runner-state/phase5a-executor-retained
+        target: /srv/jarvis-activity/runner-state/phase5a-executor-retained
+        read_only: false
+        bind: {create_host_path: false}
+    networks: [activity_internal, controller_internal]
+    depends_on:
+      jarvis-activity-postgres: {condition: service_healthy}
+networks:
+  activity_internal:
+    external: true
+    name: jarvis-activity_activity_internal
+  controller_internal:
+    external: true
+    name: jarvis-activity_controller_internal
+volumes:
+  jarvis_activity_pgdata:
+    external: true
+    name: jarvis-activity_jarvis_activity_pgdata
