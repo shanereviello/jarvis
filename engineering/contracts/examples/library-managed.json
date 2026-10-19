@@ -1,0 +1,172 @@
+[
+  {
+    "schema_version": 1,
+    "kind": "repository_registration",
+    "registration_id": "reg_00000000000000000000000000000002",
+    "repository_id": "example_library",
+    "revision": 1,
+    "supersedes_sha256": null,
+    "created_at": "2026-10-19T12:00:00Z",
+    "actor": {
+      "type": "human",
+      "id": "operator"
+    },
+    "provenance": {
+      "kind": "imported",
+      "source": {
+        "namespace": "external",
+        "id": "synthetic-contract-fixture"
+      },
+      "source_sha256": null,
+      "recorded_by": {
+        "type": "service",
+        "id": "fixture-importer"
+      }
+    },
+    "source": {
+      "canonical_path": "/srv/git/example_library",
+      "remote": null,
+      "object_format": "sha1"
+    },
+    "baseline_refs": [
+      "refs/heads/main"
+    ],
+    "path_policy": {
+      "allowed_roots": [
+        "src"
+      ],
+      "denied_roots": [
+        ".git",
+        ".aws",
+        ".codex"
+      ]
+    },
+    "validation_recipes": [
+      {
+        "validation_id": "unit-tests",
+        "argv": [
+          "/usr/bin/python3",
+          "-m",
+          "unittest"
+        ],
+        "execution_identity": "engineering_worker",
+        "timeout_seconds": 30
+      }
+    ],
+    "publication": {
+      "remote": null,
+      "target_branch": "main",
+      "review_branch_prefix": "codex/",
+      "requires_human_merge": true,
+      "requires_human_deploy": true
+    }
+  },
+  {
+    "schema_version": 1,
+    "kind": "work_item",
+    "work_item_id": "wrk_00000000000000000000000000000002",
+    "revision": 1,
+    "supersedes_sha256": null,
+    "repository_id": "example_library",
+    "registration_sha256": "632d9c97ad3c834e153dcb17bea59dd1e47603b208793a2cc908100464552a8d",
+    "created_at": "2026-10-19T12:00:00Z",
+    "actor": {
+      "type": "human",
+      "id": "operator"
+    },
+    "provenance": {
+      "kind": "imported",
+      "source": {
+        "namespace": "external",
+        "id": "synthetic-contract-fixture"
+      },
+      "source_sha256": null,
+      "recorded_by": {
+        "type": "service",
+        "id": "fixture-importer"
+      }
+    },
+    "mode": "approval_driven",
+    "objective": "Prepare a bounded unit-test correction.",
+    "requested_paths": [
+      "src/library.py"
+    ],
+    "validation_id": "unit-tests",
+    "baseline": {
+      "ref": "refs/heads/main",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "references": []
+  },
+  {
+    "schema_version": 1,
+    "kind": "attempt",
+    "attempt_id": "att_00000000000000000000000000000002",
+    "attempt_number": 1,
+    "work_item_id": "wrk_00000000000000000000000000000002",
+    "work_item_sha256": "2f9fdccffcdec6fb78f80f2b35910af4a2775919f5649d2b752a2ebd5733dd67",
+    "repository_id": "example_library",
+    "registration_sha256": "632d9c97ad3c834e153dcb17bea59dd1e47603b208793a2cc908100464552a8d",
+    "created_at": "2026-10-19T12:00:00Z",
+    "actor": {
+      "type": "human",
+      "id": "operator"
+    },
+    "provenance": {
+      "kind": "imported",
+      "source": {
+        "namespace": "external",
+        "id": "synthetic-contract-fixture"
+      },
+      "source_sha256": null,
+      "recorded_by": {
+        "type": "service",
+        "id": "fixture-importer"
+      }
+    },
+    "mode": "approval_driven",
+    "executor": "native_worker",
+    "baseline": {
+      "ref": "refs/heads/main",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "authorization_reference": null,
+    "delegation_reference": null,
+    "references": []
+  },
+  {
+    "schema_version": 1,
+    "kind": "event",
+    "event_id": "evt_00000000000000000000000000000014",
+    "work_item_id": "wrk_00000000000000000000000000000002",
+    "work_item_sha256": "2f9fdccffcdec6fb78f80f2b35910af4a2775919f5649d2b752a2ebd5733dd67",
+    "attempt_id": "att_00000000000000000000000000000002",
+    "sequence": 1,
+    "previous_event_sha256": null,
+    "occurred_at": "2026-10-19T12:00:00Z",
+    "recorded_at": "2026-10-19T12:00:00Z",
+    "actor": {
+      "type": "human",
+      "id": "operator"
+    },
+    "provenance": {
+      "kind": "imported",
+      "source": {
+        "namespace": "external",
+        "id": "synthetic-contract-fixture"
+      },
+      "source_sha256": null,
+      "recorded_by": {
+        "type": "service",
+        "id": "fixture-importer"
+      }
+    },
+    "event_type": "work.prepared",
+    "outcome": "pending",
+    "summary": "Synthetic imported preparation; no task executed or authorized.",
+    "artifacts": [],
+    "references": [],
+    "corrects_event_id": null,
+    "decision_subject": null
+  }
+]

@@ -8,3 +8,6 @@
 - [Filesystem migration plan](rras-filesystem-migration-plan.md): previously approved migration plan; source cleanup supersedes its old source inventory. Do not execute its historical temporary review commands without a refreshed administrator procedure.
 
 Historical bring-up reports, canary launchers and container experiments are retained in Git commit `ef9cfc09cb3ad7d1a0688adea44f2e0cb2445cfb`, not in the maintained product tree. Actual server task records and reviewed installed artifacts remain untouched.
+
+- [Workflow roadmap](workflow-roadmap.md): accepted next-phase scope, acceptance criteria and deferred work.
+- [Shared record contracts](workflow-record-contracts.md): passive repository/work/attempt/event contracts and consistency boundaries.

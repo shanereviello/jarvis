@@ -1,0 +1,799 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rras:workflow-record:v1",
+  "title": "RRAS passive workflow records v1",
+  "description": "Data contracts only. Valid records never grant execution/publication/merge/deployment authority. No referenced content is fetched.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/repository_registration"
+    },
+    {
+      "$ref": "#/$defs/work_item"
+    },
+    {
+      "$ref": "#/$defs/attempt"
+    },
+    {
+      "$ref": "#/$defs/event"
+    }
+  ],
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "human",
+            "assistant",
+            "worker",
+            "service"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "reference": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "enum": [
+            "session",
+            "proposal",
+            "review",
+            "authorization",
+            "delegation",
+            "native_task",
+            "native_run",
+            "git_commit",
+            "pull_request",
+            "deployment",
+            "external"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "namespace",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "observed",
+            "imported",
+            "human_reported"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/reference"
+        },
+        "source_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recorded_by": {
+          "$ref": "#/$defs/actor"
+        }
+      },
+      "required": [
+        "kind",
+        "source",
+        "source_sha256",
+        "recorded_by"
+      ],
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^art_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "visibility": {
+          "enum": [
+            "operator_only",
+            "operator_and_jarvis",
+            "public_review"
+          ]
+        },
+        "purpose": {
+          "enum": [
+            "request",
+            "review",
+            "approval",
+            "execution",
+            "validation",
+            "diff",
+            "publication",
+            "deployment",
+            "other"
+          ]
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "media_type",
+        "visibility",
+        "purpose"
+      ],
+      "additionalProperties": false
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "ref",
+        "commit"
+      ],
+      "additionalProperties": false
+    },
+    "recipe": {
+      "type": "object",
+      "properties": {
+        "validation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+        },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "execution_identity": {
+          "const": "engineering_worker"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        }
+      },
+      "required": [
+        "validation_id",
+        "argv",
+        "execution_identity",
+        "timeout_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "repository_registration": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "const": "repository_registration"
+        },
+        "registration_id": {
+          "type": "string",
+          "pattern": "^reg_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "repository_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "supersedes_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z(?![\\s\\S])"
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "canonical_path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "remote": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "object_format": {
+              "enum": [
+                "sha1",
+                "sha256"
+              ]
+            }
+          },
+          "required": [
+            "canonical_path",
+            "remote",
+            "object_format"
+          ],
+          "additionalProperties": false
+        },
+        "baseline_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "path_policy": {
+          "type": "object",
+          "properties": {
+            "allowed_roots": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "denied_roots": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          },
+          "required": [
+            "allowed_roots",
+            "denied_roots"
+          ],
+          "additionalProperties": false
+        },
+        "validation_recipes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/recipe"
+          }
+        },
+        "publication": {
+          "type": "object",
+          "properties": {
+            "remote": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "target_branch": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "review_branch_prefix": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "requires_human_merge": {
+              "const": true
+            },
+            "requires_human_deploy": {
+              "const": true
+            }
+          },
+          "required": [
+            "remote",
+            "target_branch",
+            "review_branch_prefix",
+            "requires_human_merge",
+            "requires_human_deploy"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "registration_id",
+        "repository_id",
+        "revision",
+        "supersedes_sha256",
+        "created_at",
+        "actor",
+        "provenance",
+        "source",
+        "baseline_refs",
+        "path_policy",
+        "validation_recipes",
+        "publication"
+      ],
+      "additionalProperties": false
+    },
+    "work_item": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "const": "work_item"
+        },
+        "work_item_id": {
+          "type": "string",
+          "pattern": "^wrk_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "supersedes_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repository_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+        },
+        "registration_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z(?![\\s\\S])"
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "mode": {
+          "enum": [
+            "interactive",
+            "approval_driven",
+            "delegated"
+          ]
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "requested_paths": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "validation_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/baseline"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "work_item_id",
+        "revision",
+        "supersedes_sha256",
+        "repository_id",
+        "registration_sha256",
+        "created_at",
+        "actor",
+        "provenance",
+        "mode",
+        "objective",
+        "requested_paths",
+        "validation_id",
+        "baseline",
+        "references"
+      ],
+      "additionalProperties": false
+    },
+    "attempt": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "const": "attempt"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^att_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "work_item_id": {
+          "type": "string",
+          "pattern": "^wrk_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "work_item_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "repository_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+        },
+        "registration_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z(?![\\s\\S])"
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "mode": {
+          "enum": [
+            "interactive",
+            "approval_driven",
+            "delegated"
+          ]
+        },
+        "executor": {
+          "enum": [
+            "interactive_session",
+            "native_worker"
+          ]
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/baseline"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authorization_reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delegation_reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "attempt_id",
+        "attempt_number",
+        "work_item_id",
+        "work_item_sha256",
+        "repository_id",
+        "registration_sha256",
+        "created_at",
+        "actor",
+        "provenance",
+        "mode",
+        "executor",
+        "baseline",
+        "authorization_reference",
+        "delegation_reference",
+        "references"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "const": "event"
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^evt_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "work_item_id": {
+          "type": "string",
+          "pattern": "^wrk_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "work_item_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "attempt_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^att_[0-9a-f]{32}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "previous_event_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z(?![\\s\\S])"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z(?![\\s\\S])"
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "event_type": {
+          "enum": [
+            "work.prepared",
+            "decision.recorded",
+            "review.captured",
+            "execution.approval_recorded",
+            "attempt.started",
+            "attempt.interrupted",
+            "attempt.finished",
+            "validation.finished",
+            "artifact.recorded",
+            "branch.published",
+            "pull_request.opened",
+            "change.merged",
+            "release.deployed",
+            "release.verified",
+            "cancellation.recorded",
+            "recovery.recorded"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "pending",
+            "succeeded",
+            "failed",
+            "uncertain",
+            "approved",
+            "rejected",
+            "cancelled"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 32
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          },
+          "maxItems": 32
+        },
+        "corrects_event_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^evt_[0-9a-f]{32}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decision_subject": {
+          "anyOf": [
+            {
+              "enum": [
+                "scope_change",
+                "deliverable_acceptance",
+                "merge",
+                "deployment",
+                "other"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "event_id",
+        "work_item_id",
+        "work_item_sha256",
+        "attempt_id",
+        "sequence",
+        "previous_event_sha256",
+        "occurred_at",
+        "recorded_at",
+        "actor",
+        "provenance",
+        "event_type",
+        "outcome",
+        "summary",
+        "artifacts",
+        "references",
+        "corrects_event_id",
+        "decision_subject"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
