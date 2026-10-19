@@ -11,3 +11,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 
 - [Workflow roadmap](workflow-roadmap.md): accepted next-phase scope, acceptance criteria and deferred work.
 - [Shared record contracts](workflow-record-contracts.md): passive repository/work/attempt/event contracts and consistency boundaries.
+
+- [Repository admission preparation](repository-admission.md): reusable candidate preparation and baseline preflight; privileged integration pending.

@@ -82,6 +82,7 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 
 ## Progress
 
-- Step1: schema, consistency validator, examples and contract tests prepared in the
-  shared-records source slice; review/merge is separate from installation.
-- Steps2–4 and deferred slices: not implemented by the contracts work.
+- Step1: shared contracts merged in PR15; no runtime installation.
+- Step2: repository-independent admission preparation is the next source slice.
+  Trusted capture/approval/launch integration remains to implement and accept.
+- Steps3–4 and deferred slices remain pending.
