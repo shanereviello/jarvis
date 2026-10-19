@@ -67,16 +67,15 @@ Other ordinary SHA-1 repositories use their own explicit registration and named
 validation configuration through these same commands; no Jarvis/robot ID is embedded
 in the translator. Specialized repositories may require additional validation work.
 
-## Remaining trusted integration
+## Trusted integration and remaining acceptance
 
-Before a candidate can launch, an operator-owned admission configuration must be
-captured at the root boundary and its exact registration/work/baseline and project
-bindings carried into review, approval and launch. Recheck freshness at launch;
-changing a live registration or named baseline must invalidate prior approval.
-Continue to use exclusive one-use approval and the existing global systemd slot.
-Schema/digest validity does not establish source authenticity or execution authority.
-Do not copy candidate fields into root execution paths as an installation shortcut.
+[Operator control](operator-control.md) now implements source capture/review/approve/
+launch/evidence commands. It reconstructs candidates against a protected live
+registration and binds exact work/configuration/code/baseline snapshots into review.
+It rechecks admission before consuming approval. The interface has not been installed;
+existing production preparation policy and tools remain unchanged.
 
-Next add consistent trusted capture/approve/launch/evidence commands around the
-existing components, then durable journal/status/history/outbox and isolated host
-acceptance before deploying changed privileged code. No new paid task is necessary.
+Durable journal/status/history/outbox, Jarvis read permissions, isolated host acceptance
+and packaging remain. Schema/digest validity alone never grants authority. Do not copy
+candidate fields into root execution paths as an installation shortcut. No new paid
+task is necessary to prove this phase.

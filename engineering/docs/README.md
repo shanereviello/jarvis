@@ -13,3 +13,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Shared record contracts](workflow-record-contracts.md): passive repository/work/attempt/event contracts and consistency boundaries.
 
 - [Repository admission preparation](repository-admission.md): reusable candidate preparation and baseline preflight; privileged integration pending.
+
+- [Reusable operator control](operator-control.md): source capture/review/approve/launch/evidence interface and protected admission binding.

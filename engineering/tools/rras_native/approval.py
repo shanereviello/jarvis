@@ -39,7 +39,23 @@ def capture(proposals,submission_id,policy,registry,state,profile,codex_config,*
     if request['validation_argv'] not in row['validations'].values():raise ValueError('validation not admitted')
     for field in ('worker_timeout_seconds','validation_timeout_seconds'):
         if request[field]!=row[field]:raise ValueError('execution limits changed')
-    registered=a.registration(registry,repo_id);repo=Path(registered['path'])
+    registered=a.registration(registry,repo_id)
+    return snapshot(request, registered['path'], registered['hermes_project'], state, profile, codex_config,
+                    submission_id, receipt['policy_sha256'], baseline_ref=baseline_ref,
+                    expected_baseline=expected_baseline, review_branch=review_branch)
+
+
+def snapshot(request, repository, hermes_project, state, profile, codex_config,
+             submission_id, policy_sha256, *, baseline_ref=None, expected_baseline=None,
+             review_branch=None, admission=None):
+    """Snapshot inputs already admitted by a trusted capture adapter; no approval.
+
+    This shared constructor does not authenticate a proposal or register a repo.
+    Callers must enforce their admission boundary before invoking it.
+    """
+    a=local('activity');local('task_contract').validate_request(request)
+    exact_digest(submission_id);exact_digest(policy_sha256);a.identifier(hermes_project)
+    repo=a.canonical_repo(repository)
     if a.git(repo,'status','--porcelain','--untracked-files=all').strip():raise ValueError('clean canonical baseline required')
     if (baseline_ref is None)!=(expected_baseline is None):raise ValueError('named baseline and exact commit required together')
     ref=baseline_ref or 'HEAD'
@@ -48,15 +64,16 @@ def capture(proposals,submission_id,policy,registry,state,profile,codex_config,*
     baseline=a.git(repo,'rev-parse','--verify','--end-of-options',ref+'^{commit}').decode().strip()
     if expected_baseline and baseline!=expected_baseline:raise ValueError('baseline ref moved; review again')
     if review_branch and not re.fullmatch(r'codex/[A-Za-z0-9][A-Za-z0-9_-]{0,120}',review_branch):raise ValueError('dedicated review branch required')
-    review={'schema_version':1,'submission_id':submission_id,'policy_sha256':receipt['policy_sha256'],
+    review={'schema_version':1,'submission_id':submission_id,'policy_sha256':policy_sha256,
             'request':request,'canonical_repository':str(repo),
             'baseline_commit':baseline,'baseline_ref':ref,
-            'hermes_project':registered['hermes_project'],
+            'hermes_project':hermes_project,
             'profile':str(Path(profile).resolve(strict=True)), 'profile_sha256':a.digest(Path(profile).read_bytes()),
             'codex_config':str(Path(codex_config).resolve(strict=True)), 'codex_config_sha256':a.digest(Path(codex_config).read_bytes()),
             'runner_files':{n:a.digest(Path(__file__).with_name(n).read_bytes()) for n in ('manual_runner.py','task_contract.py','activity.py','credentials.py','wait_worker.py','native_task_cli.py')},
             'execution_authorized':False,'publication_authorized':False}
     if review_branch:review['review_branch']=review_branch
+    if admission is not None:review['admission']=admission
     review_id=a.digest(a.encoded(review));base=a.private_dir(state)
     a.absent(base/(review_id+'.review.json'),a.encoded(review))
     return {'review_id':review_id,'review':review}

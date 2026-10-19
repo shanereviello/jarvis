@@ -89,6 +89,8 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
     if account.pw_uid!=996 or account.pw_gid!=996 or set(os.getgrouplist(account.pw_name,996))!={996}:raise ValueError('dedicated account changed')
     worker_base=worker_root(workers)
     slot()
+    if 'admission' in review:
+        local('operator_control').validate_review(review, policy)
     # Exclusive one-use approval before staging/launch. Any later ambiguity consumes it.
     review=approval.consume(state,authorization_id)
     run_id=uuid.uuid4().hex;root=worker_base/('approved-'+run_id);job=jobs/run_id
