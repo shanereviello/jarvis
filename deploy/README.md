@@ -30,14 +30,17 @@ images, forbids pulls/builds, preserves existing identities/networks/data mounts
 and references protected `/etc/jarvis/mcp/runtime.env` and
 `/etc/jarvis/linear/n8n_bridge_secret`. Missing bind sources cannot be silently
 created. Protected config staging, actual image acceptance and rollback are still
-required before activation. Hermes's legacy mounts and ledger's old state paths
-remain unchanged.
+required before activation. The maintained `hermes/compose.yaml` removes the four
+legacy workspace mounts while retaining assistant data and canonical read-only
+repositories. Ledger evidence state paths remain unchanged; its release definition
+uses protected secrets and immutable database-script binds.
 
 The MCP Dockerfile pins the existing Python3.11.17 patch release by registry
 digest. `mcp/requirements.lock` preserves all32 deployed Linear runtime dependency
 versions and permits only the accepted Linux x86_64/CPython3.11 wheel hashes.
 No model/runtime feature upgrade is included. Other architectures require their
-own reviewed artifact hashes. The ledger's runtime pinning remains a later slice.
+own reviewed artifact hashes. Ledger relocation uses accepted existing image IDs;
+rebuilding its newer canonical application remains a separate compatibility change.
 
 The MCP Dockerfile no longer copies `scripts/`: the maintained source removed
 those dated debug helpers, and the application does not import them. This fixes a
@@ -66,3 +69,7 @@ for MCP and Linear, test disposable protocol/read behavior, stage protected conf
 prepare exact rollback and then perform the approved maintenance action. Database
 restore verification is required before ledger data/container changes. Packaging
 tests do not establish host isolation, live health or successful migration.
+
+For completed host cutovers and remaining retirement/availability gates, see
+[migration-status.md](migration-status.md). Historical preparation requirements
+above are not instructions to rerun completed maintenance.
