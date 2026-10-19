@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "repository_registration",
+  "registration_id": "reg_a1e8a3b41c574ae68c5bf4cc35a3a021",
+  "repository_id": "jarvis",
+  "revision": 1,
+  "supersedes_sha256": null,
+  "created_at": "2026-10-19T12:00:00Z",
+  "actor": {
+    "type": "assistant",
+    "id": "codex"
+  },
+  "provenance": {
+    "kind": "human_reported",
+    "source": {
+      "namespace": "external",
+      "id": "accepted-workflow-roadmap-20261019"
+    },
+    "source_sha256": null,
+    "recorded_by": {
+      "type": "assistant",
+      "id": "codex"
+    }
+  },
+  "source": {
+    "canonical_path": "/srv/git/jarvis",
+    "remote": "git@github.com:shanereviello/jarvis.git",
+    "object_format": "sha1"
+  },
+  "baseline_refs": [
+    "refs/heads/main"
+  ],
+  "path_policy": {
+    "allowed_roots": [
+      "engineering/docs"
+    ],
+    "denied_roots": [
+      ".git",
+      ".aws",
+      ".codex",
+      "engineering/docs/AGENTS.md",
+      "engineering/docs/RRAS_TASK.md"
+    ]
+  },
+  "validation_recipes": [
+    {
+      "validation_id": "documentation-whitespace",
+      "argv": [
+        "/usr/bin/git",
+        "diff",
+        "--check"
+      ],
+      "execution_identity": "engineering_worker",
+      "timeout_seconds": 30
+    }
+  ],
+  "publication": {
+    "remote": "git@github.com:shanereviello/jarvis.git",
+    "target_branch": "main",
+    "review_branch_prefix": "codex/",
+    "requires_human_merge": true,
+    "requires_human_deploy": true
+  }
+}
