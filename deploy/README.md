@@ -57,14 +57,15 @@ It does not touch `/opt/hermes`; that service has its own later cutover.
 Root-private intent/completion and rollback-config copies are retained under
 `/var/lib/jarvis-migration`. Config parents are0700; environment files0600; the bridge
 file is root:GID1000/0440 for a read-only file bind by the existing runtime group.
-No group membership changes occur. Original configuration and secret sources remain.
+No group membership changes occur. Original configuration/secret sources were retained during staging; subsequent
+operator-approved retirement is described in the migration status.
 The helper never calls Docker/systemd, activates a release or writes a current
 symlink. It refuses existing allocations. On any partial failure, preserve the
 journal and all paths, do not retry blindly, and inspect before further action.
 Disposable-container root tests validate helper behavior; they are not evidence of
 host installation, host isolation, service cutover or database recovery.
 
-Remaining host acceptance is service-specific: preserve actual images separately
+Host acceptance requirements are service-specific: preserve actual images separately
 for MCP and Linear, test disposable protocol/read behavior, stage protected config,
 prepare exact rollback and then perform the approved maintenance action. Database
 restore verification is required before ledger data/container changes. Packaging
