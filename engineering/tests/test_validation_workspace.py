@@ -132,3 +132,17 @@ def test_stage_permissions_must_remain_private(staged):
 def test_changed_executable_mode_is_detected(staged):
     s=staged;s.stage();(s.root/'repo/src/library.py').chmod(0o755)
     with pytest.raises(ValueError):s.verify()
+
+
+def test_restrictive_umask_still_allows_read_only_mount_identity(staged):
+    import os
+    s=staged;previous=os.umask(0o077)
+    try:s.stage()
+    finally:os.umask(previous)
+    assert s.root.stat().st_mode&0o777==0o700
+    repo=s.root/'repo'
+    assert repo.stat().st_mode&0o777==0o755
+    assert (repo/'.git').stat().st_mode&0o777==0o755
+    assert (repo/'.git/index').stat().st_mode&0o777==0o644
+    assert (repo/'src/library.py').stat().st_mode&0o777==0o644
+    s.verify()
