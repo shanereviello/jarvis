@@ -121,3 +121,5 @@ establish MCP2 compatibility inside the actual Hermes container, read-only mount
 permissions or UID996/systemd boundaries. Those are required acceptance checks before
 installing a reviewed release and adding the read-only MCP entry. Keep the database,
 authority/control directories and provider/GitHub credentials unmounted in this reader.
+
+Actual Hermes MCP2 and a disposable read-only same-image fixture subsequently passed, along with protected host/UID996/systemd journal and role-permission checks. See [accepted fixture scope and remaining installation gate](workflow-acceptance.md). These results do not activate a production reader mount or operator release.
