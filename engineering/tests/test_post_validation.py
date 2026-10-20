@@ -63,7 +63,7 @@ def observation(m,plan):
 @pytest.mark.parametrize('exit_code,outcome',[(0,'succeeded'),(1,'failed'),(-9,'failed')])
 def test_host_result_is_separate_mechanical_check(contract,exit_code,outcome):
     m,c,p,plan=contract;o=observation(m,plan);o['service_exit']=exit_code;r=m.observed_result(plan,o)
-    assert r['outcome']==outcome and r['independently_executed_check']
+    assert r['outcome']==outcome and r['independently_executed_check']==(exit_code==0)
     assert not any(r[k] for k in ('task_success_established','human_acceptance','publication_authorized','retry_authorized'))
 
 
@@ -87,4 +87,4 @@ def test_rendered_environment_clears_inherited_provider_variables(contract):
     result=subprocess.run(argv[argv.index('/usr/bin/env'):],env={'OPENAI_API_KEY':'fake-sentinel','GITHUB_TOKEN':'fake-sentinel'},capture_output=True,text=True,check=True)
     assert 'fake-sentinel' not in result.stdout
     assert set(line.split('=',1)[0] for line in result.stdout.splitlines())=={
-        'PATH','LANG','HOME','PYTHONDONTWRITEBYTECODE','GIT_CONFIG_NOSYSTEM','GIT_CONFIG_GLOBAL','GIT_TERMINAL_PROMPT'}
+        'PATH','LANG','HOME','PYTHONDONTWRITEBYTECODE','GIT_CONFIG_NOSYSTEM','GIT_CONFIG_GLOBAL','GIT_TERMINAL_PROMPT','GIT_OPTIONAL_LOCKS','GIT_CONFIG_COUNT','GIT_CONFIG_KEY_0','GIT_CONFIG_VALUE_0'}

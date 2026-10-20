@@ -93,3 +93,11 @@ publication, not proof of the managed end-to-end path.
 Next: reviewed dependency packaging/upgrade and model-free root/UID acceptance,
 independent post-validation where required, and a separately scoped real-task/remote
 acceptance. Existing first-install helpers/module lists are not upgrade procedures.
+
+For new managed handoffs, the shared package reader also requires a protected
+independent-validation proof matching the exact handoff/commit/export before
+preparation or creation can proceed. The generated PR body identifies that check
+separately from the imported runner report. This gate does not authenticate task
+correctness, human acceptance, merge or deployment. See
+[independent validation](post-validation.md); production binding/installation and
+host/remote acceptance remain separate.

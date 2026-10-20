@@ -331,7 +331,7 @@ def main(argv=None):
     observation = sub.add_parser('native-record')
     for name in ('finish-custody','observation'):
         observation.add_argument('--' + name, required=True)
-    for command in ('validation-stage', 'validation-stage-verify'):
+    for command in ('validation-stage', 'validation-stage-verify', 'validation-execute', 'validation-record', 'validation-release'):
         validator = sub.add_parser(command)
         for name in ('finish-custody', 'package', 'destination'):
             validator.add_argument('--' + name, required=True)
@@ -348,6 +348,12 @@ def main(argv=None):
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
+        elif args.command == 'validation-release':
+            result = local('validation_execution').release(args.finish_custody,args.package,args.destination)
+        elif args.command == 'validation-execute':
+            result = local('validation_execution').execute(args.finish_custody,args.package,args.destination)
+        elif args.command == 'validation-record':
+            result = local('validation_execution').record(args.finish_custody,args.package,args.destination)
         elif args.command == 'validation-stage':
             result = local('validation_workspace').stage(args.finish_custody,args.package,args.destination)
         elif args.command == 'validation-stage-verify':

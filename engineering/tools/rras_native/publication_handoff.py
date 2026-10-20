@@ -26,7 +26,7 @@ def git(argv):
         stdin=subprocess.DEVNULL,capture_output=True,check=True,timeout=60).stdout
 
 
-def export(prepared_path,policy_path,destination,operator='shanereviello'):
+def export(prepared_path,policy_path,destination,operator='shanereviello',validation_required=False):
     if os.geteuid()!=0:raise ValueError('administrator export required')
     a=local('activity');custody=local('publication_custody');transport=local('publication_transport')
     policy_bytes=custody.root_bytes(policy_path,1024*1024);policy=json.loads(policy_bytes)
@@ -48,10 +48,33 @@ def export(prepared_path,policy_path,destination,operator='shanereviello'):
           'pr_base_branch','task_id','native_task','native_run','validation_exit','worker_stop_verified','host_stop_verified')
     record={'schema_version':1,'operator_uid':uid,'prepared':{k:prepared[k] for k in keys},
             'policy':policy,'bundle_sha256':a.digest(data),'bundle_size':len(data)}
+    if validation_required:record['independent_validation_required']=True
     a.absent(destination/'handoff.json',a.encoded(record))
     bundle.chmod(0o444);(destination/'handoff.json').chmod(0o444)
     destination.chmod(0o555)  # Explicit despite root's umask; source is intended for review/publication.
     return record
+
+
+def validate_proof(record, proof):
+    a=local('activity');p=record['prepared']
+    expected={'schema_version':1,'handoff_sha256':a.digest(a.encoded(record)),
+        'commit':p['commit'],'baseline':p['baseline'],'export_id':p['export_id'],
+        'outcome':'succeeded','scope':'independent_mechanical_validation',
+        'task_success_established':False,'merge_authorized':False,'deploy_authorized':False}
+    if set(proof)!=set(expected)|{'plan_sha256','result_sha256'} or any(
+            proof.get(k)!=v or type(proof.get(k)) is not type(v) for k,v in expected.items()):
+        raise ValueError('independent validation proof differs from handoff')
+    import re
+    for field in ('plan_sha256','result_sha256'):
+        if not isinstance(proof[field],str) or not re.fullmatch('[0-9a-f]{64}',proof[field]):
+            raise ValueError('exact validation custody digest required')
+    return proof
+
+
+def require_validation(record,package):
+    if record.get('independent_validation_required') is not True:return None
+    raw=local('publication_custody').root_bytes(Path(package)/'independent-validation.json',1024*1024)
+    return validate_proof(record,local('workflow_journal').decode(raw))
 
 
 def read(package):
@@ -61,6 +84,7 @@ def read(package):
         raise ValueError('named human operator required')
     data=custody.root_bytes(package/'review.bundle',LIMIT)
     if len(data)!=record['bundle_size'] or a.digest(data)!=record['bundle_sha256']:raise ValueError('handoff bundle changed')
+    require_validation(record,package)
     return record,data
 
 

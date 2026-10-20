@@ -35,6 +35,15 @@ def pubcase(case):
         with patch.object(p.os,'getuid',return_value=0),patch.object(p.os,'geteuid',return_value=0):
             prepared=p.prepare(c.custody,policy_path,destination,package,operator)
         record=json.loads((package/'handoff.json').read_bytes());proof=record['prepared']
+        # Explicit synthetic host proof: these tests exercise imported publication,
+        # not systemd execution. Actual validation tests remove it and release their result.
+        validation_proof={'schema_version':1,'handoff_sha256':a.digest(a.encoded(record)),
+            'commit':proof['commit'],'baseline':proof['baseline'],'export_id':proof['export_id'],
+            'outcome':'succeeded','scope':'independent_mechanical_validation','plan_sha256':'a'*64,
+            'result_sha256':'b'*64,'task_success_established':False,'merge_authorized':False,'deploy_authorized':False}
+        package.chmod(0o755)
+        (package/'independent-validation.json').write_bytes(a.encoded(validation_proof))
+        (package/'independent-validation.json').chmod(0o444);package.chmod(0o555)
         workspace=root/'operator';workspace.mkdir(mode=0o700)
         identity={k:proof[k] for k in ('repository_id','remote','branch','refspec','commit','baseline','export_id')};identity.update(schema_version=1,merge_authorized=False,deploy_authorized=False)
         transport=dict(identity,status='published',remote_write_attempted=True)

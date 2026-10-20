@@ -1,88 +1,110 @@
-# Independent post-validation contract
+# Independent mechanical validation
 
-The worker's captured validation report and the observed native board remain
-separate from an independently executed mechanical check. `post_validation.py`
-defines inert plans, isolated service arguments and host-result classification.
-It does not execute a service, authenticate caller-supplied data, record a journal
-event or gate existing publication. No deployed behavior changes in this slice.
+The source workflow now separates the worker's reported checks from an independent
+host validation attempt. This source is not installed. Real root/UID996/systemd
+acceptance and an updated package/upgrade procedure must pass before deployment.
+No paid coding task or production unit is needed for the source tests.
 
-The plan recompiles the captured registration/work item and requires the exact
-reviewed request, recipe, timeout, repository, task, branch and baseline. It binds
-the review commit, export digest and protected finish receipt digest. This is
-repository-independent; it adds no Jarvis-specific command or new execution
-identity. Registered recipe arguments containing `$` or `%` are currently refused
-by the systemd renderer to avoid variable/specifier expansion. Supporting those
-literals requires a separately tested invocation wrapper.
+## Candidate and recipe
 
-The eventual host must reconstruct a fresh workspace from protected captured
-changes, verify its content against the review commit's tree and keep HEAD at the
-baseline with proposed changes **unstaged**. A clean checkout of the review commit
-would make the current `git diff --check` recipe vacuous. Full-tree comparisons
-must include untracked additions, deletions and modes, without trusting the
-worker's index or Git configuration. The source preparation path already enforces
-scope and rejects special entry changes; staging must preserve those checks.
+`post_validation.py` recompiles the captured registration/work item and requires
+the exact reviewed request, registered recipe, timeout, repository, task, branch
+and baseline. The plan binds the review commit, export and protected finish
+receipt digest. A plan alone does not authorize execution or authenticate inputs.
 
-The renderer reuses `rras-coding-task.service`, UID/GID996 and existing resource
-bounds. It supplies no credential, clears inherited environment, uses a private
-network namespace, makes the filesystem read-only except the dedicated validation
-workspace and private temporary directory, and hides workflow/credential/job
-roots. Repository checks run as the engineering worker, never root. These are
-proposed properties requiring real host acceptance, not a new isolation claim.
+`validation_workspace.py` implements root-only `validation-stage` and
+`validation-stage-verify`. Both take `--finish-custody`, `--package` and
+`--destination`. Staging authenticates protected finish/handoff custody and bundle
+hash, reconstructs from that bundle without network or operator Git configuration,
+and rechecks the single baseline parent and exact admitted changed paths.
 
-Only host observations tied to the exact plan digest can describe an independent
-mechanical check: an exit code, globally verified stopped identity/slot, and the
-expected review tree before and after. Missing facts or changed files remain
-uncertain, including after exit zero. A completed failed check remains failed;
-no classifier result grants a retry, publication, human acceptance or task success.
-The classifier itself does not authenticate observations supplied by its caller.
+HEAD remains at the baseline with unstaged proposed contents. New files receive
+intent-to-add, including explicitly admitted ignored files. Otherwise the current
+`git diff --check` recipe would either inspect a clean review commit or skip new
+files. Actual Git tests prove whitespace errors in those additions are detected.
+The receipt binds the plan, bundle, handoff, exact regular-file inventory, review
+tree and Git index/configuration. Verification compares actual bytes/modes and
+additions/deletions, without trusting a stale index. Partial stages are retained;
+a fresh destination cannot silently reuse one.
 
-Remaining implementation before this is usable:
+The stage stays root-private, mode700. Symlinks/submodules anywhere in either tree
+are currently refused; they are never flattened. The current Jarvis source has
+neither. Limits are 16,384 files, 64 MiB per file and 256 MiB total regular content.
+Arguments containing `$` or `%` are refused by the service renderer to prevent
+systemd expansion; supporting those literals needs a tested invocation wrapper.
 
-1. Protected workspace staging is implemented below. The future launcher must
-   authenticate/recheck it and grant worker access only after slot acquisition.
-2. Root-owned exclusive one-use fence before invocation; fixed-slot acquisition,
-   bounded private output, interrupted/timeout handling and stop verification.
-   Existing coding launches and checks must remain mutually exclusive. Never
-   remove a fence or rerun a check merely to repair missing journal events.
-3. Durable root-owned result custody, idempotent observed validation journal
-   recording and publication enforcement tied to the exact reviewed tree/commit.
-4. Model-free root/UID996/systemd acceptance, dependency packaging and upgrade
-   handling that preserve the current journal/configuration; separate deployment.
+## One-use execution and custody
 
-The current renderer has no production command and must not be called directly
-with model-supplied plans or arbitrary workspaces. Fixtures prove the contract and
-argument construction only; no production unit, real credential or API is used.
+`validation-execute` takes the same three arguments, with `--destination` naming
+the existing stage. It verifies the stage and dedicated account, checks the global
+slot, then exclusively creates a root-owned fence in the original coding job.
+A mirror is retained in finish custody. Duplicate finish captures or alternate
+stages cannot rearm the same coding launch. A partial write or interrupted client
+preserves the fence; there is no reset/retry command.
 
-## Protected workspace source
+The command reuses `rras-coding-task.service`, UID/GID996 and existing resource
+bounds. Systemd acquires that fixed unit before exposing the candidate through a
+**read-only private service mount** at `/run/rras-validation/repo`. The host stage
+is never made worker-accessible or writable. This avoids the interval where a
+competing coding process under the same UID could alter staged validation input.
+These proposed namespace/ownership properties still require real host acceptance.
 
-`validation_workspace.py` adds root-only `validation-stage` and
-`validation-stage-verify` operator commands (source only). Both take
-`--finish-custody`, `--package` and a fresh absolute `--destination` beneath a
-protected parent. Staging verifies the finish/handoff binding and bundle digest,
-clones the protected bundle without network or operator Git configuration, checks
-the review's single baseline parent and rechecks exact admitted changed paths.
-It preserves baseline HEAD with unstaged review contents and marks new files as
-intent-to-add, including explicitly admitted ignored files. Thus `git diff --check`
-actually inspects newly added content too.
+The service receives no provider/GitHub credential, uses an empty initial
+environment and private networking, hides credential/workflow/job roots, and
+protects the filesystem. The fixed Git safe-directory entry and optional-lock
+setting allow inspection of the immutable root-owned checkout. The validator's
+registered recipe runs as UID996, never root. Private temporary storage is
+available; the candidate itself stays read-only. Recipes needing writable source
+or build trees require a reviewed scratch-directory contract in a later slice.
 
-The entire stage stays root-private, mode700; no worker access, ownership transfer,
-service start or credential delivery occurs. The receipt binds the plan, handoff,
-bundle, review tree, content inventory and exact index/configuration. Verification
-checks regular file bytes/modes/additions/deletions directly, not via a potentially
-stale Git index. Partial stages remain private and cannot be reused automatically.
-The filesystem reader is only for this root-private stage, never an active or
-previously writable worker checkout.
+The root client captures at most 2 MiB of combined output and waits no longer than
+the registered timeout plus 30 seconds. Exceeding a bound kills only that client;
+it does not claim the unit or worker stopped. RuntimeMaxSec/KillMode and a separate
+fixed-slot/UID idle check govern stop evidence. Uncertain stop, client failure,
+truncated output or changed protected input remain uncertain and retain the fence.
+A nonzero service attempt fails but does not prove the recipe itself started:
+service setup may have failed. Exit zero only establishes an independent check
+when complete capture, stopped identity and unchanged exact review tree agree.
 
-This first staging implementation refuses repositories containing symlinks or
-submodule entries anywhere in either tree. Such a repository needs further
-reviewed staging support; no special entries are flattened or silently dropped.
-Bounds are 16,384 files, 64 MiB per file and 256 MiB total regular content. Git object
-and command resource bounds still require host acceptance. Staging does not
-establish independent validation or publication permission.
+Root-only result and output files stay in finish custody. There is no mutable
+worker Git inspection after execution: the candidate was immutable in the service
+namespace and the protected stage is reverified. The staging filesystem reader
+must never be reused for active or previously writable worker directories.
 
-The remaining launcher must acquire the fixed unit before making any validation
-workspace accessible to UID996. Merely checking that UID996 is idle before a
-separate launch is insufficient: another coding launch could win that interval.
-The root-private stage prevents that shared identity from editing the candidate
-while it waits. Admission, exclusive execution fence, in-slot handoff, bounded
-output and stopped-workspace capture/journal/publication gating are still pending.
+## Recording and publication gate
+
+`validation-record` rechecks protected inputs, global/local fences, result/output
+hashes and classification. It repairs prerequisite finish journal facts and adds
+an idempotent **observed** validation event linked to the exact review commit.
+Recording never executes a recipe. Raw output is not a journal payload or Jarvis
+projection; only bounded facts/digests are recorded. The worker's imported terminal
+claim remains imported; mechanical validation does not establish task correctness,
+human acceptance, merge, deployment or release.
+
+`validation-release` requires success, records the journal event durably, then
+writes a small root-protected `independent-validation.json` to the handoff package.
+A journal outage blocks that release without authorizing another execution.
+Replaying release/recording repairs files/events only.
+
+New managed packages from `publication-prepare` require this proof. The named
+operator handoff reader, publisher and draft-PR bridge refuse missing or mismatched
+proof before proceeding. Publication receipt capture requires and retains the
+same proof; recording verifies its binding. The proof identifies the exact
+handoff/commit/baseline/export and private result/plan digests; it grants neither
+merge nor deployment. Existing legacy source packages remain explicitly outside
+this new managed gate; their imported publication claims are not retroactively
+relabelled as independently validated.
+
+## Remaining acceptance and installation
+
+Source tests use real disposable Git/SQLite and harmless bounded subprocesses.
+Administrator/ownership, account and systemd boundaries are explicit fake adapters.
+They do not demonstrate the actual service namespace, UID isolation, read-only
+mount, credential denial or stop behavior on this host.
+
+Next: model-free root/UID996/systemd acceptance of these changed boundaries;
+complete the protected frontend binding; update the dependency graph and upgrade
+procedure while preserving the current journal/configuration; obtain separate
+installation approval. A real paid task and managed remote publication acceptance
+still need their own exact scope/authorization. No deployment or API spending
+follows from merging this source.
