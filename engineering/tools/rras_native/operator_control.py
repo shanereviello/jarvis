@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sqlite3
 
 
 def local(name):
@@ -56,7 +57,7 @@ def configuration(path):
     value = json.loads(raw, object_pairs_hook=unique,
                        parse_constant=lambda _: (_ for _ in ()).throw(ValueError('invalid number')))
     fields = {'schema_version', 'registration', 'hermes_project', 'profile', 'codex_config'}
-    if not isinstance(value, dict) or set(value) != fields or type(value['schema_version']) is not int or value['schema_version'] != 1:
+    if not isinstance(value, dict) or set(value) not in (fields, fields | {'journal'}) or type(value['schema_version']) is not int or value['schema_version'] != 1:
         raise ValueError('invalid operator configuration')
     local('workflow_records').validate_record(value['registration'])
     if value['registration']['kind'] != 'repository_registration':
@@ -66,6 +67,8 @@ def configuration(path):
         target = trusted(value[field])
         if not target.is_absolute() or not target.is_file():
             raise ValueError('absolute protected session file required')
+    if 'journal' in value:
+        local('workflow_journal').Journal(trusted(value['journal']))
     return value, a.digest(raw)
 
 
@@ -73,7 +76,8 @@ def control_files():
     """Fixed dependency set; never trust file names supplied in a proposal."""
     root = Path(__file__).parent
     names = ('operator_control.py', 'repository_admission.py', 'workflow_records.py',
-             'approval.py', 'approved_launch.py', 'activity.py', 'task_contract.py')
+             'approval.py', 'approved_launch.py', 'activity.py', 'task_contract.py',
+             'managed_events.py', 'workflow_journal.py')
     return [root / name for name in names] + [local('workflow_records').SCHEMA]
 
 
@@ -112,11 +116,15 @@ def capture(config_path, proposals, candidate_id, state, review_branch):
                'work_item': snapshot['work_item'], 'candidate_id': candidate_id,
                'proposal_source': 'operator_admission_candidate',
                'control_files': control_hashes()}
+    if 'journal' in config:
+        binding.update(journal=config['journal'], registration=config['registration'])
     baseline = snapshot['work_item']['baseline']
-    return local('approval').snapshot(snapshot['request'], config['registration']['source']['canonical_path'],
+    result = local('approval').snapshot(snapshot['request'], config['registration']['source']['canonical_path'],
         config['hermes_project'], state, config['profile'], config['codex_config'], candidate_id,
         config_sha, baseline_ref=baseline['ref'], expected_baseline=baseline['commit'],
         review_branch=review_branch, admission=binding)
+    local('managed_events').record(result['review'], result['review_id'], 'captured')
+    return result
 
 
 def validate_review(review, config_path):
@@ -127,13 +135,17 @@ def validate_review(review, config_path):
     """
     a = local('activity')
     binding = review['admission']
-    if set(binding) != {'schema_version', 'configuration', 'configuration_sha256',
-                        'registration_sha256', 'work_item_sha256', 'work_item', 'candidate_id',
-                        'proposal_source', 'control_files'} or type(binding['schema_version']) is not int or binding['schema_version'] != 1:
+    fields = {'schema_version', 'configuration', 'configuration_sha256', 'registration_sha256',
+              'work_item_sha256', 'work_item', 'candidate_id', 'proposal_source', 'control_files'}
+    if 'journal' in binding:
+        fields |= {'journal', 'registration'}
+    if set(binding) != fields or type(binding['schema_version']) is not int or binding['schema_version'] != 1:
         raise ValueError('invalid admission binding')
     if str(config_path) != binding['configuration']:
         raise ValueError('different live configuration path')
     config, config_sha = configuration(config_path)
+    if config.get('journal') != binding.get('journal') or ('journal' in binding and binding['registration'] != config['registration']):
+        raise ValueError('journal binding changed')
     if config_sha != binding['configuration_sha256'] or config_sha != review['policy_sha256']:
         raise ValueError('live admission changed')
     if binding['control_files'] != control_hashes():
@@ -185,7 +197,9 @@ def approve(state, review_id, config_path, *, approve_one_execution=False):
     state = require_operator(state)
     record = local('approval').read_review(state, review_id)
     validate_review(record, config_path)
-    return local('approval').approve(state, review_id)
+    result = local('approval').approve(state, review_id)
+    local('managed_events').record(record, review_id, 'approved', result['authorization_id'])
+    return result
 
 
 def launch(state, authorization_id, config_path, jobs, workers, credential):
@@ -244,6 +258,26 @@ def evidence(state, authorization_id):
     return answer
 
 
+def reconcile(state, authorization_id):
+    """Rebuild missing journal facts from protected receipts; never retry/stop work."""
+    state = require_operator(state)
+    view = evidence(state, authorization_id)
+    a = local('activity')
+    record = local('approval').read_review(state, view['review_id'])
+    events = local('managed_events')
+    if events.journal(record) is None:
+        raise ValueError('review has no configured journal')
+    events.record(record, view['review_id'], 'captured')
+    events.record(record, view['review_id'], 'approved', authorization_id)
+    for suffix, phase in (('consumed', 'consumed'), ('launch', 'staged'), ('result', 'returned')):
+        path = state / (authorization_id + '.' + suffix + '.json')
+        if path.exists():
+            receipt = a.load(path)
+            facts = {key: receipt[key] for key in ('service_exit', 'host_stop_verified')} if suffix == 'result' else None
+            events.record(record, view['review_id'], phase, authorization_id, facts)
+    return dict(view, journal_reconciled=True, execution_retried=False)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest='command', required=True)
@@ -262,9 +296,10 @@ def main(argv=None):
     launch_parser = sub.add_parser('launch')
     for name in ('state', 'authorization-id', 'config', 'jobs', 'workers', 'credential'):
         launch_parser.add_argument('--' + name, required=True)
-    evidence_parser = sub.add_parser('evidence')
-    for name in ('state', 'authorization-id'):
-        evidence_parser.add_argument('--' + name, required=True)
+    for command in ('evidence', 'reconcile'):
+        evidence_parser = sub.add_parser(command)
+        for name in ('state', 'authorization-id'):
+            evidence_parser.add_argument('--' + name, required=True)
     args = p.parse_args(argv)
     try:
         if args.command == 'prepare':
@@ -278,9 +313,11 @@ def main(argv=None):
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
+        elif args.command == 'reconcile':
+            result = reconcile(args.state, args.authorization_id)
         else:
             result = evidence(args.state, args.authorization_id)
-    except (ValueError, OSError, KeyError, TypeError):
+    except (ValueError, OSError, KeyError, TypeError, sqlite3.Error):
         p.exit(1, 'Operator command refused; preserve records and inspect admission/configuration.\n')
     print(json.dumps(result))
     if args.command == 'launch' and (result['service_exit'] != 0 or result['host_stop_verified'] is not True):

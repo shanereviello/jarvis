@@ -91,8 +91,11 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
     slot()
     if 'admission' in review:
         local('operator_control').validate_review(review, policy)
+        local('managed_events').before_launch(review, record['review_id'], authorization_id, record)
     # Exclusive one-use approval before staging/launch. Any later ambiguity consumes it.
     review=approval.consume(state,authorization_id)
+    if 'admission' in review:
+        local('managed_events').record(review, record['review_id'], 'consumed', authorization_id)
     run_id=uuid.uuid4().hex;root=worker_base/('approved-'+run_id);job=jobs/run_id
     job.mkdir(mode=0o750);os.chown(job,0,996)
     root.mkdir(mode=0o700);os.chown(root,996,996)
@@ -119,6 +122,8 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
           'run_id':run_id,'unit':UNIT,'work':str(work),'job':str(job),'publication_authorized':False}
     if review.get('review_branch'):link['review_branch']=review['review_branch']
     a.absent(state/(authorization_id+'.launch.json'),a.encoded(link))
+    if 'admission' in review:
+        local('managed_events').record(review, record['review_id'], 'staged', authorization_id)
     # systemd enforces fixed-name exclusivity even if concurrent operators both passed slot().
     result=command(argv(work,job,review,credential),timeout=430)
     a.absent(state/(authorization_id+'.service-output.txt'),(result.stdout+result.stderr).encode())
@@ -127,6 +132,9 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
     stopped=outcome.returncode==0 and outcome.stdout.strip()=='not-found' and peers.returncode==1
     answer=dict(link,service_exit=result.returncode,host_stop_verified=stopped)
     a.absent(state/(authorization_id+'.result.json'),a.encoded(answer))
+    if 'admission' in review:
+        local('managed_events').record(review, record['review_id'], 'returned', authorization_id,
+            {'service_exit': result.returncode, 'host_stop_verified': stopped})
     return answer
 
 if __name__=='__main__':

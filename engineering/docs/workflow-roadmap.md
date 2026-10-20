@@ -85,7 +85,8 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 - Step1: shared contracts merged in PR15; no runtime installation.
 - Step2: admission preparation merged in PR16; trusted operator control merged in
   PR17. Installation and isolated host acceptance remain pending.
-- Step3: durable journal/artifact/outbox storage, explicit interactive imports and
-  bounded operator/Jarvis projections are the current source foundation slice.
-  Managed-control event wiring and read-only Jarvis transport remain pending.
+- Step3: journal/artifact/outbox storage, explicit interactive imports and bounded
+  projections merged in PR18. Managed-control event wiring, receipt reconciliation
+  and projection-only history MCP are the current source review slice. No new
+  interface is installed; actual-container/host acceptance remains pending.
 - Step4 and deferred slices remain pending.

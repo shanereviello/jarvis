@@ -107,6 +107,7 @@ def consume(state,authorization_id):
         os.fchmod(stream.fileno(),0o600)
         stream.write(a.encoded({'authorization_id':authorization_id,'review_id':approval['review_id'],'launch_outcome':'not_yet_established'}))
         stream.flush();os.fsync(stream.fileno())
+    a.fsync_directory(root)
     return review
 
 

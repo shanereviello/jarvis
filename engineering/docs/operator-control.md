@@ -9,13 +9,16 @@ execution is necessary to test it. Existing preparation stdio remains preparatio
 
 An administrator deliberately installs/selects one root-owned configuration per
 repository. All its ancestors must be root-owned, free of symlinks and not writable
-by group/others. It contains exactly:
+by group/others. Its required fields are:
 
 - `schema_version`: integer1.
 - `registration`: the full reviewed shared-contract repository registration.
 - `hermes_project`: a bounded project slug, used in the isolated native worker home.
 - `profile`: absolute path to the protected reviewed engineering profile.
 - `codex_config`: absolute path to the protected reviewed base Codex configuration.
+- Optional `journal`: absolute protected initialized journal directory. Required by
+  future production packaging for the new managed workflow; omission retains the
+  earlier source-only compatibility interface. See [managed recording](managed-journal-and-reader.md).
 
 The protected configuration, not an actor/provenance field or a candidate-supplied
 policy, establishes live admission. Paths/recipes are operator-reviewed configuration;
@@ -88,9 +91,11 @@ They prove deterministic admission-to-clone plumbing and refusal ordering, not a
 root/UID996/systemd isolation. Repeat changed boundaries with isolated model-free host
 fixtures before installing or exposing this interface.
 
-The next recording slice must durably index work/attempt/event/artifact records,
-provide status/history and explicit interactive imports, enforce distinct operator/
-Jarvis reads, and queue future ledger indexing. This command's evidence readback is
-not that persistent journal and is not a Jarvis read-permission API. Publication,
-PR receipts, cancellation/recovery mutation, GUI/autopilot and ledger activation
-remain separately tracked on the [roadmap](workflow-roadmap.md).
+The [journal foundation](workflow-journal.md) and [managed adapter/reader](managed-journal-and-reader.md)
+now provide source storage, explicit interactive imports, control-event recording,
+receipt reconciliation and projection-only MCP reads. Installation still requires
+reviewed initialized storage, explicit projection publication, protected mounts and
+actual-container/root/UID996/systemd acceptance. This command's evidence readback is
+not a universal task journal or proof of native success. Native finish/custody,
+publication/PR receipts, cancellation/recovery mutation, GUI/autopilot and ledger
+activation remain separately tracked on the [roadmap](workflow-roadmap.md).
