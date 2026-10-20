@@ -84,9 +84,12 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 
 - Step1: shared contracts merged in PR15; no runtime installation.
 - Step2: admission preparation merged in PR16; trusted operator control merged in
-  PR17. Installation and isolated host acceptance remain pending.
-- Step3: journal/artifact/outbox storage, explicit interactive imports and bounded
-  projections merged in PR18. Managed-control event wiring, receipt reconciliation
-  and projection-only history MCP are the current source review slice. No new
-  interface is installed; actual-container/host acceptance remains pending.
-- Step4 and deferred slices remain pending.
+  PR17. Production installation remains pending.
+- Step3: journal/artifact/outbox and interactive imports merged in PR18; configured
+  managed recording, receipt reconciliation and projection-only history MCP merged
+  in PR19. No new interface is installed.
+- Step4: actual Hermes MCP2, disposable read-only same-image fixture and offline
+  root/UID996/systemd acceptance passed; see [acceptance](workflow-acceptance.md).
+  Concrete immutable production packaging, projection publication and a separately
+  approved installation remain pending.
+- Deferred slices remain pending.
