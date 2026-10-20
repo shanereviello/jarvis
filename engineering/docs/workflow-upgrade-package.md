@@ -86,8 +86,8 @@ will still satisfy their captured hashes.
 ## Remaining installation work
 
 Source now implements inactive staging, evidence inspection and guarded activation/
-rollback. A protected tools bootstrap is implemented below. Next build and run a
-disposable host acceptance fixture for the upgrade lifecycle. Only after acceptance should current private
+rollback. A protected tools bootstrap is implemented below. An isolated Docker/native lifecycle acceptance runner is implemented below; its
+actual host run remains pending. Only after acceptance should current private
 metadata be captured, an actual candidate prepared and inactive staging reviewed.
 A separate human decision is required for production activation. The plan's full
 installer flag deliberately remains false until the protected installation path
@@ -243,7 +243,7 @@ verify no candidate evaluation, ancestry/byte tamper refusal, special-file and
 size bounds, duplicate-key rejection, partial-copy preservation and inspection.
 No root installation or actual host acceptance has happened from these tests.
 
-## Isolated host acceptance still to implement
+## Isolated host acceptance runner
 
 The installed pinned gateway source supports running with no messaging platforms;
 it remains alive for cron execution. Use a new empty fixture home with no cron,
@@ -261,3 +261,39 @@ writes. Source adapter tests do not establish those host facts. Keep failed
 fixture evidence, stop only fixture containers, and report the tested boundaries
 and any untested production-network behavior explicitly. The production activation
 approval and later paid task/managed remote acceptance remain separate.
+
+
+The source runner is `run_upgrade_host_acceptance.py` with the separate
+`upgrade_acceptance_transport.py` allowlist. A reviewed hash-pinned bootstrap must
+copy the exact acceptance candidate, locked offline vendor payload and harness
+into protected custody before executing it. The runner refuses the fixed fixture
+root `/var/lib/rras-workflow-upgrade-acceptance-20261020` if it already exists.
+It uses the pinned existing image without pulling or rebuilding it.
+
+The fixture maps configuration, wrappers, database, history and seven source
+mounts into a new synthetic root. Production paths are never mounted. The original
+staging/activation/rollback engine runs unchanged; the adapter translates only
+logical container names, network names and aliases into random labelled fixture
+resources. Its read and mutation paths validate labels, image, explicit UID1000,
+command, exact credential-free environment, capabilities, namespace settings,
+read-only root and source mounts before touching the daemon. New containers have
+one CPU, 1 GiB memory and 256-process limits. The new bridge is internal and no
+ports are published. This does not establish behavior on production `jarvis-net`,
+or exclude access to the internal bridge's host address; no credentials, tasks or
+real messaging adapters enter the fixture. Docker access remains in the root
+host harness and is never mounted into a container.
+
+A real synthetic workflow journal and nonempty projection are created. The runner
+starts a native gateway, stages an upgrade, drains it, replaces it, checks actual
+MCP discovery/read-only mounts, appends a later SQLite event and publishes history,
+then explicitly rolls back. It checks later data survives, wrapper recovery and
+activation replay refusal. Success/failure both stop only positively identified
+fixture containers and retain containers/network/files/private diagnostics. Stop
+failure prevents a successful completion receipt. It never automatically reruns
+activation or attempts production recovery.
+
+Source tests exercise the adapter's allowlist and complete harness orchestration
+with real package bytes/SQLite/files but fake root/Docker/native boundaries. Only
+the separately executed sudo acceptance can establish actual host behavior. Its
+success is still not production deployment approval or managed paid-task/remote
+publication acceptance.
