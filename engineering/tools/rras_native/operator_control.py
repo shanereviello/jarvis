@@ -325,6 +325,12 @@ def main(argv=None):
     publication = sub.add_parser('publication-record')
     for name in ('finish-custody','custody'):
         publication.add_argument('--' + name, required=True)
+    observation = sub.add_parser('native-observe')
+    for name in ('finish-custody','destination'):
+        observation.add_argument('--' + name, required=True)
+    observation = sub.add_parser('native-record')
+    for name in ('finish-custody','observation'):
+        observation.add_argument('--' + name, required=True)
     args = p.parse_args(argv)
     try:
         if args.command == 'prepare':
@@ -338,6 +344,10 @@ def main(argv=None):
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
+        elif args.command == 'native-observe':
+            result = local('native_observation').capture(args.finish_custody,args.destination)
+        elif args.command == 'native-record':
+            result = local('native_observation').record(args.finish_custody,args.observation)
         elif args.command == 'publication-prepare':
             result = local('workflow_publication').prepare(args.finish_custody,args.policy,args.destination,args.package,args.operator)
         elif args.command == 'publication-capture':
