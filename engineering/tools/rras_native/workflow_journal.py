@@ -157,8 +157,8 @@ class Journal:
                                    'received_at': received, 'writer_uid': uid}))
         return result
 
-    def append(self, records, artifacts=None, *, interactive_import=False):
-        if not isinstance(records, list) or not 0 < len(records) <= MAX_BATCH:
+    def append(self, records, artifacts=None, *, interactive_import=False, transition=None):
+        if not isinstance(records, list) or not (0 < len(records) <= MAX_BATCH or (not records and transition is not None)):
             raise ValueError('bounded nonempty record batch required')
         # Copy inputs before validation; caller mutations cannot change committed bytes.
         records = decode(encoded(records))
@@ -176,6 +176,36 @@ class Journal:
             db.execute('BEGIN IMMEDIATE')
             existing = self._rows(db)
             known = {meta['digest']: row for row, meta in existing}
+            if transition is not None:
+                if interactive_import:
+                    raise ValueError('observed transitions cannot be interactive imports')
+                event, attempt = decode(encoded(transition))
+                now = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+                if attempt is not None:
+                    matches = [r for r in known.values() if r['kind'] == 'attempt' and r['attempt_id'] == attempt['attempt_id']]
+                    if matches:
+                        saved = matches[0]
+                        if any(saved.get(k) != v for k, v in attempt.items()):
+                            raise ValueError('attempt association changed')
+                        attempt = saved
+                    else:
+                        number = max((r['attempt_number'] for r in known.values() if r['kind'] == 'attempt' and r['work_item_id'] == attempt['work_item_id']), default=0) + 1
+                        attempt.update(schema_version=1, kind='attempt', attempt_number=number, created_at=now)
+                    records.append(attempt)
+                matches = [r for r in known.values() if r['kind'] == 'event' and r['event_id'] == event['event_id']]
+                if matches:
+                    saved = matches[0]
+                    if any(saved.get(k) != v for k, v in event.items()):
+                        raise ValueError('transition identity conflicts')
+                    event = saved
+                else:
+                    stream = sorted([r for r in known.values() if r['kind'] == 'event' and r['work_item_id'] == event['work_item_id']], key=lambda r: r['sequence'])
+                    event.update(schema_version=1, kind='event', occurred_at=now, recorded_at=now,
+                        sequence=stream[-1]['sequence'] + 1 if stream else 1,
+                        previous_event_sha256=digest(encoded(stream[-1])) if stream else None)
+                records.append(event)
+            if len(records) > MAX_BATCH:
+                raise ValueError('transition exceeds record batch limit')
             incoming = {digest(encoded(row)): row for row in records}
             if len(incoming) != len(records):
                 raise ValueError('duplicate records within batch')

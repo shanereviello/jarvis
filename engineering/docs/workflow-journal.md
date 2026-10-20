@@ -5,8 +5,9 @@ a private SQLite database. It queues references for future indexing in the same
 transaction. It does not register a repository, authenticate a claimed actor, approve
 execution, invoke a recipe, fetch a reference, contact a model or start the ledger.
 This source slice is the storage/read foundation of roadmap step3, not automatic
-observation of all work. The managed operator-control adapter still needs journal
-write ordering and reconciliation before production installation.
+observation of all work. The source [managed adapter](managed-journal-and-reader.md) now supplies journal
+write ordering and receipt reconciliation when configured; production installation
+and actual-container/host acceptance remain pending.
 
 ## Ownership and durability
 
@@ -140,8 +141,9 @@ and explicit credentials/permissions, use digest idempotency and acknowledge onl
 confirmed durable external receipt. A failed index write must not launch/retry coding.
 Never send the entire private store to a ledger as an indexing shortcut.
 
-Before installation: wire capture/approval/attempt/result boundaries into durable
-journal writes, with reconciliation for an interrupted launch and explicit unknown
-outcomes; add safe read-only projection transport for Jarvis; run isolated root/UID996/
-systemd and permission acceptance; package code/schema/dependencies/config together.
+The source [managed adapter and projection-only MCP](managed-journal-and-reader.md)
+now provide control-event writes/reconciliation and a reader. Before installation,
+require a configured journal, publish a complete projection generation and run
+actual-container plus isolated root/UID996/systemd permission acceptance. Package
+code/schema/dependencies/config together.
 No production ledger activation, model call or migration is required for these checks.

@@ -17,3 +17,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Reusable operator control](operator-control.md): source capture/review/approve/launch/evidence interface and protected admission binding.
 
 - [Workflow journal foundation](workflow-journal.md): transactional records/artifacts, explicit imports, structured summaries, sanitized Jarvis exports and pending index outbox.
+
+- [Managed journal and reader](managed-journal-and-reader.md): durable control-event ordering, receipt reconciliation and projection-only history MCP.

@@ -46,6 +46,14 @@ def load(path):
                       parse_constant=lambda _: (_ for _ in ()).throw(RecordError("invalid JSON number")))
 
 
+def fsync_directory(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def absent(path, data):
     path = Path(path)
     if path.is_symlink():
@@ -59,6 +67,7 @@ def absent(path, data):
     except FileExistsError:
         if path.read_bytes() != data:
             raise RecordError("existing record conflicts; preserve it") from None
+    fsync_directory(path.parent)
 
 
 def git(repo, *args):
