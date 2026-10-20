@@ -331,6 +331,10 @@ def main(argv=None):
     observation = sub.add_parser('native-record')
     for name in ('finish-custody','observation'):
         observation.add_argument('--' + name, required=True)
+    for command in ('validation-stage', 'validation-stage-verify'):
+        validator = sub.add_parser(command)
+        for name in ('finish-custody', 'package', 'destination'):
+            validator.add_argument('--' + name, required=True)
     args = p.parse_args(argv)
     try:
         if args.command == 'prepare':
@@ -344,6 +348,11 @@ def main(argv=None):
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
+        elif args.command == 'validation-stage':
+            result = local('validation_workspace').stage(args.finish_custody,args.package,args.destination)
+        elif args.command == 'validation-stage-verify':
+            receipt = local('validation_workspace').verify(args.finish_custody,args.package,args.destination)
+            result = {'verified':True, 'commit':receipt['plan']['identity']['commit'], 'service_started':False}
         elif args.command == 'native-observe':
             result = local('native_observation').capture(args.finish_custody,args.destination)
         elif args.command == 'native-record':
