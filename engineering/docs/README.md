@@ -25,3 +25,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Production workflow package](workflow-production-package.md): committed-source/offline candidate builder, atomic sanitized generation publication, inactive staging and separate activation/rollback gates.
 
 - [Stopped-worker finish reports](workflow-finish.md): source capture, provenance-aware journal recording and replay; installation/publication integration remain separate.
+
+- [Workflow publication receipts](workflow-publication.md): source local commit/handoff integration and imported branch/draft-PR reports; no automatic GitHub PR client or deployment.

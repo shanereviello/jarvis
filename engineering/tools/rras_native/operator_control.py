@@ -315,6 +315,16 @@ def main(argv=None):
         finish.add_argument('--' + name, required=True)
     finish = sub.add_parser('finish-record')
     finish.add_argument('--custody', required=True)
+    publication = sub.add_parser('publication-prepare')
+    for name in ('finish-custody','policy','destination','package','operator'):
+        publication.add_argument('--' + name, required=True)
+    publication = sub.add_parser('publication-capture')
+    for name in ('finish-custody','package','workspace','destination'):
+        publication.add_argument('--' + name, required=True)
+    publication.add_argument('--pr-receipt')
+    publication = sub.add_parser('publication-record')
+    for name in ('finish-custody','custody'):
+        publication.add_argument('--' + name, required=True)
     args = p.parse_args(argv)
     try:
         if args.command == 'prepare':
@@ -328,6 +338,12 @@ def main(argv=None):
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
+        elif args.command == 'publication-prepare':
+            result = local('workflow_publication').prepare(args.finish_custody,args.policy,args.destination,args.package,args.operator)
+        elif args.command == 'publication-capture':
+            result = local('workflow_publication').capture(args.finish_custody,args.package,args.workspace,args.destination,args.pr_receipt)
+        elif args.command == 'publication-record':
+            result = local('workflow_publication').record(args.finish_custody,args.custody)
         elif args.command == 'finish-capture':
             result = finish_capture(args.state, args.authorization_id, args.destination)
         elif args.command == 'finish-record':

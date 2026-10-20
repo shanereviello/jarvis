@@ -8,9 +8,12 @@ import test_managed_events as managed
 
 
 @pytest.fixture
-def case():
+def case(request):
     x=managed.ManagedTests('runTest');x.setUp();f=managed.module('workflow_finish');patches=[]
     try:
+        remote=getattr(request,'param',{}).get('publication_remote')
+        if remote:
+            x.registration['publication']['remote']=remote;x.registration['source']['remote']=remote;x.bind();x.config['registration']=x.registration;x.save_config()
         captured=x.capture();auth=x.approve(captured['review_id']);host,_=x.invoke(auth['authorization_id'])
         review=x.approval.read_review(x.state,captured['review_id']);root=Path(host['work'])
         context={'schema_version':1,'task':'t_finish','run_id':1,'home':str(root/'home/profiles/rras-engineering'),'board':str(root/'home/kanban/kanban.db'),'python':f.local('native_task_cli').TRUSTED_PYTHON}
