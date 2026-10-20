@@ -133,3 +133,9 @@ runtime payload/dependency audit, and defines a distinct state-preserving
 [upgrade candidate plan](workflow-upgrade-package.md). The dedicated upgrade
 installer and production/remote acceptance remain pending; no source merge changes
 the installed journal or enables paid execution.
+
+
+Frontend binding/complete payload and upgrade-plan source merged in PR31. The next
+slice adds dedicated inactive upgrade staging and read-only interrupted-stage
+inspection. It preserves private state and never switches a live reference;
+activation/rollback and actual installation acceptance remain pending.
