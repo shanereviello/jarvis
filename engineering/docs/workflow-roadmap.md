@@ -83,6 +83,7 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 ## Progress
 
 - Step1: shared contracts merged in PR15; no runtime installation.
-- Step2: repository-independent admission preparation is the next source slice.
-  Trusted capture/approval/launch integration remains to implement and accept.
+- Step2: repository-independent admission preparation merged in PR16. Trusted
+  capture/review/approval/launch/evidence integration is source-tested in the next
+  review slice; installation and isolated host acceptance remain pending.
 - Steps3–4 and deferred slices remain pending.
