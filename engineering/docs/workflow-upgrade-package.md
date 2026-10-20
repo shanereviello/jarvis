@@ -86,8 +86,8 @@ will still satisfy their captured hashes.
 ## Remaining installation work
 
 Source now implements inactive staging, evidence inspection and guarded activation/
-rollback. Next build a reviewed protected bootstrap and a disposable host acceptance
-fixture for the upgrade lifecycle. Only after acceptance should current private
+rollback. A protected tools bootstrap is implemented below. Next build and run a
+disposable host acceptance fixture for the upgrade lifecycle. Only after acceptance should current private
 metadata be captured, an actual candidate prepared and inactive staging reviewed.
 A separate human decision is required for production activation. The plan's full
 installer flag deliberately remains false until the protected installation path
@@ -202,3 +202,62 @@ drain behavior or privileged service cutover; the separate host fixture must do
 that before production staging/activation is proposed. Operator maintenance must
 also keep unrelated root administration idle during cutover; the upgrade lock is
 not a lock taken by every possible root command.
+
+
+## Protected deployment-tools bootstrap
+
+`workflow_upgrade_bootstrap.py` is a standalone stdlib-only bootstrap. The human
+operator must review and hash-pin this file before invoking it with sudo; a file
+being in a checkout does not make it root-trusted. It does not import either
+candidate deployment module, invoke a workflow action, change sudo policy or grant
+workers access. Its `verify-only` action needs no privilege and parses candidate
+syntax without evaluating it.
+
+A `deployment-tools-manifest.json` contains exactly `schema_version: 1`,
+`scope: "workflow-upgrade-tools-only"`, an exact `source_commit` and a `files` map
+of SHA256 digests for `stage_workflow_upgrade.py` and
+`activate_workflow_upgrade.py`. Copy their bytes from the selected reviewed Git
+commit, not from uncommitted working files. Invoke `stage --candidate PATH
+--manifest-sha256 SHA256` only through the separately reviewed hash-pinned runner.
+
+Before writing anything, staging verifies the bounded regular candidate files,
+manifest digest, source ancestry on canonical main and exact `git show` bytes for
+both modules. Git calls use `--no-replace-objects`, explicit canonical
+`safe.directory` and disabled hooks. Workflow staging and activation preflight
+share that same source-ancestry helper, so root can read the intentionally
+user-owned canonical checkout without relaxing global Git settings.
+
+The bootstrap copies only those public tools and receipts to
+`/opt/rras-engineering/releases/workflow-upgrade-tools-<manifest-prefix>` with
+root-owned 0755 directory and 0444 code/manifest/receipts. It refuses existing
+paths. Interrupted copying retains its start receipt and root-private diagnostic;
+no automatic completion, adoption, retry or cleanup occurs. `inspect --release
+PATH --manifest-sha256 SHA256` verifies the protected files and completion receipt
+without rewriting anything. Once staged and inspected, a later reviewed runner
+can invoke the protected deployment tool with isolated Python. That invocation
+still requires the corresponding separate staging/activation/recovery approval.
+
+Tests use actual disposable Git commits, bounded files, source-byte comparisons
+and installation receipts with fake administrator/ownership boundaries. They
+verify no candidate evaluation, ancestry/byte tamper refusal, special-file and
+size bounds, duplicate-key rejection, partial-copy preservation and inspection.
+No root installation or actual host acceptance has happened from these tests.
+
+## Isolated host acceptance still to implement
+
+The installed pinned gateway source supports running with no messaging platforms;
+it remains alive for cron execution. Use a new empty fixture home with no cron,
+provider credentials, chat history or tasks and a container network with no
+external access. Do not mount production data/configuration, jobs, Docker socket,
+credentials or the canonical checkout inside the fixture. Use fixed isolated
+container names and synthetic mounts/wrappers, and enforce that the test transport
+cannot name the production Hermes container or mutate a non-fixture resource.
+
+Acceptance must exercise actual Docker create/inspect normalization, image ID
+preservation, read-only workflow/history mounts, native running-to-draining fresh
+idle acknowledgement and process identity, MCP discovery with nonempty synthetic
+history, retained-container rollback and preservation of later synthetic journal
+writes. Source adapter tests do not establish those host facts. Keep failed
+fixture evidence, stop only fixture containers, and report the tested boundaries
+and any untested production-network behavior explicitly. The production activation
+approval and later paid task/managed remote acceptance remain separate.

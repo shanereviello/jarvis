@@ -225,3 +225,11 @@ def test_stale_preflight_does_not_create_activation_state(engine,monkeypatch):
     with pytest.raises(ValueError,match='unavailable'):x.e.activate(True)
     assert not x.e.directory.exists()
     assert not any(m=='POST' for m,_ in x.calls)
+
+
+def test_root_preflight_uses_the_same_explicit_git_trust_as_staging(engine):
+    x=engine;x.e.preflight()
+    ancestry=[argv for argv in x.f.calls if argv[0]=='/usr/bin/git']
+    assert len(ancestry)==2
+    for argv in ancestry:
+        assert '--no-replace-objects' in argv and 'safe.directory='+str(x.f.m.SOURCE) in argv and 'core.hooksPath=/dev/null' in argv
