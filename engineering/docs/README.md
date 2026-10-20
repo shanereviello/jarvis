@@ -15,3 +15,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Repository admission preparation](repository-admission.md): reusable candidate preparation and baseline preflight; privileged integration pending.
 
 - [Reusable operator control](operator-control.md): source capture/review/approve/launch/evidence interface and protected admission binding.
+
+- [Workflow journal foundation](workflow-journal.md): transactional records/artifacts, explicit imports, structured summaries, sanitized Jarvis exports and pending index outbox.
