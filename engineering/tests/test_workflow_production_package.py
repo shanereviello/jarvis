@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import subprocess
 from unittest.mock import patch
 
@@ -25,7 +26,7 @@ def committed_source(tmp_path):
     m = module('prepare_workflow_release')
     repo = tmp_path / 'source'
     repo.mkdir()
-    names = ['engineering/tools/rras_native/' + name for name in m.MODULES] + [
+    names = ['engineering/tools/rras_native/' + name for name in (*m.MODULES,*m.ASSETS)] + [
         'engineering/contracts/workflow-v1.schema.json', 'engineering/config/workflow-dependency-lock.json',
         'engineering/config/jarvis-registration.candidate.json']
     for name in names:
@@ -165,3 +166,68 @@ def test_inactive_stager_refuses_unprivileged_invocation():
     with patch.object(m.os, 'getuid', return_value=1000), patch.object(m.os, 'geteuid', return_value=1000), \
          patch.object(m, 'command', side_effect=AssertionError('must not contact host')):
         with pytest.raises(ValueError, match='administrator'): m.stage('/unused', '0' * 64)
+
+
+def upgrade_inputs():
+    return {'installed_release':'/opt/rras-engineering/releases/workflow-421ce120c6da',
+        'operator_config_sha256':'a'*64,'hermes_config_sha256':'b'*64,'hermes_compose_sha256':'c'*64}
+
+
+def test_complete_finish_validation_publication_and_frontend_payload(committed_source,tmp_path):
+    m,repo,commit,_=committed_source;out=tmp_path/'complete';m.build(repo,commit,out)
+    for name in ('workflow_finish','validation_workspace','validation_execution','workflow_publication','draft_pr_connector','publication_transport'):
+        assert (out/'engineering/tools/rras_native'/(name+'.py')).is_file()
+    assert (out/'entrypoints/draft-pr-frontend.js').is_file()
+    # Exercise the actual generated isolated Python entrypoint, not a text match.
+    result=subprocess.run([sys.executable,'-I','-B',str(out/'entrypoints/draft-pr.py'),'--help'],capture_output=True,text=True,check=True)
+    assert 'prepare' in result.stdout and 'unknown' in result.stdout
+
+
+def test_missing_transitive_dependency_refused_before_candidate(committed_source,tmp_path):
+    m,repo,_,git=committed_source
+    path=repo/'engineering/tools/rras_native/operator_control.py'
+    path.write_text(path.read_text()+"\ndef future_dependency():return local('missing_reviewed_module')\n")
+    git('add','.');git('-c','user.name=Fixture','-c','user.email=f@localhost','commit','-qm','dependency')
+    out=tmp_path/'refused'
+    with pytest.raises(ValueError,match='unpackaged local dependency'):m.build(repo,git('rev-parse','HEAD'),out)
+    assert not out.exists()
+
+
+def test_upgrade_plan_preserves_state_and_is_rejected_by_first_install_stager(committed_source,tmp_path):
+    m,repo,commit,_=committed_source;out=tmp_path/'upgrade'
+    m.build(repo,commit,out,upgrade_inputs());plan=json.loads((out/'install-plan.json').read_bytes())
+    manifest=json.loads((out/'release-manifest.json').read_bytes())
+    assert manifest['schema_version']==2 and manifest['kind']=='workflow_upgrade_candidate'
+    assert plan['scope']=='inactive_upgrade_candidate_only' and not plan['installer_implemented']
+    assert plan['operator_config_action']=='preserve_existing_bytes' and 'operator_config' not in plan
+    assert not plan['candidate_registration_applied'] and not plan['activation_authorized']
+    assert '/var/lib/rras-workflow/journal' in plan['preserve_paths']
+    assert '/var/lib/rras-coding-control' in plan['preserve_paths']
+    assert plan['hermes']['replace_readonly_mount']['expected_source']==upgrade_inputs()['installed_release']
+    assert plan['hermes']['preserve_other_entries_and_mounts']
+    stager=module('stage_workflow_review')
+    with patch.object(stager.os,'getuid',return_value=0),patch.object(stager.os,'geteuid',return_value=0),patch.object(stager,'command',side_effect=AssertionError('must refuse before contacting host')):
+        with pytest.raises(ValueError,match='invalid production manifest'):
+            stager.stage(out,m.activity().digest((out/'release-manifest.json').read_bytes()))
+
+
+@pytest.mark.parametrize('key,value',[('installed_release','/tmp/source'),('operator_config_sha256','invalid'),('hermes_config_sha256',None),('hermes_compose_sha256',True)])
+def test_upgrade_preconditions_refused_before_candidate(committed_source,tmp_path,key,value):
+    m,repo,commit,_=committed_source;inputs=upgrade_inputs();inputs[key]=value;out=tmp_path/'bad-upgrade'
+    with pytest.raises(ValueError):m.build(repo,commit,out,inputs)
+    assert not out.exists()
+
+
+def test_payload_modules_import_without_builder_site_packages(committed_source,tmp_path):
+    m,repo,commit,_=committed_source;out=tmp_path/'isolated-imports';m.build(repo,commit,out)
+    script="""import importlib.util,sys
+from pathlib import Path
+root=Path(sys.argv[1]);sys.path.insert(0,str(root/'vendor'))
+for path in sorted((root/'engineering/tools/rras_native').glob('*.py')):
+ spec=importlib.util.spec_from_file_location(path.stem,path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+import jsonschema
+assert jsonschema.Draft202012Validator is not None
+print('isolated_payload_imports_passed')
+"""
+    result=subprocess.run([sys.executable,'-I','-S','-B','-c',script,str(out)],capture_output=True,text=True,check=True)
+    assert result.stdout.strip()=='isolated_payload_imports_passed'

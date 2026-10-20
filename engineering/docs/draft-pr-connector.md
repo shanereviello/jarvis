@@ -101,3 +101,9 @@ separately from the imported runner report. This gate does not authenticate task
 correctness, human acceptance, merge or deployment. See
 [independent validation](post-validation.md); production binding/installation and
 host/remote acceptance remain separate.
+
+The package now supplies a concrete operator binding and a composed protected
+frontend entrypoint; see [package/upgrade contract](workflow-upgrade-package.md).
+The binding maps to the existing connected tool names, quotes CLI arguments,
+resumes one process and requires helper protocol1. It is source-tested with fake
+tools; installation and authenticated managed remote acceptance remain separate.

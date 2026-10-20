@@ -126,3 +126,10 @@ one-use read-only validation execution, private bounded results, idempotent
 observed journal records and an exact-commit proof gate for new managed
 publication packages. Root/systemd acceptance, frontend binding and package upgrade
 remain pending; the installed foundation stays unchanged.
+
+PR30's mount-permission correction passed fourteen actual offline host boundary
+cases and merged. The next source slice completes the frontend tool binding and
+runtime payload/dependency audit, and defines a distinct state-preserving
+[upgrade candidate plan](workflow-upgrade-package.md). The dedicated upgrade
+installer and production/remote acceptance remain pending; no source merge changes
+the installed journal or enables paid execution.

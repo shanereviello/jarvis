@@ -149,7 +149,7 @@ def main():
             data=local('workflow_journal').decode(args.data.encode())
             if not isinstance(data,dict):raise ValueError('connector object required')
             answer=globals()[args.action](args.package,args.workspace,data)
-        print(json.dumps(answer))
+        print(json.dumps(dict(answer,operator_binding_protocol=1)))
     except (ValueError,OSError,KeyError,TypeError):p.exit(1,'Draft PR bridge refused; preserve intent/fence and inspect without creation retry.\n')
 
 
