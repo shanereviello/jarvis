@@ -29,3 +29,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Workflow publication receipts](workflow-publication.md): source local commit/handoff integration and imported branch/draft-PR reports; no automatic GitHub PR client or deployment.
 
 - [Native board observations](native-observation.md): source read-only snapshot checks and provenance limits; no native lifecycle or production change.
+
+- [Draft-PR connector bridge](draft-pr-connector.md): named-operator one-use frontend contract and normalized receipts; no worker GitHub credentials or production installation.

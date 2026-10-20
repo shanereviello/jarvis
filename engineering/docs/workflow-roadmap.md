@@ -107,3 +107,5 @@ The next source slice adds [finish report custody and journal recording](workflo
 Finish report capture/recording merged in PR23, with the installed foundation unchanged. The following source slice connects [review commit/handoff and publication receipts](workflow-publication.md). It preserves imported report provenance; packaging/host acceptance, independent native observation and authenticated GitHub PR creation remain pending.
 
 Publication handoff/receipt source merged in PR24. The following [native board observation](native-observation.md) slice checks stored task/run agreement directly without promoting worker-owned data to authenticated success. Authenticated PR creation, independent post-validation, packaging and host acceptance remain pending.
+
+Native board observation source merged in PR25. The following [operator draft-PR connector bridge](draft-pr-connector.md) source slice uses the existing frontend GitHub connection with one-use intent/response handling. Production frontend binding, package/upgrade and root/UID acceptance remain separate.
