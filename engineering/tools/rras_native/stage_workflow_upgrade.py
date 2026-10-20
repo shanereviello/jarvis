@@ -237,6 +237,28 @@ def stage(path,expected):
 def public(answer):
     return {k:v for k,v in answer.items() if k not in ('fingerprint','private_files')}
 
+def evidence(journal,verify_release=True):
+    """Protected stage evidence without requiring production still uses old code.
+
+    Rollback may skip the new code tree but still verifies every private original;
+    a broken candidate must not prevent safe restoration of the retained container.
+    """
+    administrator();journal=protected(journal);role(journal,0,0,0o700)
+    if journal.parent!=JOURNALS or not re.fullmatch('workflow-[0-9a-f]{12}',journal.name):raise ValueError('exact upgrade journal required')
+    start=decode(regular(journal/'started.json'))
+    answer=decode(regular(journal/'staged.json'));manifest_raw=regular(journal/'release-manifest.json');manifest=decode(manifest_raw)
+    if sha(manifest_raw)!=answer['manifest_sha256'] or start['manifest_sha256']!=answer['manifest_sha256']:raise ValueError('upgrade journal identity changed')
+    for name,digest in answer['private_files'].items():
+        p=PurePosixPath(name)
+        if p.is_absolute() or '..' in p.parts or str(p)!=name or sha(regular(journal/name))!=digest:raise ValueError('private rollback evidence changed')
+    plan=decode(regular(journal/'install-plan.json'));installed,release=validate_plan(plan,manifest)
+    if sha(encoded(plan))!=manifest['plan_sha256']:raise ValueError('staged plan/manifest changed')
+    if verify_release:
+        if regular(release/'release-manifest.json')!=manifest_raw:raise ValueError('staged manifest changed')
+        for name,digest in manifest['files'].items():
+            if sha(regular(release/name))!=digest:raise ValueError('staged release changed')
+    return answer,manifest,plan
+
 def inspect(journal):
     administrator();journal=protected(journal);role(journal,0,0,0o700)
     if journal.parent!=JOURNALS or not re.fullmatch('workflow-[0-9a-f]{12}',journal.name):raise ValueError('exact upgrade journal required')
@@ -244,15 +266,7 @@ def inspect(journal):
         return {'phase':'unidentified_stage_preserved','automatic_retry':False,'activation_authorized':False}
     start=decode(regular(journal/'started.json'))
     if not (journal/'staged.json').exists():return {'phase':'incomplete_stage_preserved','manifest_sha256':start['manifest_sha256'],'automatic_retry':False,'activation_authorized':False}
-    answer=decode(regular(journal/'staged.json'));manifest_raw=regular(journal/'release-manifest.json');manifest=decode(manifest_raw)
-    if sha(manifest_raw)!=answer['manifest_sha256'] or start['manifest_sha256']!=answer['manifest_sha256']:raise ValueError('upgrade journal identity changed')
-    for name,digest in answer['private_files'].items():
-        p=PurePosixPath(name)
-        if p.is_absolute() or '..' in p.parts or str(p)!=name or sha(regular(journal/name))!=digest:raise ValueError('private rollback evidence changed')
-    plan=decode(regular(journal/'install-plan.json'));installed,release=validate_plan(plan,manifest)
-    if sha(encoded(plan))!=manifest['plan_sha256'] or regular(release/'release-manifest.json')!=manifest_raw:raise ValueError('staged plan/manifest changed')
-    for name,digest in manifest['files'].items():
-        if sha(regular(release/name))!=digest:raise ValueError('staged release changed')
+    answer,manifest,plan=evidence(journal)
     current,_=observe(plan)
     return dict(public(answer),phase='staged_inactive_verified' if current==answer['fingerprint'] else 'external_state_changed',automatic_retry=False)
 
