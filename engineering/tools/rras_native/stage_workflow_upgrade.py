@@ -195,11 +195,16 @@ def observe(plan):
     return fingerprint,{'operator-config.original':config,'hermes-config.original':hermes,'compose.original':compose,
         'container.original.json':encoded(current),'filesystem.original.json':encoded(metadata),**{'wrappers/'+name+'.original':raw for name,raw in originals.items()}}
 
+def source_ancestor(commit):
+    if not isinstance(commit,str) or not re.fullmatch('[0-9a-f]{40}',commit):raise ValueError('exact reviewed source commit required')
+    command(['/usr/bin/git','--no-replace-objects','-c','safe.directory='+str(SOURCE),'-c','core.hooksPath=/dev/null','-C',str(SOURCE),
+        'merge-base','--is-ancestor',commit,'main'])
+
+
 def stage(path,expected):
     administrator();manifest,manifest_raw,plan,plan_raw,payload=candidate(path,expected)
     installed,release=validate_plan(plan,manifest)
-    command(['/usr/bin/git','--no-replace-objects','-c','safe.directory='+str(SOURCE),'-c','core.hooksPath=/dev/null','-C',str(SOURCE),
-        'merge-base','--is-ancestor',manifest['source_commit'],'main'])
+    source_ancestor(manifest['source_commit'])
     protected(RELEASES);protected(JOURNALS.parent)
     if JOURNALS.exists():protected(JOURNALS);role(JOURNALS,0,0,0o700)
     journal=JOURNALS/manifest['release_id']

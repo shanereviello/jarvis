@@ -278,7 +278,7 @@ class Upgrade:
 
     def preflight(self):
         self.load();self.s.idle()
-        self.s.command(['/usr/bin/git','--no-replace-objects','-C',str(self.s.SOURCE),'merge-base','--is-ancestor',self.manifest['source_commit'],'main'])
+        self.s.source_ancestor(self.manifest['source_commit'])
         if self.directory.exists() or self.directory.is_symlink():raise ValueError('activation already fenced; inspect or explicitly roll back')
         if self.s.inspect(self.journal)['phase']!='staged_inactive_verified':raise ValueError('stage preconditions changed')
         self.state={'operation_id':'preflight','wrapper_ops':{}}
