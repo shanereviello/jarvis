@@ -2,7 +2,8 @@
 
 This source prepares an inactive candidate and a reviewable upgrade plan. A
 dedicated inactive stager and read-only evidence inspector are implemented below;
-service activation/rollback and installation approval remain separate.
+guarded activation/rollback source is also implemented below. Host acceptance and
+installation approval remain separate.
 The live foundation remains `workflow-421ce120c6da` until a separate approved cutover.
 The old first-install staging/activation commands are not upgrade commands.
 
@@ -84,14 +85,13 @@ will still satisfy their captured hashes.
 
 ## Remaining installation work
 
-The inactive preflight/stager and evidence inspector are implemented below.
-Build the separate activation/rollback path that rechecks protected evidence,
-drains the native gateway, confirms the
-global task slot/UID996 are idle, preserves private rollback evidence and atomically
-switches the intended code references. It must preserve the existing journal and
-operator configuration and verify the history MCP after cutover. Interrupted
-changes require evidence-based recovery, not automatic retries or adoption.
-
+Source now implements inactive staging, evidence inspection and guarded activation/
+rollback. Next build a reviewed protected bootstrap and a disposable host acceptance
+fixture for the upgrade lifecycle. Only after acceptance should current private
+metadata be captured, an actual candidate prepared and inactive staging reviewed.
+A separate human decision is required for production activation. The plan's full
+installer flag deliberately remains false until the protected installation path
+and host acceptance are ready.
 Independent validator host boundaries already passed fourteen offline cases using
 PR30's exact source, with no API calls or production config/journal changes. That
 acceptance does not install this expanded package or prove the new frontend's
@@ -142,12 +142,63 @@ changed preconditions refuse. Interrupted copying/postchecks leave an explicit
 started receipt and private diagnostic with no completion receipt. Inspection
 reports `incomplete_stage_preserved`, without adopting, cleaning or completing it.
 If even the initial receipt is absent, it reports `unidentified_stage_preserved`.
-Neither case authorizes adoption. There is no recovery command that mutates
-production in this slice.
+Neither case authorizes adoption or activation.
 
 Tests use real disposable files, actual candidate hashes and the real package
 builder, with explicit fake administrator/ownership/Docker/slot adapters. They
 cover preservation, precondition and tamper refusal, partial-write evidence,
 concurrent journal changes, read-only inspection and first-install separation.
 This is source acceptance, not root staging against the actual private installation.
-The full installer flag remains false until activation/rollback is implemented.
+The full installer flag remains false pending protected bootstrap and host acceptance.
+
+
+## Guarded activation and explicit rollback source
+
+`activate_workflow_upgrade.py` is a separate administrator deployment tool, never
+part of the worker payload. A protected bootstrap must copy it and the staging
+module from reviewed source into root-owned custody before loading either one.
+No such production bootstrap or activation is authorized by a source merge.
+
+`preflight --journal PATH --manifest-sha256 SHA256` rechecks source ancestry, stage
+hashes, unchanged live fingerprint, wrapper bytes/metadata, reserved container
+names and a fresh running native gateway without changing services. Activation
+requires the additional explicit `--approve-activation` flag and a separate human
+decision. A global private flock excludes concurrent upgrade/rollback processes;
+a one-use activation directory refuses activation retries after any partial run.
+
+Activation records intent before each external change, requests an exclusive
+native drain marker, binds its receipt to inode/hash and gateway PID/start time,
+and requires a fresh draining/zero-agent acknowledgement plus an idle fixed task
+slot. It rechecks that acknowledgement immediately before stopping the gateway.
+The exact original container is retained. The replacement uses the same image ID,
+configuration, host settings, network aliases and seven runtime mounts, changing
+only the read-only workflow source plus upgrade/compose labels. It retains the
+existing configuration and compose files; the protected compose overlay is linked
+through container labels. It verifies native health and both existing preparation/
+history MCP interfaces using the actual MCP `is_error` field. History may already
+contain pages. Three wrapper replacements use expected bytes, recorded ownership/
+mode/inode receipts and atomic renames; no database or projection is restored.
+
+`rollback --journal PATH --manifest-sha256 SHA256 --approve-rollback` is separately
+approved recovery, never automatic. It validates protected original evidence,
+container IDs/descriptors/names, wrapper receipts and configuration pins, drains a
+running replacement, retains it under a failed name, restores original wrappers
+and restarts the original container. Journal/history data added after activation
+survives. Damaged candidate code does not prevent loading protected original
+rollback evidence. A durable owned drain can be completed after interruption;
+foreign/replaced markers, unrecorded containers, external wrapper changes or an
+unresolved create with no matching owned candidate stop recovery for inspection.
+A lost create response can be reconciled only by reading the exact nonce-labelled
+candidate descriptor; it never causes another create request. Containers, private
+errors, state receipts and temporary files are retained, with no deletion, pull,
+build, model call or credential-file read.
+
+Tests use disposable real files and atomic wrapper replacements with explicit
+fake root/Docker/native-gateway boundaries. They exercise complete round trips,
+lost mutation responses, partial wrapper writes, later journal preservation,
+corrupt new code, marker/identity/configuration/network drift, drain races and
+lock exclusion. They do not prove actual Docker descriptor normalization, native
+drain behavior or privileged service cutover; the separate host fixture must do
+that before production staging/activation is proposed. Operator maintenance must
+also keep unrelated root administration idle during cutover; the upgrade lock is
+not a lock taken by every possible root command.
