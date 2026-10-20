@@ -115,3 +115,8 @@ Draft-PR bridge source merged in PR26. The next
 recipe to the exact review and requires baseline HEAD with unstaged proposed edits
 so the current whitespace check is not vacuous. It is an inert contract only;
 protected execution, result custody/journal and publication gating remain to build.
+
+The independent validation contract merged in PR27. Protected workspace staging
+now has a source slice: it reconstructs/rechecks the exact review, covers added
+files with intent-to-add, and retains root-private custody. Execution/fencing,
+result recording and publication gating remain unfinished; no production change.
