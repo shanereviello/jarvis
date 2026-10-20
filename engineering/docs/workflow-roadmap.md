@@ -82,15 +82,22 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 
 ## Progress
 
-- Step1: shared contracts merged in PR15; no runtime installation.
+- Step1: shared contracts merged in PR15.
 - Step2: admission preparation merged in PR16; trusted operator control merged in
-  PR17. Production installation remains pending.
+  PR17. The bounded Jarvis documentation configuration is installed. Other ordinary
+  repositories still require their own reviewed registration and validation recipe.
 - Step3: journal/artifact/outbox and interactive imports merged in PR18; configured
   managed recording, receipt reconciliation and projection-only history MCP merged
-  in PR19. No new interface is installed.
+  in PR19. These interfaces are now installed. The real journal starts empty;
+  explicit imports and explicit snapshot publication remain operator actions.
 - Step4: actual Hermes MCP2, disposable read-only same-image fixture and offline
   root/UID996/systemd acceptance passed; see [acceptance](workflow-acceptance.md).
-  Committed-source/offline packaging, atomic projection publication and inactive
-  staging/preflight tooling are the current source review slice. Protected preflight
-  and a separately approved activation/rollback remain pending.
-- Deferred slices remain pending.
+  PR21 added committed-source/offline packaging and atomic projection publication.
+  After separate human installation approval, release `workflow-421ce120c6da` was
+  activated and independently verified on October20,2026. See the
+  [installed paths and verification](workflow-production-package.md#installed-october202026).
+- This completes installation of the control/record foundation. It does not claim
+  an end-to-end successful managed coding task or completion of every product
+  acceptance criterion. Native finish/custody/publication and draft-PR receipts
+  are the next unfinished integration slice. Ledger delivery, GUI/autopilot and
+  the other deferred slices remain pending. No paid task ran during installation.
