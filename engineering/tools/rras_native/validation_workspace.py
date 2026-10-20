@@ -79,6 +79,21 @@ def filesystem(repo):
     return result
 
 
+def mount_readable(repo):
+    """Normalize a fresh private clone for a root-owned read-only service bind.
+
+    The outer stage remains mode700. Without this, umask077 leaves the mounted
+    root/index/files unreadable to UID996. No worker access to the host is granted.
+    """
+    for path in (repo, *repo.rglob('*')):
+        mode=path.lstat().st_mode
+        if stat.S_ISDIR(mode):path.chmod(0o755)
+        elif stat.S_ISREG(mode):
+            metadata=repo/'.git'==path or repo/'.git' in path.parents
+            path.chmod(0o644 if metadata or not mode&0o111 else 0o755)
+        else:raise ValueError('nonregular private clone entry refused')
+
+
 def reconstruct(repo, commit, baseline, allowed):
     """Only call on a fresh private clone of a verified protected bundle."""
     if git(repo, 'rev-list', '--parents', '-n', '1', commit).decode().strip().split() != [commit, baseline]:
@@ -91,6 +106,7 @@ def reconstruct(repo, commit, baseline, allowed):
     git(repo, 'reset', '--quiet', '--mixed', baseline)
     for name in sorted(set(expected) - set(before)):
         git(repo, '--literal-pathspecs', 'add', '--intent-to-add', '--force', '--', name)
+    mount_readable(repo)
     if filesystem(repo) != expected:
         raise ValueError('reconstructed worktree differs from exact review tree')
     return expected

@@ -27,7 +27,11 @@ tree and Git index/configuration. Verification compares actual bytes/modes and
 additions/deletions, without trusting a stale index. Partial stages are retained;
 a fresh destination cannot silently reuse one.
 
-The stage stays root-private, mode700. Symlinks/submodules anywhere in either tree
+The stage stays root-private, mode700. The fresh inner clone uses readable
+directory/file modes so UID996 can inspect its read-only private service mount
+even when the root operator used umask077; the outer stage still denies host
+access. Git metadata is non-executable, and review executable file modes remain
+intact. Symlinks/submodules anywhere in either tree
 are currently refused; they are never flattened. The current Jarvis source has
 neither. Limits are 16,384 files, 64 MiB per file and 256 MiB total regular content.
 Arguments containing `$` or `%` are refused by the service renderer to prevent
