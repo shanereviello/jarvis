@@ -121,3 +121,16 @@ def test_lost_create_response_can_only_be_adopted_via_owned_name(fixture):
     assert not f.t.ids
     row=f.t.call('GET','/containers/hermes/json');assert row['Id'] in f.t.ids
     assert sum(m=='POST' for m,_,_ in f.calls)==1
+
+
+def test_docker_omits_false_readonly_defaults_in_inspected_host_mounts(fixture):
+    f=fixture;cid=f.t.call('POST','/containers/create?name=hermes',f.body)['Id']
+    for mount in f.rows[cid]['HostConfig']['Mounts']:
+        if mount['ReadOnly'] is False:del mount['ReadOnly']
+    # The daemon representation is equivalent to the explicit false request;
+    # only known writable targets allow this default, never protected code.
+    assert f.t.call('GET','/containers/hermes/json')['Id']==cid
+    f.t.call('POST','/containers/'+cid+'/start')
+    protected=f.rows[cid]['HostConfig']['Mounts'][-1];assert protected['ReadOnly'] is True
+    del protected['ReadOnly']
+    with pytest.raises(ValueError,match='unsafe source mount'):f.t.call('POST','/containers/'+cid+'/stop?t=60')

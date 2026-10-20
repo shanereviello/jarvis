@@ -267,7 +267,7 @@ The source runner is `run_upgrade_host_acceptance.py` with the separate
 `upgrade_acceptance_transport.py` allowlist. A reviewed hash-pinned bootstrap must
 copy the exact acceptance candidate, locked offline vendor payload and harness
 into protected custody before executing it. The runner refuses the fixed fixture
-root `/var/lib/rras-workflow-upgrade-acceptance-20261020` if it already exists.
+root `/var/lib/rras-workflow-upgrade-acceptance-20261020-attempt02` if it already exists.
 It uses the pinned existing image without pulling or rebuilding it.
 
 The fixture maps configuration, wrappers, database, history and seven source
@@ -297,3 +297,11 @@ with real package bytes/SQLite/files but fake root/Docker/native boundaries. Onl
 the separately executed sudo acceptance can establish actual host behavior. Its
 success is still not production deployment approval or managed paid-task/remote
 publication acceptance.
+
+
+The first host attempt stopped before fixture startup: Docker omits the false
+`ReadOnly` default in inspected writable HostConfig mount entries. The acceptance
+adapter now treats an absent flag as false, while protected code/history mounts
+still require explicit true. The first stopped container, network and private
+fixture evidence remain intact. The reviewed second attempt uses a new root and
+manifest; the original one-time runner must not be rerun.

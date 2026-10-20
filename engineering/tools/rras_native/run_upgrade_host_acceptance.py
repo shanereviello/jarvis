@@ -17,7 +17,7 @@ import time
 import traceback
 import uuid
 
-ROOT=Path('/var/lib/rras-workflow-upgrade-acceptance-20261020')
+ROOT=Path('/var/lib/rras-workflow-upgrade-acceptance-20261020-attempt02')
 PYTHON=Path('/opt/rras-engineering/releases/native-10/venv/bin/python')
 IMAGE='sha256:b99f4564d5e17ec0183314c0d2f6f633657cff4916fad0f05f6e7667722da432'
 

@@ -55,7 +55,7 @@ class Transport:
         if {m['Target'] for m in mounts}!=targets:raise ValueError('fixture mount target changed')
         for mount in mounts:
             path=Path(mount['Source'])
-            if not path.is_absolute() or path.resolve(strict=True)!=path or self.root not in path.parents or mount['Type']!='bind' or mount.get('ReadOnly') is not (mount['Target'] not in rw):raise ValueError('nonfixture or unsafe source mount')
+            if not path.is_absolute() or path.resolve(strict=True)!=path or self.root not in path.parents or mount['Type']!='bind' or mount.get('ReadOnly',False) is not (mount['Target'] not in rw):raise ValueError('nonfixture or unsafe source mount')
         if set(body['NetworkingConfig']['EndpointsConfig'])!={self.network}:raise ValueError('fixture network endpoint required')
 
     def normalize(self,row):
