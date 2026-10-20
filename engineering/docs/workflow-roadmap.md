@@ -109,3 +109,9 @@ Finish report capture/recording merged in PR23, with the installed foundation un
 Publication handoff/receipt source merged in PR24. The following [native board observation](native-observation.md) slice checks stored task/run agreement directly without promoting worker-owned data to authenticated success. Authenticated PR creation, independent post-validation, packaging and host acceptance remain pending.
 
 Native board observation source merged in PR25. The following [operator draft-PR connector bridge](draft-pr-connector.md) source slice uses the existing frontend GitHub connection with one-use intent/response handling. Production frontend binding, package/upgrade and root/UID acceptance remain separate.
+
+Draft-PR bridge source merged in PR26. The next
+[independent post-validation contract](post-validation.md) binds the registered
+recipe to the exact review and requires baseline HEAD with unstaged proposed edits
+so the current whitespace check is not vacuous. It is an inert contract only;
+protected execution, result custody/journal and publication gating remain to build.
