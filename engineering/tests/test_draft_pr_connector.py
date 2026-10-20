@@ -119,3 +119,11 @@ def test_unknown_branch_publication_cannot_prepare_pr_creation(bridge):
     (x.workspace/'publication-receipt.json').write_bytes(x.c.x.a.encoded(report))
     with pytest.raises(ValueError):m.prepare(x.package,x.workspace)
     assert not (x.workspace/'draft-pr-intent.json').exists()
+
+
+def test_operator_cli_emits_versioned_binding_protocol(bridge,monkeypatch,capsys):
+    import sys
+    x,m=bridge
+    monkeypatch.setattr(sys,'argv',['draft-pr.py','prepare','--package',str(x.package),'--workspace',str(x.workspace)])
+    m.main();reply=json.loads(capsys.readouterr().out)
+    assert reply['operator_binding_protocol']==1 and reply['create']['draft'] is True
