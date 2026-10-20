@@ -78,3 +78,5 @@ entry/mount change. Review exact files, permissions, active paths, rollback and
 model-free post-install verification before requesting a separate installation decision.
 Source merge alone does not authorize that installation. No paid task or production
 ledger activation is needed to finish the packaging/installation checks.
+
+Production packaging and explicit snapshot publication are now prepared in the [next source slice](workflow-production-package.md). Its changed publisher still needs the inactive protected preflight and a separately reviewed final activation procedure; no production installation is implied by these acceptance results.

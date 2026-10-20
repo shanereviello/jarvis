@@ -256,12 +256,12 @@ class Journal:
             local('workflow_records').validate_history(row for row, _ in rows)
             return rows
 
-    def history(self, work_id, *, after=0, limit=100, audience='operator'):
+    def history(self, work_id, *, after=0, limit=100, audience='operator', _snapshot=None):
         if not isinstance(work_id, str) or not re.fullmatch('wrk_[0-9a-f]{32}', work_id):
             raise ValueError('exact work identity required')
         bounds(after, limit)
         audience_check(audience)
-        rows = self.records()
+        rows = self.records() if _snapshot is None else _snapshot
         events = sorted(((r, meta) for r, meta in rows if r['kind'] == 'event' and r['work_item_id'] == work_id),
                         key=lambda pair: pair[0]['sequence'])
         works = [r for r, _ in rows if r['kind'] == 'work_item' and r['work_item_id'] == work_id]
@@ -314,8 +314,8 @@ class Journal:
         return {'work_items': answer, 'next_offset': offset + len(answer),
                 'has_more': offset + len(answer) < len(works)}
 
-    def summary(self, work_id, *, audience='operator', after=0, limit=100):
-        view = self.history(work_id, after=after, limit=limit, audience=audience)
+    def summary(self, work_id, *, audience='operator', after=0, limit=100, _snapshot=None):
+        view = self.history(work_id, after=after, limit=limit, audience=audience, _snapshot=_snapshot)
         # Preserve all facts and corrections; do not turn publication or reported
         # deployment into an unqualified release claim.
         return {'work_item_id': work_id, 'repository_id': view['repository_id'],
@@ -338,11 +338,11 @@ class Journal:
             return {'pending': [r[0] for r in rows[:limit]], 'next_offset': offset + min(len(rows), limit),
                     'has_more': len(rows) > limit, 'delivery': 'not_implemented'}
 
-    def publish_jarvis(self, output, work_id, *, after=0, limit=100):
+    def publish_jarvis(self, output, work_id, *, after=0, limit=100, _snapshot=None):
         # One snapshot for both views, so publication cannot mix concurrent commits.
         # history has all relevant event metadata; work identity itself is the query.
         view = {'schema_version': 1, 'audience': 'jarvis',
-                'summary': self.summary(work_id, audience='jarvis', after=after, limit=limit)}
+                'summary': self.summary(work_id, audience='jarvis', after=after, limit=limit, _snapshot=_snapshot)}
         raw = encoded(view)
         output = Path(output)
         private_root(output.parent)

@@ -90,6 +90,7 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
   in PR19. No new interface is installed.
 - Step4: actual Hermes MCP2, disposable read-only same-image fixture and offline
   root/UID996/systemd acceptance passed; see [acceptance](workflow-acceptance.md).
-  Concrete immutable production packaging, projection publication and a separately
-  approved installation remain pending.
+  Committed-source/offline packaging, atomic projection publication and inactive
+  staging/preflight tooling are the current source review slice. Protected preflight
+  and a separately approved activation/rollback remain pending.
 - Deferred slices remain pending.
