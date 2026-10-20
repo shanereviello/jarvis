@@ -105,3 +105,5 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 The next source slice adds [finish report custody and journal recording](workflow-finish.md). It preserves imported runner-report provenance and remains uninstalled. Trusted publication/PR receipt integration and independent native-result observation remain follow-up work.
 
 Finish report capture/recording merged in PR23, with the installed foundation unchanged. The following source slice connects [review commit/handoff and publication receipts](workflow-publication.md). It preserves imported report provenance; packaging/host acceptance, independent native observation and authenticated GitHub PR creation remain pending.
+
+Publication handoff/receipt source merged in PR24. The following [native board observation](native-observation.md) slice checks stored task/run agreement directly without promoting worker-owned data to authenticated success. Authenticated PR creation, independent post-validation, packaging and host acceptance remain pending.

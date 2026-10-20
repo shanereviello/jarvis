@@ -27,3 +27,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Stopped-worker finish reports](workflow-finish.md): source capture, provenance-aware journal recording and replay; installation/publication integration remain separate.
 
 - [Workflow publication receipts](workflow-publication.md): source local commit/handoff integration and imported branch/draft-PR reports; no automatic GitHub PR client or deployment.
+
+- [Native board observations](native-observation.md): source read-only snapshot checks and provenance limits; no native lifecycle or production change.
