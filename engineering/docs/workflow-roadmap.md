@@ -101,3 +101,5 @@ Hermes/Codex/model pins or resume robot example work to implement this roadmap.
   acceptance criterion. Native finish/custody/publication and draft-PR receipts
   are the next unfinished integration slice. Ledger delivery, GUI/autopilot and
   the other deferred slices remain pending. No paid task ran during installation.
+
+The next source slice adds [finish report custody and journal recording](workflow-finish.md). It preserves imported runner-report provenance and remains uninstalled. Trusted publication/PR receipt integration and independent native-result observation remain follow-up work.
