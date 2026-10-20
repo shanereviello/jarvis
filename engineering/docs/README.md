@@ -23,3 +23,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Workflow acceptance](workflow-acceptance.md): actual Hermes MCP2, read-only fixture mount and root/UID996/systemd journal/permission acceptance; production installation still separate.
 
 - [Production workflow package](workflow-production-package.md): committed-source/offline candidate builder, atomic sanitized generation publication, inactive staging and separate activation/rollback gates.
+
+- [Stopped-worker finish reports](workflow-finish.md): source capture, provenance-aware journal recording and replay; installation/publication integration remain separate.

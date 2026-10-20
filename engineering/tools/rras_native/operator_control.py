@@ -278,6 +278,16 @@ def reconcile(state, authorization_id):
     return dict(view, journal_reconciled=True, execution_retried=False)
 
 
+def finish_capture(state, authorization_id, destination):
+    """Preserve stopped-worker reports; never approve publication or retry work."""
+    return local('workflow_finish').capture(state, authorization_id, destination)
+
+
+def finish_record(custody):
+    """Replay immutable protected finish custody into the configured journal."""
+    return local('workflow_finish').record(custody)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest='command', required=True)
@@ -300,6 +310,11 @@ def main(argv=None):
         evidence_parser = sub.add_parser(command)
         for name in ('state', 'authorization-id'):
             evidence_parser.add_argument('--' + name, required=True)
+    finish = sub.add_parser('finish-capture')
+    for name in ('state', 'authorization-id', 'destination'):
+        finish.add_argument('--' + name, required=True)
+    finish = sub.add_parser('finish-record')
+    finish.add_argument('--custody', required=True)
     args = p.parse_args(argv)
     try:
         if args.command == 'prepare':
@@ -313,6 +328,10 @@ def main(argv=None):
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
+        elif args.command == 'finish-capture':
+            result = finish_capture(args.state, args.authorization_id, args.destination)
+        elif args.command == 'finish-record':
+            result = finish_record(args.custody)
         elif args.command == 'reconcile':
             result = reconcile(args.state, args.authorization_id)
         else:
