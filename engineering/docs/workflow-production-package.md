@@ -129,3 +129,39 @@ Native finish/custody/publication receipts, production index delivery, GUI/autop
 full cancellation/recovery and other [roadmap](workflow-roadmap.md) deferrals remain
 separate. Initial production visibility is structured metadata; richer explicitly
 shared prose is not silently introduced by packaging.
+
+## Installed October20,2026
+
+Following explicit human installation approval, the staged release
+`/opt/rras-engineering/releases/workflow-421ce120c6da` is active. Native Python,
+Hermes/Codex/image and session-profile pins remain unchanged. The supported commands
+are `/usr/local/sbin/rras-workflow`, `/usr/local/sbin/rras-workflow-journal` and
+`/usr/local/sbin/rras-workflow-publish`; each exposes `--help`. The root-private
+operator configuration is `/etc/rras-engineering/workflow/jarvis.json` and requires
+`/var/lib/rras-workflow/journal`. The bounded Jarvis admission described above remains
+in effect. Ordinary interactive Codex work is not restricted to that managed recipe.
+
+Hermes now has the additive `rras-workflow-history` entry and read-only mounts at
+`/opt/rras-workflow` and `/opt/rras-workflow-history`. The original five mounts and six
+integration entries remain. Installation acceptance verified UID996/1000 private-store
+denial, UID1000 projection read/write-denial, kernel read-only flags and write denial
+inside Hermes, existing preparation MCP discovery, the two history tools and an
+empty-page response. Independent post-installation checks confirmed a live running
+gateway, all seven configured integrations and seven expected mounts. No model or
+paid task ran; remote providers were not called to exercise every integration.
+
+The real journal and projection begin empty. This deployment neither imports prior
+chats/PRs nor automatically refreshes history. Explicit imports retain provenance;
+run explicit publication to expose newly recorded facts. Native execution completion
+and publication receipts remain the next integration slice, so installation must not
+be presented as end-to-end task/release-note automation.
+
+The original container is retained stopped as
+`hermes-rollback-workflow-421ce120c6da`. Root-private rollback descriptors, failed
+attempt evidence and the exact administrator helper remain under
+`/var/lib/rras-workflow-installations/workflow-421ce120c6da`; preserve them pending a
+separate retirement decision. The first attempt stopped before drain due to a missing
+journal directory; a later attempt rolled back after its MCP2 verifier used the wrong
+result-field spelling. Both were corrected and the final activation passed. The
+private journal, task evidence, approvals and fences must survive any future rollback.
+Do not reuse the one-time installation/recovery runners as routine upgrade commands.
