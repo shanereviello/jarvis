@@ -120,3 +120,9 @@ The independent validation contract merged in PR27. Protected workspace staging
 now has a source slice: it reconstructs/rechecks the exact review, covers added
 files with intent-to-add, and retains root-private custody. Execution/fencing,
 result recording and publication gating remain unfinished; no production change.
+
+Protected validation staging merged in PR28. The following source slice adds
+one-use read-only validation execution, private bounded results, idempotent
+observed journal records and an exact-commit proof gate for new managed
+publication packages. Root/systemd acceptance, frontend binding and package upgrade
+remain pending; the installed foundation stays unchanged.

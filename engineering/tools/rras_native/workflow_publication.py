@@ -120,7 +120,7 @@ def prepare(finish_custody,policy_path,destination,package,operator):
         review,decode(members['host-result.json']),decode(members['evidence.json']),decode(members['manifest.json']),files)
     result['policy_sha256']=a.digest(policy_raw)
     a.absent(prepared_path,a.encoded(result))
-    local('publication_handoff').export(prepared_path,policy_path,package,operator)
+    local('publication_handoff').export(prepared_path,policy_path,package,operator,validation_required=True)
     return {'prepared':True,'commit':result['commit'],'branch':result['branch'],'remote_contacted':False,
             'merge_authorized':False,'deploy_authorized':False}
 
@@ -128,6 +128,7 @@ def prepare(finish_custody,policy_path,destination,package,operator):
 def capture(finish_custody,package,workspace,destination,pr_receipt=None):
     finish,review,members=local('workflow_finish').load(finish_custody)
     a=local('activity');handoff_raw,record=handoff(package,finish,review,members)
+    proof=local('publication_handoff').require_validation(record,package)
     uid=record['operator_uid'];workspace=Path(workspace);destination=Path(destination)
     if not destination.is_absolute():raise ValueError('absolute publication custody required')
     local('approved_launch').trusted(destination.parent)
@@ -140,6 +141,7 @@ def capture(finish_custody,package,workspace,destination,pr_receipt=None):
     report,started=decode(raw),decode(started_raw)
     published=transport_report(record['prepared'],report,started)
     captured={'handoff.json':handoff_raw,'transport.json':raw,'transport-started.json':started_raw}
+    if proof is not None:captured['independent-validation.json']=a.encoded(proof)
     if pr_receipt is not None:
         if not published:raise ValueError('unknown branch transport cannot establish PR opening')
         pr_raw=operator_bytes(pr_receipt,uid);pr_report(record['prepared'],decode(pr_raw));captured['draft-pr.json']=pr_raw
@@ -161,8 +163,8 @@ def load(finish_custody,custody):
     receipt=decode(read(root/'publication-capture.json',1024*1024))
     if (receipt.get('schema_version')!=1 or receipt['authorization_id']!=finish['authorization_id'] or
             receipt['review_id']!=finish['review_id'] or receipt['finish_capture_sha256']!=a.digest(a.encoded(finish)) or
-            set(receipt['files']) not in ({'handoff.json','transport.json','transport-started.json'},
-                                       {'handoff.json','transport.json','transport-started.json','draft-pr.json'})):
+            set(receipt['files']) not in tuple({'handoff.json','transport.json','transport-started.json'}|extra for extra in
+                (set(),{'draft-pr.json'},{'independent-validation.json'},{'draft-pr.json','independent-validation.json'}))):
         raise ValueError('publication/finish custody mismatch')
     members={}
     for name,sha in receipt['files'].items():
@@ -170,6 +172,8 @@ def load(finish_custody,custody):
         if a.digest(raw)!=sha:raise ValueError('publication custody changed')
         members[name]=raw
     record=decode(members['handoff.json']);validate_handoff(record,finish,review,finish_members);p=record['prepared']
+    if record.get('independent_validation_required') is True:
+        local('publication_handoff').validate_proof(record,decode(members['independent-validation.json']))
     # These exact protected handoff bytes were checked with the bundle at capture.
     # Recording never re-reads the operator workspace or contacts a remote.
     published=transport_report(p,decode(members['transport.json']),decode(members['transport-started.json']))
@@ -190,6 +194,8 @@ def record(finish_custody,custody):
         'transport_started_sha256':receipt['files']['transport-started.json'],'repository_id':p['repository_id'],
         'branch':p['branch'],'commit':p['commit'],'baseline':p['baseline'],'export_id':p['export_id'],
         'reported_status':report['status'],'merge_authorized':False,'deploy_authorized':False}
+    if 'independent-validation.json' in members:
+        branch_facts['independent_validation_sha256']=receipt['files']['independent-validation.json']
     phases=[('branch', 'branch.published' if report['status']=='published' else 'recovery.recorded',
              'succeeded' if report['status']=='published' else 'uncertain',branch_facts)]
     if 'draft-pr.json' in members:

@@ -98,3 +98,16 @@ root/UID acceptance. Future packaging must include the finish/publication/custod
 modules and repeat model-free host acceptance before installation. GUI/autopilot,
 paid execution, automatic PR creation, independent native observation, final human
 review/merge/deployment receipt adapters and ledger delivery remain separate work.
+
+## Independent validation gate in later source
+
+New managed handoffs now carry `independent_validation_required=true`. They can
+be staged for independent validation while still blocked for operator import,
+push, draft-PR preparation and publication receipt capture. After a successful
+host check is durably journaled, `validation-release` writes the protected proof
+for that exact handoff/commit/export. Receipt capture retains the proof and
+recording verifies it. See [independent validation](post-validation.md).
+
+Legacy packages without this marker retain their historical imported-report
+semantics; they are not retroactively claimed as independently validated. None
+of these later source changes are installed by merging a PR.

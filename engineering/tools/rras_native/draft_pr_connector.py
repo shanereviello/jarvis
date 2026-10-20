@@ -40,6 +40,8 @@ def context(package,workspace):
     body=('Task: '+p['task_id']+'\n\nReview commit: '+p['commit']+'\nBaseline: '+p['baseline']+
           '\nEvidence export: '+p['export_id']+'\n\nCaptured runner validation reports exit 0; runner-result provenance remains imported. '+
           'Scope and commit were checked by the trusted publication adapter. Human deliverable review, merge and deployment remain separate.')
+    if record.get('independent_validation_required') is True:
+        body += '\nThe protected publisher also verified an independent host mechanical-validation receipt for this exact review commit.'
     create={'repository_full_name':repository,'head':p['branch'],'base':p['pr_base_branch'],
             'draft':True,'maintainer_can_modify':False,'title':p['task_id']+': reviewed task changes','body':body}
     identity={'schema_version':1,'operator_uid':record['operator_uid'],'handoff_sha256':a.digest(a.encoded(record)),

@@ -56,7 +56,7 @@ def plan(review, prepared, finish_sha256):
     return local('workflow_journal').decode(a.encoded(result))
 
 
-def service_argv(contract, workspace):
+def service_argv(contract, workspace, protected_repo=None):
     """Render only the fixed isolated service; caller must authenticate/rebuild plan.
 
     This is not a CLI. The future host must stage/verify the workspace, take the
@@ -72,25 +72,36 @@ def service_argv(contract, workspace):
             not Path(argv[0]).is_absolute()):
         raise ValueError('bounded reviewed recipe required')
     path = Path(workspace)
-    if (not isinstance(workspace, str) or not path.is_absolute() or str(path) != workspace or
-            '..' in path.parts or not path.is_relative_to('/var/lib/rras-coding-tasks') or
-            path == Path('/var/lib/rras-coding-tasks') or
-            not re.fullmatch(r'/[A-Za-z0-9_./-]+', workspace)):
-        raise ValueError('dedicated validation workspace required')
+    if protected_repo is None:
+        if (not isinstance(workspace, str) or not path.is_absolute() or str(path) != workspace or
+                '..' in path.parts or not path.is_relative_to('/var/lib/rras-coding-tasks') or
+                path == Path('/var/lib/rras-coding-tasks') or
+                not re.fullmatch(r'/[A-Za-z0-9_./-]+', workspace)):
+            raise ValueError('dedicated validation workspace required')
+    elif (workspace != '/run/rras-validation/repo' or not isinstance(protected_repo, str) or
+            not re.fullmatch(r'/[A-Za-z0-9_./-]+', protected_repo) or
+            str(Path(protected_repo)) != protected_repo or '..' in Path(protected_repo).parts):
+        raise ValueError('literal protected bind source and fixed namespace target required')
     properties = [
         'User=jarvis-codex-engineering', 'Group=jarvis-codex-engineering',
         'WorkingDirectory=' + workspace, 'UMask=0077', 'NoNewPrivileges=yes',
         'CapabilityBoundingSet=', 'KillMode=control-group', 'RuntimeMaxSec=' + str(seconds),
         'TimeoutStopSec=10', 'MemoryMax=1G', 'TasksMax=128', 'CPUQuota=100%',
         'PrivateNetwork=yes', 'RestrictAddressFamilies=AF_UNIX', 'PrivateTmp=yes',
-        'ProtectSystem=strict', 'ProtectHome=yes', 'ReadWritePaths=' + workspace,
-        'InaccessiblePaths=/etc/rras-engineering /run/credentials /var/lib/rras-workflow /opt/rras-coding-jobs',
+        'ProtectSystem=strict', 'ProtectHome=yes',
+        'InaccessiblePaths=-/etc/rras-engineering -/run/credentials -/var/lib/rras-workflow -/opt/rras-coding-jobs',
     ]
+    if protected_repo is None:
+        properties.append('ReadWritePaths=' + workspace)
+    else:
+        properties.append('BindReadOnlyPaths=' + protected_repo + ':' + workspace)
     result = ['/usr/bin/systemd-run', '--unit', UNIT, '--service-type=exec', '--wait', '--pipe', '--collect']
     for prop in properties: result.extend(['-p', prop])
     return result + ['/usr/bin/env', '-i', '--', 'PATH=/usr/bin:/bin', 'LANG=C.UTF-8',
         'HOME=' + workspace, 'PYTHONDONTWRITEBYTECODE=1', 'GIT_CONFIG_NOSYSTEM=1',
-        'GIT_CONFIG_GLOBAL=/dev/null', 'GIT_TERMINAL_PROMPT=0', *argv]
+        'GIT_CONFIG_GLOBAL=/dev/null', 'GIT_TERMINAL_PROMPT=0',
+        'GIT_OPTIONAL_LOCKS=0', 'GIT_CONFIG_COUNT=1',
+        'GIT_CONFIG_KEY_0=safe.directory', 'GIT_CONFIG_VALUE_0=' + workspace, *argv]
 
 
 def observed_result(contract, observation):
@@ -113,5 +124,5 @@ def observed_result(contract, observation):
         observation['tree_before'] == observation['expected_tree'] == observation['tree_after'])
     return dict(schema_version=1, plan_sha256=digest,
         outcome=('succeeded' if code == 0 else 'failed') if complete else 'uncertain',
-        independently_executed_check=complete, task_success_established=False,
+        independently_executed_check=complete and code == 0, task_success_established=False,
         human_acceptance=False, publication_authorized=False, retry_authorized=False)
