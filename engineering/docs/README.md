@@ -21,3 +21,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Managed journal and reader](managed-journal-and-reader.md): durable control-event ordering, receipt reconciliation and projection-only history MCP.
 
 - [Workflow acceptance](workflow-acceptance.md): actual Hermes MCP2, read-only fixture mount and root/UID996/systemd journal/permission acceptance; production installation still separate.
+
+- [Production workflow package](workflow-production-package.md): committed-source/offline candidate builder, atomic sanitized generation publication, inactive staging and separate activation/rollback gates.
