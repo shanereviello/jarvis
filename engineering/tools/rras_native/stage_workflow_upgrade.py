@@ -55,6 +55,13 @@ def protected(path):
         if stat.S_ISLNK(s.st_mode) or s.st_uid!=0 or s.st_mode&0o022:raise ValueError('root-protected upgrade path required')
     return path
 
+def user_role(path,info):
+    # The installed Hermes config is owner/group1000 mode0640; acceptance may
+    # use0600. No group write/public read is allowed, and drain markers keep0600.
+    allowed=(0o600,0o640) if Path(path)==HERMES_CONFIG else (0o600,)
+    if (info.st_uid,info.st_gid)!=(1000,1000) or stat.S_IMODE(info.st_mode) not in allowed:raise ValueError('private Hermes owner/group/mode changed')
+
+
 def regular(path,limit=4*1024*1024,user=False):
     path=Path(path)
     if not path.is_absolute() or path.resolve(strict=True)!=path:raise ValueError('canonical regular upgrade input required')
@@ -67,7 +74,7 @@ def regular(path,limit=4*1024*1024,user=False):
     try:
         s=os.fstat(fd)
         if not stat.S_ISREG(s.st_mode) or s.st_nlink!=1 or s.st_size>limit:raise ValueError('bounded regular upgrade input required')
-        if user and (s.st_uid!=1000 or s.st_mode&0o077):raise ValueError('private Hermes owner/mode changed')
+        if user:user_role(path,s)
         with os.fdopen(os.dup(fd),'rb') as stream:raw=stream.read(limit+1)
         if len(raw)>limit:raise ValueError('upgrade input exceeds bound')
         return raw

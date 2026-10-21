@@ -305,3 +305,11 @@ adapter now treats an absent flag as false, while protected code/history mounts
 still require explicit true. The first stopped container, network and private
 fixture evidence remain intact. The reviewed second attempt uses a new root and
 manifest; the original one-time runner must not be rerun.
+
+
+The live Hermes configuration's established access role is UID/GID1000 mode0640.
+Upgrade readers accept exactly UID/GID1000 with mode0600 or0640 for that specific
+configuration path, retaining its bytes, group and permissions. Other user-owned
+inputs, including native drain markers, require UID/GID1000 mode0600. Foreign
+groups, group-write/world access and special permission bits refuse. This is a
+reader correction, not a chmod/chown operation or an architecture change.
