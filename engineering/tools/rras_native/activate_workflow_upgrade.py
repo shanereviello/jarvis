@@ -19,10 +19,35 @@ import time
 import traceback
 import uuid
 
-STATUS="""import json
+HEARTBEAT_CHECK="""def heartbeat_live(h,pid,created,now,mono):
+ import math
+ from datetime import datetime
+ def number(v):return type(v) in (int,float) and math.isfinite(v)
+ try:
+  if not isinstance(h,dict) or type(pid) is not int or pid<=0 or type(h.get('pid')) is not int or h['pid']!=pid:return False
+  start=h.get('start_time');stamp=h.get('monotonic')
+  if not all(number(v) for v in (created,now,mono,start,stamp)):return False
+  if not created<=start<=now or start-created>300 or not 0<=mono-stamp<=90:return False
+  updated=datetime.fromisoformat(h['updated_at'])
+  if updated.tzinfo is None:return False
+  epoch=updated.timestamp()
+  return start<=epoch and -5<=now-epoch<=90
+ except (ValueError,KeyError,TypeError,OverflowError):return False
+"""
+STATUS=HEARTBEAT_CHECK+"""import json,os,stat,time,psutil
 from gateway.status import read_runtime_status,runtime_status_is_stale,runtime_status_pid_is_live,is_gateway_running
-r=read_runtime_status() or {}
-print(json.dumps({'state':r.get('gateway_state'),'active_agents':r.get('active_agents'),'fresh':not runtime_status_is_stale(r),'live':runtime_status_pid_is_live(r) and is_gateway_running(cleanup_stale=False),'pid':r.get('pid'),'start_time':r.get('start_time')}))
+from gateway.shutdown_watchdog import get_loop_heartbeat_path
+r=read_runtime_status() or {};healthy=False
+try:
+ fd=os.open(get_loop_heartbeat_path(),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+ with os.fdopen(fd,'rb') as stream:
+  info=os.fstat(stream.fileno())
+  if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1:raise ValueError('regular heartbeat required')
+  raw=stream.read(65537)
+ if len(raw)>65536:raise ValueError('bounded heartbeat required')
+ healthy=heartbeat_live(json.loads(raw),r.get('pid'),psutil.Process(r['pid']).create_time(),time.time(),time.monotonic())
+except Exception:pass
+print(json.dumps({'state':r.get('gateway_state'),'active_agents':r.get('active_agents'),'fresh':not runtime_status_is_stale(r),'heartbeat_live':healthy,'live':runtime_status_pid_is_live(r) and is_gateway_running(cleanup_stale=False),'pid':r.get('pid'),'start_time':r.get('start_time')}))
 """
 DRAIN="""import json,os,sys,hashlib
 from datetime import datetime,timezone
@@ -238,7 +263,7 @@ class Upgrade:
             receipt=self.owned_drain(ref)
             if (before['pid'],before['start_time'])!=(receipt['pid'],receipt['start_time']):raise ValueError('gateway identity changed')
         else:
-            if before['live'] is not True or before['fresh'] is not True or before['state']!='running':raise ValueError('fresh running gateway required')
+            if before['live'] is not True or before.get('heartbeat_live') is not True or before['state']!='running':raise ValueError('live gateway heartbeat required')
             self.state['drain_intent']={'ref':ref,'principal':self.state['operation_id']+'/'+ref[:12], 'pid':before['pid'],'start_time':before['start_time']};self.checkpoint('drain_intent')
             response=self.rpc(ref,DRAIN,self.state['drain_intent']['principal'])
             raw=self.s.regular(self.marker,user=True);info=metadata(self.marker);payload=self.s.decode(raw)
@@ -264,7 +289,7 @@ class Upgrade:
         else:self.original()
         if row['State']['Running'] is not True:raise ValueError('expected gateway not running')
         observed=self.status(row['Id'])
-        if observed['live'] is not True or observed['fresh'] is not True or observed['state']!='running':raise ValueError('fresh healthy gateway required')
+        if observed['live'] is not True or observed.get('heartbeat_live') is not True or observed['state']!='running':raise ValueError('healthy gateway heartbeat required')
         if self.rpc(row['Id'],DISCOVERY)!={'verified':True}:raise ValueError('history/preparation MCP verification failed')
         self.invariants()
 
@@ -288,7 +313,7 @@ class Upgrade:
         original=self.original()
         if original['Name']!='/hermes' or not original['State']['Running']:raise ValueError('original is not the live gateway')
         status=self.status(original['Id'])
-        if status['live'] is not True or status['fresh'] is not True or status['state']!='running':raise ValueError('gateway unavailable')
+        if status['live'] is not True or status.get('heartbeat_live') is not True or status['state']!='running':raise ValueError('gateway unavailable')
         return {'phase':'upgrade_activation_preflight_passed','service_mutations':False,'activation_authorized':False}
 
     def activate(self,approved=False):

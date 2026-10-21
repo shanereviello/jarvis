@@ -68,7 +68,7 @@ def harness(committed_source,tmp_path,monkeypatch):
         if argv[:2]==['/usr/bin/docker','exec']:
             index=5 if argv[2]=='-i' else 4;ref=argv[index];script=argv[index+5]
             row=next(r for r in rows.values() if r['Id']==ref or r['Name']=='/'+ref);ref=row['Id']
-            if script==a.STATUS:answer={'fresh':True,'live':True,'state':states[ref],'active_agents':0,'pid':25,'start_time':'constant'}
+            if script==a.STATUS:answer={'fresh':True,'live':True,'heartbeat_live':True,'state':states[ref],'active_agents':0,'pid':25,'start_time':'constant'}
             elif script==a.DRAIN:
                 raw=s.encoded({'principal':argv[-1],'epoch':'fixture'});s.write(s.HERMES_CONFIG.parent/'.drain_request.json',raw)
                 states[ref]='draining';answer={'sha256':s.sha(raw),'epoch':'fixture'}

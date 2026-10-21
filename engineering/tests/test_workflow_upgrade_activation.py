@@ -48,7 +48,7 @@ def engine(fixture,monkeypatch):
     monkeypatch.setattr(m,'api',api)
     e=m.Upgrade(f.journal,f.digest,stage=s)
     def rpc(ref,script,*args):
-        if script==m.STATUS:return {'live':True,'fresh':True,'state':states[ref],'active_agents':0,'pid':23,'start_time':'fixed'}
+        if script==m.STATUS:return {'live':True,'fresh':True,'heartbeat_live':True,'state':states[ref],'active_agents':0,'pid':23,'start_time':'fixed'}
         if script==m.DRAIN:
             raw=s.encoded({'principal':args[0],'epoch':'fixture-epoch'});s.write(e.marker,raw)
             states[ref]='draining';return {'sha256':s.sha(raw),'epoch':'fixture-epoch'}
@@ -218,9 +218,9 @@ def test_candidate_network_alias_drift_refused(engine):
     assert sum(m=='POST' for m,_ in x.calls)==before
 
 
-def test_stale_preflight_does_not_create_activation_state(engine,monkeypatch):
+def test_stale_heartbeat_preflight_does_not_create_activation_state(engine,monkeypatch):
     x=engine;actual=x.e.status
-    def stale(ref):return dict(actual(ref),fresh=False)
+    def stale(ref):return dict(actual(ref),heartbeat_live=False)
     monkeypatch.setattr(x.e,'status',stale)
     with pytest.raises(ValueError,match='unavailable'):x.e.activate(True)
     assert not x.e.directory.exists()
@@ -233,3 +233,37 @@ def test_root_preflight_uses_the_same_explicit_git_trust_as_staging(engine):
     assert len(ancestry)==2
     for argv in ancestry:
         assert '--no-replace-objects' in argv and 'safe.directory='+str(x.f.m.SOURCE) in argv and 'core.hooksPath=/dev/null' in argv
+
+
+def test_idle_lifecycle_can_age_while_native_heartbeat_remains_healthy(engine,monkeypatch):
+    x=engine;actual=x.e.status
+    def status(ref):
+        value=actual(ref)
+        if value['state']=='running':value['fresh']=False
+        return value
+    monkeypatch.setattr(x.e,'status',status)
+    assert x.e.preflight()['service_mutations'] is False
+    assert x.e.activate(True)['phase']=='complete'
+    assert x.e.rollback(True)['phase']=='rolled_back'
+
+
+def test_fresh_lifecycle_does_not_substitute_for_missing_heartbeat(engine,monkeypatch):
+    x=engine;actual=x.e.status
+    def status(ref):
+        value=actual(ref);value.pop('heartbeat_live');return value
+    monkeypatch.setattr(x.e,'status',status)
+    with pytest.raises(ValueError,match='unavailable'):x.e.activate(True)
+    assert not any(m=='POST' for m,_ in x.calls)
+
+
+def test_healthy_heartbeat_never_substitutes_for_fresh_drain_ack(engine,monkeypatch):
+    x=engine;actual=x.e.status
+    def status(ref):
+        value=actual(ref)
+        if value['state']=='draining':value['fresh']=False
+        return value
+    monkeypatch.setattr(x.e,'status',status)
+    times=iter((0,121));monkeypatch.setattr(x.m.time,'monotonic',lambda:next(times))
+    with pytest.raises(ValueError,match='fresh idle drain not acknowledged'):x.e.activate(True)
+    assert not any(m=='POST' for m,_ in x.calls)
+    assert x.e.marker.exists()
