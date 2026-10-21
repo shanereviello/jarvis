@@ -313,3 +313,17 @@ configuration path, retaining its bytes, group and permissions. Other user-owned
 inputs, including native drain markers, require UID/GID1000 mode0600. Foreign
 groups, group-write/world access and special permission bits refuse. This is a
 reader correction, not a chmod/chown operation or an architecture change.
+
+Native gateway `gateway_state.json` is a lifecycle/turn snapshot, not a periodic
+heartbeat. An idle running gateway may have a legitimately old lifecycle record.
+Running-health checks therefore require a current native event-loop heartbeat
+at `state/gateway.heartbeat`, the matching PID and process birth, and native live
+process identity plus running state. Heartbeat JSON is bounded and read without
+following a symlink; missing/malformed data fails closed. Both timestamp and
+monotonic age must be current (90 seconds for the native 30-second cadence), and
+the heartbeat's gateway-start epoch must belong to the current process lifetime.
+The separate lifecycle `fresh` flag is retained. A drain stop still requires a
+**fresh draining/zero-agent acknowledgement**, the same PID/start identity and
+owned marker, rechecked immediately before stop; a healthy heartbeat does not
+substitute for that acknowledgement. No native files are refreshed or rewritten
+to make these checks pass.
