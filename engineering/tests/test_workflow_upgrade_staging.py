@@ -200,3 +200,19 @@ def test_failed_initial_receipt_is_never_adopted(fixture):
 def test_changed_wrapper_permissions_are_not_silently_accepted(fixture):
     f=fixture;stage(f);(f.m.SBIN/'rras-workflow').chmod(0o700)
     assert f.m.inspect(f.journal)['phase']=='external_state_changed'
+
+
+@pytest.mark.parametrize('mode',[0o600,0o640])
+def test_config_preserves_existing_owner_group_read_role(mode):
+    m=module();m.user_role(m.HERMES_CONFIG,SimpleNamespace(st_uid=1000,st_gid=1000,st_mode=0o100000|mode))
+
+@pytest.mark.parametrize('uid,gid,mode',[(0,1000,0o640),(1000,0,0o640),(1000,1001,0o640),(1000,1000,0o644),(1000,1000,0o660),(1000,1000,0o400),(1000,1000,0o4640)])
+def test_config_refuses_other_owners_groups_or_permissions(uid,gid,mode):
+    m=module()
+    with pytest.raises(ValueError):m.user_role(m.HERMES_CONFIG,SimpleNamespace(st_uid=uid,st_gid=gid,st_mode=0o100000|mode))
+
+
+def test_drain_marker_never_inherits_config_group_read_permission():
+    m=module();path=m.HERMES_CONFIG.parent/'.drain_request.json'
+    m.user_role(path,SimpleNamespace(st_uid=1000,st_gid=1000,st_mode=0o100600))
+    with pytest.raises(ValueError):m.user_role(path,SimpleNamespace(st_uid=1000,st_gid=1000,st_mode=0o100640))
