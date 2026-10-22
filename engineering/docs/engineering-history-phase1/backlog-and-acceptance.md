@@ -1,13 +1,13 @@
 # Ordered implementation backlog and acceptance specification
 
-No implementation slice starts from a document saying 'approved' alone. Resolve D1,
+No implementation slice starts from a document saying 'approved' alone. D1 direction is accepted;
 review source/fixtures, separately approve installation/activation and keep paid-task
 approval separate. D2 must be resolved before browser deployment. Estimates/task
 assignment can follow decisions; no arbitrary delivery dates are promised.
 
 | Slice | Dependencies | Concrete deliverable | Exit checks |
 | --- | --- | --- | --- |
-| 0. Resolve Phase1 decisions | This proposal | Accepted ADR, template/authority/privacy invariants, named web/backup decision gates | Human D1 choice; document-authority agreement; D2 owner/open gate explicit. |
+| 0. Finalize Phase1 design baseline | D1 direction accepted | ADR, template/authority/privacy invariants, named web/backup decision gates | Detailed specification and draft templates source-reviewed; D2 remains an explicit web-deployment gate. |
 | 1. Engineering contracts | 0 | Versioned new work/session/document/claim envelopes plus v1 adapters and deterministic encoding | Cross-repo/mode/revision rules, unknown timestamps, duplicate/conflict semantics; v1 fixtures still valid. No production migration. |
 | 2. Durable intake/storage | 1,D1 | Chosen store/writer, bounded idempotent intake, atomic content+receipt/outbox, explicit private/shared policy | Restart/crash/concurrent-write cases; service principal cannot read root DB/key or perform actions; known limits/backup fixture. |
 | 3. Templates and protected binding | 1,2 | Review/checkpoint/completion renderer, immutable bytes/manifests, exact managed capture/approval binding | Rendering determinism, stale template/content/scope invalidation, no changed approval for old captures, recorded criteria/evidence limits. |
@@ -49,3 +49,12 @@ service accounts, root broker permissions, production DB changes or ledger activ
 
 Success for Phase1 is an accepted design and reviewable backlog; success for the
 product requires the later source/host/client/browser acceptance. Keep those separate.
+
+## Initial implementation boundary
+
+Use [the initial specification](initial-implementation-spec.md) to implement slices
+1 and the non-deployed local library/CLI portion of slice2 first. Deliver contracts,
+SQLite transactional fixtures, deterministic documents and explicit local commands
+before creating service accounts or listeners. Root export integration, privileged
+approval changes, hooks, browser controls and actual service installation follow
+separately reviewed slices. This keeps the next PR testable without sudo/model calls.

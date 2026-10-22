@@ -1,6 +1,7 @@
 # Architecture decision D1: engineering history authority and storage
 
-Status: proposed; human decision required before implementation. No live paths or
+Status: **D1 separate-service direction accepted by the operator**, October22,2026.
+Detailed implementation design remains subject to source review. No live paths or
 owners change. This document distinguishes operational authorization from engineering
 knowledge, even if they are displayed in one timeline.
 
@@ -9,11 +10,11 @@ knowledge, even if they are displayed in one timeline.
 | Option | Benefits | Costs / boundary |
 | --- | --- | --- |
 | A. Extend the root journal with a narrow privileged intake broker | One existing durable store and event chain; private evidence stays colocated. | Every ordinary note/import crosses a new privileged interface; web/session input reaches a root writer. Schema/capacity/publication evolution becomes coupled to protected runtime upgrades. Browser still cannot open the database. |
-| B. Dedicated unprivileged engineering-history service linked to the root journal — recommended | Interactive intake, curated documents/search/web can evolve without exposing operational control/private logs. Existing protected journal is preserved. | New service/store/account; two distinct authorities need explicit ID/receipt links, idempotent export/import, freshness and backup rules. No cross-store transaction is implied. |
+| B. Dedicated unprivileged engineering-history service linked to the root journal — selected direction | Interactive intake, curated documents/search/web can evolve without exposing operational control/private logs. Existing protected journal is preserved. | New service/store/account; two distinct authorities need explicit ID/receipt links, idempotent export/import, freshness and backup rules. No cross-store transaction is implied. |
 | C. Markdown/Git only | Familiar browsing and diffing, fewer server components initially. | Weak structured queries, approval concurrency and private access separation; poor foundation for web controls unless an additional authority service is later introduced. |
 
-B is a new architectural component, not an already approved deployment. Recommend
-SQLite initially for a single local history writer; PostgreSQL remains an alternative
+The operator selected B. It is a new architectural component, not an already
+approved deployment. The initial design uses SQLite for one local history writer; PostgreSQL remains an alternative
 if concurrent deployment/operational requirements justify it. Do not activate the
 stopped activity ledger or share its grants/schema as an implementation shortcut.
 Do not claim DBeaver direct database access before access/replica policy is designed.
