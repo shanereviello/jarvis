@@ -38,3 +38,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Independent post-validation contract and remaining host work](post-validation.md)
 
 - [Complete runtime payload, operator frontend and upgrade plan](workflow-upgrade-package.md)
+
+- [Engineering history Phase1 design proposal](engineering-history-phase1/README.md): architecture alternatives, shared records/documents, interactive integration, web access and implementation gates; no deployment or architecture acceptance implied.
