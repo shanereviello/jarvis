@@ -1,5 +1,9 @@
 # Named-operator draft-PR connector bridge
 
+Current installation and acceptance status: see [phase closeout](workflow-phase-closeout.md) and the [operator runbook](workflow-operator-runbook.md). The active release is `workflow-b51bcece0851`; finish/native observation, independent validation, managed draft publication and journal reads have been exercised. Descriptions of source slices and their original pending gates below are historical development context, not the current installation status. Closeout publication corrections still await their own release.
+
+## Component design and historical delivery notes
+
 This source slice joins the protected publication handoff to the GitHub connector
 already available to the human's Codex frontend. It does not provision a server token,
 install/authenticate `gh`, expose GitHub tools to UID996 or add a publication MCP tool.

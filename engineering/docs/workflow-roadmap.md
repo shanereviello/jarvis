@@ -80,62 +80,20 @@ stronger containment for demonstrated needs remain deferred. Portal spending pol
 is current practice; no local task/day/month ceiling is claimed. Do not upgrade
 Hermes/Codex/model pins or resume robot example work to implement this roadmap.
 
-## Progress
+## Current progress
 
-- Step1: shared contracts merged in PR15.
-- Step2: admission preparation merged in PR16; trusted operator control merged in
-  PR17. The bounded Jarvis documentation configuration is installed. Other ordinary
-  repositories still require their own reviewed registration and validation recipe.
-- Step3: journal/artifact/outbox and interactive imports merged in PR18; configured
-  managed recording, receipt reconciliation and projection-only history MCP merged
-  in PR19. These interfaces are now installed. The real journal starts empty;
-  explicit imports and explicit snapshot publication remain operator actions.
-- Step4: actual Hermes MCP2, disposable read-only same-image fixture and offline
-  root/UID996/systemd acceptance passed; see [acceptance](workflow-acceptance.md).
-  PR21 added committed-source/offline packaging and atomic projection publication.
-  After separate human installation approval, release `workflow-421ce120c6da` was
-  activated and independently verified on October20,2026. See the
-  [installed paths and verification](workflow-production-package.md#installed-october202026).
-- This completes installation of the control/record foundation. It does not claim
-  an end-to-end successful managed coding task or completion of every product
-  acceptance criterion. Native finish/custody/publication and draft-PR receipts
-  are the next unfinished integration slice. Ledger delivery, GUI/autopilot and
-  the other deferred slices remain pending. No paid task ran during installation.
+The control/record foundation and finish/validation/publication integration are
+installed. The first managed documentation task completed the human-approved
+path through PR38 merge and explicit acceptance/merge journal events.
+See [phase closeout](workflow-phase-closeout.md) for the criterion-by-criterion
+matrix, evidence levels and remaining second-repository host rehearsal gap.
 
-The next source slice adds [finish report custody and journal recording](workflow-finish.md). It preserves imported runner-report provenance and remains uninstalled. Trusted publication/PR receipt integration and independent native-result observation remain follow-up work.
+Two operator publication corrections and the maintained
+[runbook](workflow-operator-runbook.md) are in the closeout source slice. They need
+separate source merge and protected installation; do not label them live based on
+source tests. No paid run, ledger activation or architecture expansion is needed.
 
-Finish report capture/recording merged in PR23, with the installed foundation unchanged. The following source slice connects [review commit/handoff and publication receipts](workflow-publication.md). It preserves imported report provenance; packaging/host acceptance, independent native observation and authenticated GitHub PR creation remain pending.
-
-Publication handoff/receipt source merged in PR24. The following [native board observation](native-observation.md) slice checks stored task/run agreement directly without promoting worker-owned data to authenticated success. Authenticated PR creation, independent post-validation, packaging and host acceptance remain pending.
-
-Native board observation source merged in PR25. The following [operator draft-PR connector bridge](draft-pr-connector.md) source slice uses the existing frontend GitHub connection with one-use intent/response handling. Production frontend binding, package/upgrade and root/UID acceptance remain separate.
-
-Draft-PR bridge source merged in PR26. The next
-[independent post-validation contract](post-validation.md) binds the registered
-recipe to the exact review and requires baseline HEAD with unstaged proposed edits
-so the current whitespace check is not vacuous. It is an inert contract only;
-protected execution, result custody/journal and publication gating remain to build.
-
-The independent validation contract merged in PR27. Protected workspace staging
-now has a source slice: it reconstructs/rechecks the exact review, covers added
-files with intent-to-add, and retains root-private custody. Execution/fencing,
-result recording and publication gating remain unfinished; no production change.
-
-Protected validation staging merged in PR28. The following source slice adds
-one-use read-only validation execution, private bounded results, idempotent
-observed journal records and an exact-commit proof gate for new managed
-publication packages. Root/systemd acceptance, frontend binding and package upgrade
-remain pending; the installed foundation stays unchanged.
-
-PR30's mount-permission correction passed fourteen actual offline host boundary
-cases and merged. The next source slice completes the frontend tool binding and
-runtime payload/dependency audit, and defines a distinct state-preserving
-[upgrade candidate plan](workflow-upgrade-package.md). The dedicated upgrade
-installer and production/remote acceptance remain pending; no source merge changes
-the installed journal or enables paid execution.
-
-
-Frontend binding/complete payload and upgrade-plan source merged in PR31. The next
-slice adds dedicated inactive upgrade staging and read-only interrupted-stage
-inspection. It preserves private state and never switches a live reference;
-activation/rollback and actual installation acceptance remain pending.
+The historical deferred finish/custody/publication slice above has now been built
+and exercised. The other deferred items remain deferred. Rich engineering memory
+is reserved for a separate architecture decision; this phase's sanitized event
+summaries do not supply narrative change explanations.

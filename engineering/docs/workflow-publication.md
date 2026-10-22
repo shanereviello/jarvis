@@ -1,5 +1,9 @@
 # Finish custody to review publication and journal receipts
 
+Current installation and acceptance status: see [phase closeout](workflow-phase-closeout.md) and the [operator runbook](workflow-operator-runbook.md). The active release is `workflow-b51bcece0851`; finish/native observation, independent validation, managed draft publication and journal reads have been exercised. Descriptions of source slices and their original pending gates below are historical development context, not the current installation status. Closeout publication corrections still await their own release.
+
+## Component design and historical delivery notes
+
 This source slice connects the finish capture to existing local commit preparation
 and named-operator Git bundle handoff, then records publication reports in the same
 workflow journal. It is not installed in the current immutable workflow release.

@@ -26,12 +26,16 @@
   await rejects(()=>operator({...base(),tools:fake,bridge:async({github})=>github('merge_pull_request',{})}),'unadmitted_github_operation_refused');
   await rejects(()=>operator({...base(),tools:fake,bridge:async({cli})=>cli('complete',{value:'x'.repeat(65537)})}),'oversized_cli_metadata_refused');
   await rejects(()=>operator({...base(),tools:toolsFor(async()=>({output:'{"status":"old_helper"}',exit_code:0})),bridge:async({cli})=>cli('prepare')}),'obsolete_helper_protocol_refused');
+  let defaultCommand;
+  await operator({...base({workspace:undefined}),tools:toolsFor(async request=>{defaultCommand=request.cmd;return ok({selected:true});}),bridge:async({cli})=>cli('prepare')});
+  assert(!defaultCommand.includes('--workspace') && defaultCommand.includes('--package'),'host_selects_default_workspace');
+  cases.push('host_selected_workspace_without_frontend_home');
   let created=0,attached=0;
   const actions=[];
   const execute=async request=>{
     commands.push(request.cmd);
     const action=['prepare','arm','complete','unknown'].find(x=>request.cmd.includes("'"+x+"'"));actions.push(action);
-    if(action==='prepare') return ok({branch_read:{url:'/branches/codex%2Ffixture'},prs_read:{url:'/pulls'}});
+    if(action==='prepare') return ok({branch_read:{url:'/branches/codex/fixture'},prs_read:{url:'/pulls'}});
     if(action==='arm') return ok({create:{repository_full_name:'fixture/library',head:'codex/fixture',base:'main',draft:true}});
     if(action==='complete') return ok({status:'draft_created'});
     if(action==='unknown') return ok({status:'unknown'});

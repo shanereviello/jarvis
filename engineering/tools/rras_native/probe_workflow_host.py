@@ -19,7 +19,23 @@ def local(name):
     return module
 
 
-def run(root):
+
+def fixture_records(here, repo, commit, repository_id):
+    a = local('activity')
+    registration, work = json.loads((here / 'library-managed.json').read_text())[:2]
+    if repository_id not in ('example_library', 'closeout_library_two'):
+        raise ValueError('known offline repository fixture required')
+    registration.update(repository_id=repository_id, registration_id='reg_' + a.digest(repository_id.encode())[:32])
+    work.update(repository_id=repository_id, work_item_id='wrk_' + a.digest(repository_id.encode())[:32])
+    registration['source']['canonical_path'] = str(repo)
+    registration['path_policy']['allowed_roots'] = ['.']
+    registration['validation_recipes'] = [{'validation_id': 'fixture', 'argv': ['/usr/bin/true'], 'execution_identity': 'engineering_worker', 'timeout_seconds': 10}]
+    work.update(registration_sha256=a.digest(a.encoded(registration)), objective='Offline acceptance fixture for ' + repository_id + ' only.',
+                requested_paths=['value.py'], validation_id='fixture', baseline={'ref': 'refs/heads/main', 'commit': commit})
+    return registration, work
+
+
+def run(root, repository_id='example_library'):
     if os.getuid() != 0 or os.geteuid() != 0:
         raise ValueError('root acceptance required')
     root = Path(root)
@@ -50,12 +66,7 @@ def run(root):
     git('add', '.')
     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '-qm', 'fixture')
     commit = git('rev-parse', 'HEAD').decode().strip()
-    registration, work = json.loads((here / 'library-managed.json').read_text())[:2]
-    registration['source']['canonical_path'] = str(repo)
-    registration['path_policy']['allowed_roots'] = ['.']
-    registration['validation_recipes'] = [{'validation_id': 'fixture', 'argv': ['/usr/bin/true'], 'execution_identity': 'engineering_worker', 'timeout_seconds': 10}]
-    work.update(registration_sha256=a.digest(a.encoded(registration)), objective='Offline acceptance fixture only.',
-                requested_paths=['value.py'], validation_id='fixture', baseline={'ref': 'refs/heads/main', 'commit': commit})
+    registration, work = fixture_records(here, repo, commit, repository_id)
     registration_path, work_path = state / 'registration.json', state / 'work.json'
     a.absent(registration_path, a.encoded(registration))
     a.absent(work_path, a.encoded(work))
@@ -150,7 +161,7 @@ print('permission_boundary_verified')
     launcher.slot()  # Isolated slot gone and UID idle after the fake worker.
     answer = {'phase': 'offline_workflow_host_verified', 'api_calls': 0, 'worker_uid': 996,
               'real_credentials_used': False, 'production_unit_used': False, 'unit': launcher.UNIT,
-              'root': str(root), 'private_network': True, 'records': len(reopened.records()),
+              'root': str(root), 'repository_id': repository_id, 'private_network': True, 'records': len(reopened.records()),
               'cases': ['protected_capture', 'journal_approval', 'sentinel_delivery', 'uid996_fake_worker',
                         'slot_exclusion', 'busy_approval_preserved', 'host_stop', 'replay_refused',
                         'journal_reconciliation_idempotent', 'configuration_revocation',
@@ -164,5 +175,6 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', required=True)
+    parser.add_argument('--repository-id', choices=('example_library', 'closeout_library_two'), default='example_library')
     args = parser.parse_args()
-    print(json.dumps(run(args.root)))
+    print(json.dumps(run(args.root, args.repository_id)))

@@ -27,6 +27,13 @@ def root_reads():
     custody=m.local('publication_custody')
     return custody,patch.object(custody,'root_bytes',side_effect=lambda p,limit:Path(p).read_bytes())
 
+@pytest.fixture(autouse=True)
+def fixture_workspace_ancestors(monkeypatch):
+    # These legacy local transport fixtures live under /tmp. Real parent checks
+    # are exercised independently in test_publication_workspace.py.
+    monkeypatch.setattr(m, 'workspace_path', lambda record, path=None: Path(path))
+
+
 def test_bundle_operator_import_and_local_publication(fixture,tmp_path):
     record,path=package(fixture,tmp_path)
     assert path.stat().st_mode&0o777==0o555

@@ -1,5 +1,9 @@
 # Production workflow package and installation gates
 
+Current installation and acceptance status: see [phase closeout](workflow-phase-closeout.md) and the [operator runbook](workflow-operator-runbook.md). The active release is `workflow-b51bcece0851`; finish/native observation, independent validation, managed draft publication and journal reads have been exercised. Descriptions of source slices and their original pending gates below are historical development context, not the current installation status. Closeout publication corrections still await their own release.
+
+## Component design and historical delivery notes
+
 PRs15–20 provide the contracts, control, journal, reader and model-free acceptance.
 This slice adds reproducible production packaging, explicit snapshot publication and
 an inactive staging/preflight tool. It does not authorize production installation,
