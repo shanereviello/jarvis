@@ -245,3 +245,20 @@ def test_abandon_delivered_action_cannot_erase_receipt(environment):
     client,store=environment;start(client);client.flush()
     with pytest.raises(ValueError,match='no unresolved'):client.abandon('start-1','Erase previous history')
     assert client.status()['recording_state']=='recorded'
+
+
+def test_explicit_occurrence_time_survives_delayed_delivery_and_unknown_stays_null(environment):
+    client,store=environment;start(client);client.flush()
+    stamp='2026-10-22T12:34:56Z'
+    client.enqueue('handoff','dated',note(),occurred_at=stamp)
+    client.flush()
+    records=store.history()['records']
+    assert records[-1]['submission']['occurred_at']==stamp
+    assert records[1]['submission']['occurred_at'] is None
+    with pytest.raises(ValueError,match='key conflict'):client.enqueue('handoff','dated',note(),occurred_at=None)
+
+
+def test_invalid_occurrence_date_does_not_queue_partial_action(environment):
+    client,store=environment;start(client)
+    with pytest.raises(ValueError):client.enqueue('handoff','invalid-time',note(),occurred_at='2026-02-30T00:00:00Z')
+    assert len(client.status()['pending'])==2

@@ -101,14 +101,14 @@ class Client:
             raise ValueError('local client identity/transport changed')
         return config
 
-    def enqueue(self, kind, action_key, payload, *, session_id=None):
+    def enqueue(self, kind, action_key, payload, *, session_id=None, occurred_at=None):
         """Durably queue an explicit action/context together; no backend call here."""
         c = local('contract')
         if kind not in ('start','attach') and session_id is not None:
             raise ValueError('session identity changes require explicit attachment')
         if not isinstance(action_key, str) or not 1 <= len(action_key) <= 128 or '\0' in action_key:
             raise ValueError('bounded stable action key required')
-        intent = {'kind': kind, 'payload': payload, 'session_id': session_id}
+        intent = {'kind': kind, 'payload': payload, 'session_id': session_id, 'occurred_at': occurred_at}
         raw_intent = c.encoded(intent)
         if len(raw_intent) > c.MAX_REQUEST: raise ValueError('bounded client action required')
         intent = c.decode(raw_intent); payload = intent['payload']; sha = c.digest(raw_intent)
@@ -128,7 +128,7 @@ class Client:
                 return c.validate(dict(contract='engineering-history.v1', operation=operation,
                     client_event_key=key, expected_head=head,
                     source={'kind':'agent_reported', 'namespace':'codex_interactive', 'id':session_id if kind in ('start','attach') else active['session_id']},
-                    occurred_at=None, body=body))
+                    occurred_at=occurred_at, body=body))
             if kind == 'start':
                 work = c.validate(payload)
                 if work['operation'] != 'work.create' or work['body']['revision'] != 1 or work['expected_head'] is not None:

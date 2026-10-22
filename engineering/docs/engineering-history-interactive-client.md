@@ -78,6 +78,11 @@ work/revision or silently change session identity. To select a different work/sc
 revision, attach explicitly. Finish records an outcome claim; it does not close the
 Codex conversation, prevent later notes, or establish human deliverable acceptance.
 Source narratives remain reports without authenticated human/observed authority.
+If an occurrence time is actually known, supply `--occurred-at` with an exact UTC
+timestamp; it is frozen into the queued association/note request and survives delayed
+delivery. Otherwise it remains null. For start, the work request retains its own source
+time; the flag applies to the new session association. Server recording time is always
+separate, and changing a timestamp under an existing action key conflicts.
 
 ## Pending and uncertain delivery
 

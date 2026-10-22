@@ -31,7 +31,7 @@ def main(argv=None):
         p=sub.add_parser(command);p.add_argument('--state',required=True)
         if command=='init':p.add_argument('--history-store',required=True)
         if command in ('start','attach','checkpoint','pause','handoff','finish'):
-            p.add_argument('--key',required=True);p.add_argument('--queue-only',action='store_true')
+            p.add_argument('--key',required=True);p.add_argument('--queue-only',action='store_true');p.add_argument('--occurred-at')
         if command=='start':p.add_argument('--request',required=True)
         if command in ('start','attach'):p.add_argument('--session-id')
         if command=='attach':
@@ -55,7 +55,7 @@ def main(argv=None):
                 if args.command=='start':payload=read_json(args.request)
                 elif args.command=='attach':payload={'work_item_id':args.work_id,'work_revision_sha256':args.revision_sha256}
                 else:payload=read_json(args.note)
-                queued=client.enqueue(args.command,args.key,payload,session_id=getattr(args,'session_id',None))
+                queued=client.enqueue(args.command,args.key,payload,session_id=getattr(args,'session_id',None),occurred_at=args.occurred_at)
                 result={'queue':queued,'status':client.status()} if args.queue_only else {'queue':queued,**client.flush()}
         print(json.dumps(result,ensure_ascii=False,allow_nan=False))
     except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,ValidationError):
