@@ -107,9 +107,14 @@ class Store:
             result.append((request, saved, document, meta))
         return result
 
-    def submit(self, value):
+    def submit(self, value, *, peer_uid=None):
         c = local('contract'); request = c.validate(value); raw = c.encoded(request)
-        sha = c.digest(raw); operation = request['operation']; body = request['body']; principal = os.getuid()
+        sha = c.digest(raw); operation = request['operation']; body = request['body']
+        # Internal service adapter only. Direct local callers retain the v1 receipt.
+        # A peer UID must come from trusted transport, never from the submitted JSON.
+        if peer_uid is not None and (type(peer_uid) is not int or not 1 <= peer_uid < 2**32 - 1 or peer_uid in (996, 997)):
+            raise ValueError('inadmissible service peer')
+        principal = os.getuid() if peer_uid is None else -peer_uid
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             rows = self.rows(db)
@@ -151,9 +156,12 @@ class Store:
             receipt = dict(contract='engineering-history-receipt.v1', receipt_id='rcp_' + uuid.uuid4().hex,
                 sequence=len(rows) + 1, request_sha256=sha, work_item_id=body['work_item_id'],
                 work_revision_sha256=head, recorded_at=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-                writer_uid=principal, transport='local_caller_store', provenance=request['source']['kind'],
+                writer_uid=os.getuid(), transport='local_caller_store', provenance=request['source']['kind'],
                 visibility='operator_private', authority_granted=False,
                 document_manifest=manifest)
+            if peer_uid is not None:
+                receipt.update(contract='engineering-history-receipt.v2', transport='authenticated_local_service',
+                               peer_uid=peer_uid)
             db.execute('INSERT INTO submissions VALUES(?,?,?,?,?,?,?,?,?)',
                        (len(rows) + 1, principal, operation, request['client_event_key'], raw, sha,
                         c.encoded(receipt), document, None if manifest is None else c.encoded(manifest)))

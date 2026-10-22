@@ -44,3 +44,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Local engineering-history foundation](engineering-history-local-foundation.md): new passive engineering contract, caller-owned SQLite/CLI and deterministic private document drafts; no installed service or automatic capture.
 
 - [Explicit interactive history client](engineering-history-interactive-client.md): start/attach/checkpoint/handoff/finish with private transactional spool, pending delivery and stable receipts; local transport only.
+
+- [Engineering-history service access boundary](engineering-history-service-access.md): explicit repository grants, service peer receipt attribution and scoped passive dispatcher; no installed socket/service.
