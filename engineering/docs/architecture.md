@@ -5,7 +5,7 @@ Server owns the coding session and workspace sandbox. RRAS supplies repository/p
 admission, one-use human approval, traceability, independent validation, verified
 stop, protected evidence export and human publication/merge/deployment boundaries.
 
-The installed workflow is `/opt/rras-engineering/releases/workflow-b51bcece0851`.
+The installed workflow is `/opt/rras-engineering/releases/workflow-a3f3c05a536a`.
 Protected per-repository configuration selects the admitted canonical Git baseline,
 exact paths, reviewed validation recipe and session profile. Hermes prepares mutable
 proposals without execution authority. A root operator captures/reviews/approves an
@@ -32,11 +32,11 @@ The separate legacy activity ledger remains stopped; no schema upgrade is implie
 The first managed documentation task was accepted and merged as PR38, with explicit
 acceptance/merge entries recorded. This establishes that bounded path, not arbitrary
 repository recipes, unattended execution, broad model autonomy or robot field safety.
-[Phase closeout](workflow-phase-closeout.md) gives evidence levels and remaining gaps;
+[Phase closeout](workflow-phase-closeout.md) gives evidence levels and limits;
 the [runbook](workflow-operator-runbook.md) is the current operator command reference.
 
 Cancellation/interrupted-launch recovery, ledger delivery, richer engineering-memory
 summaries, GUI/autopilot, multiple workers, local hard budgets and centralized backup
 remain deferred. API portal spending controls remain the current operator practice.
-Two publication integration corrections are source changes awaiting installation;
-the live runtime and pinned Hermes/Codex/model versions remain unchanged.
+The publication integration corrections are installed and independently checked;
+the pinned Hermes/Codex/model versions remain unchanged.

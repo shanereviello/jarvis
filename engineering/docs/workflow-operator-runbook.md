@@ -4,13 +4,13 @@ Use this sequence for an admitted repository and bounded task. Repository-specif
 registration, allowed paths and validation are reviewed data, not generated launcher
 code. Do not rerun dated acceptance/migration scripts for a new task.
 
-The control/finish/validation/publication path is installed in
-`/opt/rras-engineering/releases/workflow-b51bcece0851`. Automatic safe workspace
-selection described below is a **closeout source correction awaiting installation**.
-Until installed, pass an explicit fresh directory directly under the operator home
-whose entire ancestor chain is root/operator-owned and not group/other writable.
-Do not put operator publication custody beneath `Documents` if its ancestors are
-mode0775. Never change broad directory permissions to make a task proceed.
+The control/finish/validation/publication path, including automatic safe workspace
+selection, is installed in `/opt/rras-engineering/releases/workflow-a3f3c05a536a`.
+Omit the optional workspace argument to select a task-specific private directory
+under the operator's account-database home. Explicit workspaces must have an entirely
+root/operator-owned ancestor chain without group/other write access. Do not put
+publication custody beneath `Documents` when its ancestors are mode0775, or change
+broad directory permissions to make a task proceed.
 
 ## 1. Prepare and review
 
@@ -101,7 +101,7 @@ No automatic validation execution retry is supported.
 
 ## 5. Operator diff review, branch and draft PR
 
-After installing the closeout correction, omit workspace to select a deterministic
+Omit workspace to select a deterministic
 private directory under the operator's account-database home:
 
 ```sh

@@ -1,14 +1,14 @@
 # Operator workflow phase closeout
 
-This report separates observed host evidence, source fixtures and remaining
+This report separates observed host evidence, source fixtures and completed
 installation work. It closes the reusable operator/control and record foundation;
 it does not add an engineering-memory architecture, GUI or autonomous execution.
 
 ## Deployed and demonstrated
 
-The active release is `/opt/rras-engineering/releases/workflow-b51bcece0851`, built
-from source `68de35b578561292621b9f1c946f245c53fd796d`. Its manifest digest is
-`d33afd9cf1433dc67ad5aa2a8d3d2298392a07434fe574809d964a51e0476ffa`.
+The active release is `/opt/rras-engineering/releases/workflow-a3f3c05a536a`, built
+from source `971b7f85d00ef39276a7a0b4385e70d8aa86ddc1`. Its manifest digest is
+`9f4af23b7b0440700428607df60b53d22b2c81b592b69a26239c6ca0d2b6ee2d`.
 The reviewed heartbeat-aware upgrade tools came from source
 `d1068967830b2a75a371cfd3b7e81c931da6575a`. Source main can advance without
 changing this immutable runtime. Native Hermes/Codex/model pins are unchanged.
@@ -39,7 +39,7 @@ not a claim that historical occurrence timestamps are monotonically increasing.
 | Criterion | Evidence and limit |
 | --- | --- |
 | Shared registrations/work/attempts/events | Versioned contracts and consistency/refusal tests; source and runtime packaged together. |
-| Repository reuse | Two distinct local Git repositories/objectives exercised the same **installed** unprivileged prepare CLI with registration-only differences and no API calls. Source tests also exercise capture/approve/launch for two repositories with service/ownership adapters. This is not two live paid workflows or actual second-repository privileged execution. |
+| Repository reuse | Two distinct local Git repositories/objectives exercised the same **installed** unprivileged prepare CLI with registration-only differences and no API calls. Source tests also exercise capture/approve/launch for two repositories with service/ownership adapters. Actual root/UID996/systemd fake-worker acceptance also passed for two distinct repository registrations/objectives using the same orchestration. No second paid or remote-publication workflow is claimed. |
 | Approval boundaries and global slot | Offline root/UID996/systemd host acceptance covered approval preservation, replay refusal, fixed-slot exclusion, stop and revocation; the real task used one explicit paid approval. |
 | Successful, failed and unfinished work | Journal/control source cases cover discovery, lost responses, reconciliation and idempotency. One successful real managed task is in production; no live failed-task history was manufactured for acceptance. |
 | Interactive imports | Explicit provenance-preserving import tests and CLI exist; ordinary chats are not automatically observed. |
@@ -48,36 +48,61 @@ not a claim that historical occurrence timestamps are monotonically increasing.
 | Durability/outage | SQLite reopen, outbox retention and idempotent recording tests; isolated upgrade lifecycle also preserved later real SQLite fixture writes through rollback. No off-host backup or ledger delivery is claimed. |
 | Installation/upgrade boundaries | Actual offline credential-free host validation and isolated upgrade acceptance passed before approved production activation. |
 
-The two-repository source/installed-preparation evidence establishes reusable
-admission. A full second-repository privileged host rehearsal remains an explicit
-acceptance gap if the criterion is interpreted as two actual host executions.
-Do not silently convert the narrower checks into that claim. It needs a separately
-reviewed credential-free fixture/root procedure, not another paid task. The existing
-`probe_workflow_host.py` now accepts the fixed `example_library` and
-`closeout_library_two` fixture registrations with distinct objectives and otherwise
-identical commands/recipe. Its source configuration checks pass; both actual sudo
-runs must use fresh protected fake-worker payload/state and are still pending.
+The two-repository host rehearsal passed fourteen boundary cases for each
+repository: protected capture, journal approval, harmless sentinel delivery,
+UID996 fake worker, slot exclusion, busy approval preservation, verified stop,
+replay refusal, idempotent reconciliation, configuration revocation, private
+journal denial to UID996/1000, read-only projection access for UID1000, outbox
+retention after reopen, and refusal to infer task success from a fake service exit.
+The fake workers used private networks and no real provider credentials. Production
+configuration/journal were unchanged. Both synthetic units and the production task
+slot were independently absent afterward, with no UID996 processes.
 
-## Closeout corrections awaiting their own release
+The first bootstrap stopped before staging because unused production `config/`
+files were outside its acceptance allowlist. No protected release/state was created.
+A separate corrected payload omitted those files and passed the exact helper's
+unprivileged payload validation before the successful root run. Failed-attempt
+artifacts and successful protected fixture evidence remain retained outside Git.
+
+## Installed closeout corrections
 
 The first managed publication exposed two operator integration issues:
 
 - Import allowed a private leaf beneath group-writable ancestors, which later
-  protected receipt readers correctly refused. New source chooses a deterministic,
+  protected receipt readers correctly refused. The installed publisher chooses a deterministic,
   handoff-specific directory directly under the account-database home, checks all
   ancestors before import/push, and refuses unsafe explicit paths without chmod,
   relocation, adoption or retry. Omitting workspace in the frontend delegates
   selection to the protected host helper.
 - The connected GitHub fetch tool rejects an encoded slash in the branch API path.
-  New source retains the validated branch slash in the path while encoding other
+  The installed connector retains the validated branch slash in the path while encoding other
   characters. The head-filtered PR-list query still encodes its query value.
   Actual read-only connector queries confirmed the accepted branch URL format.
 
-The successful task used documented manual workarounds, not these uninstalled
-source fixes. Closeout source merge, protected packaging and activation must be
-approved separately. No model call is needed to test or install these corrections.
-The [operator runbook](workflow-operator-runbook.md) replaces dated task-specific
-scripts as the maintained command reference.
+The first task used documented manual workarounds. The corrections were then
+reviewed and merged in [PR39](https://github.com/shanereviello/jarvis/pull/39),
+packaged from exact committed source, staged inactive, and separately approved for
+activation. Preflight and activation passed. The old container/code remain retained;
+configuration was preserved and no journal restore occurred. Independent readback
+verified all 171 payload files, all three wrappers, the new read-only workflow mount,
+healthy native heartbeat, actual preparation/history MCP discovery, and the unchanged
+15-event sanitized history. The old container was confirmed stopped. No additional
+paid run or production registration change occurred.
+
+An installed-code check imported the existing source-only review bundle into the
+new default private home workspace without a remote write. The installed connector
+produced the slash-preserving branch URL, and the actual connected reader returned
+the exact expected review commit. This did not create another PR or repeat the paid
+task. Root configuration/journal preservation was checked by the protected activator;
+the public history index hash was independently compared before/after.
+
+Validation of the source corrections covered 215 distinct Python cases across
+admission/control, journal, publication/path handling, packaging/upgrade and probe
+guards, plus 25 frontend JavaScript cases in the Codex V8 runtime. Host fixtures and
+live readbacks establish the additional boundaries described above. The maintained
+[operator runbook](workflow-operator-runbook.md) is the normal command reference.
+This completes the current operator/control and record-foundation phase. The final
+closeout documentation merge itself does not require a runtime rebuild.
 
 ## Deferred
 

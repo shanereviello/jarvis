@@ -86,12 +86,16 @@ The control/record foundation and finish/validation/publication integration are
 installed. The first managed documentation task completed the human-approved
 path through PR38 merge and explicit acceptance/merge journal events.
 See [phase closeout](workflow-phase-closeout.md) for the criterion-by-criterion
-matrix, evidence levels and remaining second-repository host rehearsal gap.
+matrix, evidence levels and completed two-repository host rehearsal.
 
-Two operator publication corrections and the maintained
-[runbook](workflow-operator-runbook.md) are in the closeout source slice. They need
-separate source merge and protected installation; do not label them live based on
-source tests. No paid run, ledger activation or architecture expansion is needed.
+Both operator publication corrections and the maintained
+[runbook](workflow-operator-runbook.md) are delivered. The approved release
+`workflow-a3f3c05a536a` passed inactive staging/preflight, explicit activation and
+independent payload/wrapper/heartbeat/MCP/history verification. Two distinct
+repository registrations/objectives passed actual credential-free root/UID996
+fake-worker host checks. No second paid task or ledger activation was needed.
+The current operator/control and record-foundation phase is complete; broader
+architecture remains deferred as described below and in closeout.
 
 The historical deferred finish/custody/publication slice above has now been built
 and exercised. The other deferred items remain deferred. Rich engineering memory
