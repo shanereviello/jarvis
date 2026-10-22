@@ -62,3 +62,8 @@ separately reviewed slices. This keeps the next PR testable without sudo/model c
 The first [local foundation source slice](../engineering-history-local-foundation.md) now implements strict new envelopes, caller-owned transactional records/receipts/outbox and immutable draft rendering. It does not deploy the service or change protected approvals.
 
 The [explicit interactive client source slice](../engineering-history-interactive-client.md) adds local durable context and spool-backed commands against that foundation. Actual authenticated service transport, hooks and shared narrative retrieval remain separate.
+
+The [service access source slice](../engineering-history-service-access.md) defines
+repository-scoped passive dispatch and distinct service-peer receipts. Peer UIDs are
+supplied by tests until the following authenticated Unix transport is implemented;
+no kernel authentication or host isolation is established by these policy tests.
