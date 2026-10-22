@@ -40,3 +40,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Complete runtime payload, operator frontend and upgrade plan](workflow-upgrade-package.md)
 
 - [Engineering history Phase1 design proposal](engineering-history-phase1/README.md): architecture alternatives, shared records/documents, interactive integration, web access and implementation gates; no deployment or architecture acceptance implied.
+
+- [Local engineering-history foundation](engineering-history-local-foundation.md): new passive engineering contract, caller-owned SQLite/CLI and deterministic private document drafts; no installed service or automatic capture.
