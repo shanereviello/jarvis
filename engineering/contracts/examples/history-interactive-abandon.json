@@ -1,0 +1,3 @@
+{
+  "reason": "Synthetic local delivery disposition; preserve all requests and do not infer that a remote record was removed or never committed."
+}
