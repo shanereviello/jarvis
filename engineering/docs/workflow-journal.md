@@ -1,5 +1,9 @@
 # Durable workflow journal foundation
 
+Current installation and acceptance status: see [phase closeout](workflow-phase-closeout.md) and the [operator runbook](workflow-operator-runbook.md). The active release is `workflow-b51bcece0851`; finish/native observation, independent validation, managed draft publication and journal reads have been exercised. Descriptions of source slices and their original pending gates below are historical development context, not the current installation status. Closeout publication corrections still await their own release.
+
+## Component design and historical delivery notes
+
 `workflow_journal.py` stores passive shared-contract records and local artifacts in
 a private SQLite database. It queues references for future indexing in the same
 transaction. It does not register a repository, authenticate a claimed actor, approve

@@ -1,11 +1,42 @@
 # Native-first engineering architecture
 
-Hermes owns Kanban tasks, runs, worktrees and worker lifecycle. Codex App Server owns the coding session and workspace sandbox. RRAS supplies repository/path admission, traceability, independent validation, verified-stop checks, evidence export and human action gates.
+Hermes owns native Kanban tasks, runs, worktrees and worker lifecycle. Codex App
+Server owns the coding session and workspace sandbox. RRAS supplies repository/path
+admission, one-use human approval, traceability, independent validation, verified
+stop, protected evidence export and human publication/merge/deployment boundaries.
 
-The preparation-only stdio server has fixed Hermes identity and exactly two tools: prepare a bounded proposal and read it back. Source supports the existing Hermes container MCP2.0.0 and development MCP1.27.2. It does not use old Jarvis MCP or Linear. Policy admits only robot_ws manual-velocity source paths and an operator-selected validation recipe. Proposal state is writable by Hermes and is not execution authorization.
+The installed workflow is `/opt/rras-engineering/releases/workflow-b51bcece0851`.
+Protected per-repository configuration selects the admitted canonical Git baseline,
+exact paths, reviewed validation recipe and session profile. Hermes prepares mutable
+proposals without execution authority. A root operator captures/reviews/approves an
+exact snapshot. Only that one-use approval can start the fixed managed slot under
+UID996. Changed baseline/configuration revokes the approval. Worker clones/worktrees
+are separate from canonical Git, and workers receive no GitHub credentials.
 
-An operator-approved request runs under dedicated engineering UID996 using native-10 vendor/runtime. Coding edits use a fresh worker clone/native worktree, never writable canonical Git. Native completion and verified worker exit precede independent validation. Unexpected scope, instruction tampering, worker commits, unresolved workers or surviving validation descendants refuse success/export as appropriate. Review evidence stays local and is hash checked. Dedicated assigned review-branch publication now has standing operator authorization after successful validation and verified stop; merge and deployment remain human-controlled. See publication-policy.md. The trusted automatic publisher is not yet installed.
+Stopped-worker finish capture preserves reported claims. A read-only native database
+snapshot independently checks stored agreement without authenticating worker behavior.
+The isolated post-worker validator reconstructs the exact review tree, checks it
+against baseline (including added files), captures observed results and gates the
+source-only operator handoff. Mechanical validation is separate from human task
+acceptance. The named operator publishes the exact assigned branch and creates a
+draft PR through the existing frontend GitHub connection. Merge/deployment require
+separate explicit human decisions; no model result grants either authority.
 
-Actual robot task `a48135fe9331417da202d5e564b06658` demonstrated this manual positive path. GitHub review publication was performed after explicit approval; it is not an automated runner feature. Request counts/spend were unknown. Current ledger indexing=false. Stdio transport passed model-free inside Hermes; preparation-only gateway configuration is active and chat readback was verified.
+The root-private SQLite journal stores append-only records/artifacts and a durable
+pending index outbox. Jarvis sees only explicitly published sanitized history pages
+on a read-only mount. Status/history/summary and explicit provenance-preserving
+interactive imports exist; ordinary chats are not automatically observed. Local
+history survives ledger outages because production ledger indexing remains disabled.
+The separate legacy activity ledger remains stopped; no schema upgrade is implied.
 
-Unfinished: production installation of the source-tested approval/launch adapter, production cancellation/restart recovery, evidence ledger indexing and trusted GitHub publication integration. Local hard budgets remain deferred to operator portal policy. Existing PostgreSQL adapter still contains legacy execution compatibility; it is not the authority for native tasks and must be replaced only after consumer audit. Linear and notes/DB MCP application services are separate supported paths pending individual use audits.
+The first managed documentation task was accepted and merged as PR38, with explicit
+acceptance/merge entries recorded. This establishes that bounded path, not arbitrary
+repository recipes, unattended execution, broad model autonomy or robot field safety.
+[Phase closeout](workflow-phase-closeout.md) gives evidence levels and remaining gaps;
+the [runbook](workflow-operator-runbook.md) is the current operator command reference.
+
+Cancellation/interrupted-launch recovery, ledger delivery, richer engineering-memory
+summaries, GUI/autopilot, multiple workers, local hard budgets and centralized backup
+remain deferred. API portal spending controls remain the current operator practice.
+Two publication integration corrections are source changes awaiting installation;
+the live runtime and pinned Hermes/Codex/model versions remain unchanged.

@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import stat
 import subprocess
 
 LIMIT=64*1024*1024
@@ -88,8 +89,34 @@ def read(package):
     return record,data
 
 
-def import_review(package,destination):
-    a=local('activity');record,data=read(package);destination=Path(destination)
+def workspace_path(record, destination=None):
+    """Select a task-specific home workspace; refuse unsafe explicit ancestors.
+
+    Use the account database, not HOME or a model-supplied path. Never repair
+    ancestor permissions or adopt an existing task workspace during import.
+    """
+    uid = os.getuid()
+    if uid != record['operator_uid'] or uid in (0, 996, 997):
+        raise ValueError('named human operator required')
+    if destination is None:
+        home = Path(pwd.getpwuid(uid).pw_dir)
+        token = local('activity').digest(local('activity').encoded(record))[:32]
+        destination = home / ('.rras-review-' + token)
+    path = Path(destination)
+    if not path.is_absolute():
+        raise ValueError('absolute operator workspace required')
+    for parent in path.parents:
+        info = parent.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, uid) or
+                info.st_mode & 0o022):
+            raise ValueError('operator workspace ancestor is writable or unowned')
+    if path.resolve(strict=False) != path:
+        raise ValueError('canonical operator workspace required')
+    return path
+
+
+def import_review(package,destination=None):
+    a=local('activity');record,data=read(package);destination=workspace_path(record,destination)
     if destination.exists() or destination.is_symlink():raise ValueError('fresh operator workspace required')
     destination.mkdir(mode=0o700);destination.chmod(0o700)
     bundle=destination/'review.bundle';a.absent(bundle,data)
@@ -101,8 +128,8 @@ def import_review(package,destination):
     return prepared
 
 
-def publish(package,workspace):
-    record,_=read(package);workspace=Path(workspace)
+def publish(package,workspace=None):
+    record,_=read(package);workspace=workspace_path(record,workspace)
     st=workspace.lstat()
     if workspace.is_symlink() or st.st_uid!=os.getuid() or st.st_mode&0o077:raise ValueError('private operator workspace required')
     prepared=dict(record['prepared'],checkout=str(workspace/'repo'))

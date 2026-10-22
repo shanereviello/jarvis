@@ -21,7 +21,7 @@ def local(name):
 def context(package,workspace):
     local('approved_launch').trusted(Path(__file__))
     record,_=local('publication_handoff').read(package)
-    workspace=Path(workspace);s=workspace.lstat()
+    workspace=local('publication_handoff').workspace_path(record,workspace);s=workspace.lstat()
     if (not workspace.is_absolute() or workspace.resolve(strict=True)!=workspace or s.st_uid!=os.getuid() or
             stat.S_IMODE(s.st_mode)!=0o700 or os.getuid() in (0,996,997)):
         raise ValueError('named operator private workspace required')
@@ -46,7 +46,7 @@ def context(package,workspace):
             'draft':True,'maintainer_can_modify':False,'title':p['task_id']+': reviewed task changes','body':body}
     identity={'schema_version':1,'operator_uid':record['operator_uid'],'handoff_sha256':a.digest(a.encoded(record)),
         'publication_receipt_sha256':a.digest(a.encoded(report)),'commit':p['commit'],'create':create,
-        'branch_read':{'url':'https://api.github.com/repos/'+repository+'/branches/'+quote(p['branch'],safe='')},
+        'branch_read':{'url':'https://api.github.com/repos/'+repository+'/branches/'+quote(p['branch'],safe='/')},
         'prs_read':{'url':'https://api.github.com/repos/'+repository+'/pulls?state=all&head='+quote(owner+':'+p['branch'],safe='')+'&per_page=1'}}
     return workspace,p,identity
 
@@ -140,7 +140,7 @@ def complete(package,workspace,data):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=('prepare','arm','complete','unknown'))
-    p.add_argument('--package',required=True);p.add_argument('--workspace',required=True);p.add_argument('--data')
+    p.add_argument('--package',required=True);p.add_argument('--workspace');p.add_argument('--data')
     args=p.parse_args()
     try:
         if args.action in ('prepare','unknown'):answer=globals()[args.action](args.package,args.workspace)

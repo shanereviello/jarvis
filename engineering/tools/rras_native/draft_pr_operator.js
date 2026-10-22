@@ -7,14 +7,15 @@
   const required = ['exec_command', 'write_stdin', 'mcp__codex_apps__github_fetch',
     'mcp__codex_apps__github_create_pull_request', 'codex_app__attach_artifact'];
   if (!required.every(name => typeof tools?.[name] === 'function')) throw new Error('frontend_tools_required');
-  for (const path of [packagePath, workspace]) {
+  for (const path of [packagePath, ...(workspace === undefined ? [] : [workspace])]) {
     if (typeof path !== 'string' || !path.startsWith('/') || path.includes('\0') || path.length > 4096) throw new Error('absolute_operator_paths_required');
   }
   const quote = value => "'" + value.replaceAll("'", "'\"'\"'") + "'";
   const cli = async (action, data) => {
     if (!['prepare', 'arm', 'complete', 'unknown'].includes(action)) throw new Error('cli_action_refused');
     const argv = ['/opt/rras-engineering/releases/native-10/venv/bin/python', '-I', '-B',
-      release + '/entrypoints/draft-pr.py', action, '--package', packagePath, '--workspace', workspace];
+      release + '/entrypoints/draft-pr.py', action, '--package', packagePath];
+    if (workspace !== undefined) argv.push('--workspace', workspace);
     if (data !== undefined) {
       const raw = JSON.stringify(data);
       if (typeof raw !== 'string' || raw.length > 65536) throw new Error('bounded_cli_metadata_required');

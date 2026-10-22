@@ -1,9 +1,7 @@
 # Reusable operator control
 
 `operator_control.py` connects repository admission candidates to the existing
-protected review, one-use approval and fixed-slot launcher. This is source
-implementation, not an installed command or permission to execute a task. No paid
-execution is necessary to test it. Existing preparation stdio remains preparation-only.
+protected review, one-use approval and fixed-slot launcher. The protected command is installed as `/usr/local/sbin/rras-workflow`; installation is not permission to execute a task. No paid execution is necessary to test control boundaries. Existing preparation stdio remains preparation-only.
 
 ## Authority and live configuration
 
@@ -17,7 +15,7 @@ by group/others. Its required fields are:
 - `profile`: absolute path to the protected reviewed engineering profile.
 - `codex_config`: absolute path to the protected reviewed base Codex configuration.
 - Optional `journal`: absolute protected initialized journal directory. Required by
-  future production packaging for the new managed workflow; omission retains the
+  the installed managed workflow packaging; omission retains the
   earlier source-only compatibility interface. See [managed recording](managed-journal-and-reader.md).
 
 The protected configuration, not an actor/provenance field or a candidate-supplied
@@ -47,10 +45,7 @@ operator actions; this is not a distributed lock over human Git/configuration wr
 ## Commands
 
 Use `--help` in the checkout to inspect arguments. Privileged operations deliberately
-refuse this user-writable source checkout. The commands below describe the future
-protected installation; do not copy source into root paths or run a paid launch as
-a source acceptance shortcut. Installation and isolated host acceptance are roadmap
-step4 and require a separately reviewed concrete procedure.
+refuse this user-writable source checkout. The commands below describe the protected installed interface; do not copy source into root paths or run a paid launch as a source acceptance shortcut. See the [runbook](workflow-operator-runbook.md) for the full lifecycle and [closeout](workflow-phase-closeout.md) for actual host evidence.
 
 1. `prepare --registration FILE --work-item FILE --hermes-project SLUG --state PROPOSALS`
    is the unprivileged [admission preparation](repository-admission.md) interface.
@@ -93,9 +88,5 @@ fixtures before installing or exposing this interface.
 
 The [journal foundation](workflow-journal.md) and [managed adapter/reader](managed-journal-and-reader.md)
 now provide source storage, explicit interactive imports, control-event recording,
-receipt reconciliation and projection-only MCP reads. Installation still requires
-reviewed initialized storage, explicit projection publication, protected mounts and
-actual-container/root/UID996/systemd acceptance. This command's evidence readback is
-not a universal task journal or proof of native success. Native finish/custody,
-publication/PR receipts, cancellation/recovery mutation, GUI/autopilot and ledger
-activation remain separately tracked on the [roadmap](workflow-roadmap.md).
+receipt reconciliation and projection-only MCP reads. Those storage, mount and host boundaries have been installed and accepted for the current release; future upgrades retain separate review/installation gates. This command's evidence readback is
+not a universal task journal or proof of native success. Native finish/custody and publication/PR receipts are now installed and exercised. Cancellation/recovery mutation, GUI/autopilot and ledger activation remain separately tracked on the [roadmap](workflow-roadmap.md).

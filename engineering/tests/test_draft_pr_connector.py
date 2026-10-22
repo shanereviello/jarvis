@@ -14,6 +14,7 @@ pytestmark=pytest.mark.parametrize('case',[{'publication_remote':'git@github.com
 @pytest.fixture
 def bridge(pubcase):
     x=pubcase;m=managed.module('draft_pr_connector');hf=x.p.local('publication_handoff')
+    hf.workspace_path=lambda record,workspace: Path(workspace)  # fixture-only /tmp ancestors
     hf.git(['clone','--quiet','--branch',x.proof['branch'],str(x.package/'review.bundle'),str(x.workspace/'repo')])
     hf.git(['-C',str(x.workspace/'repo'),'remote','remove','origin'])
     original=m.local
@@ -29,7 +30,8 @@ def test_exact_connector_intent_arm_and_normalized_receipt(bridge):
     x,m=bridge;intent=m.prepare(x.package,x.workspace)
     assert intent['create']['draft'] is True and intent['create']['repository_full_name']=='fixture/library'
     assert intent['create']['head']==x.proof['branch'] and intent['create']['base']=='main'
-    assert '%2F' in intent['branch_read']['url'] and 'state=all' in intent['prs_read']['url']
+    assert intent['branch_read']['url']=='https://api.github.com/repos/fixture/library/branches/'+x.proof['branch']
+    assert '%2F' not in intent['branch_read']['url'] and 'state=all' in intent['prs_read']['url']
     armed=m.arm(x.package,x.workspace,branch(x));assert armed['create']==intent['create']
     result=m.complete(x.package,x.workspace,response(x));assert result['status']=='draft_created'
     assert json.loads((x.workspace/'draft-pr-receipt.json').read_bytes())==x.pr

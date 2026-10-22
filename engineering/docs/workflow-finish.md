@@ -1,5 +1,9 @@
 # Stopped-worker finish reports and journal integration
 
+Current installation and acceptance status: see [phase closeout](workflow-phase-closeout.md) and the [operator runbook](workflow-operator-runbook.md). The active release is `workflow-b51bcece0851`; finish/native observation, independent validation, managed draft publication and journal reads have been exercised. Descriptions of source slices and their original pending gates below are historical development context, not the current installation status. Closeout publication corrections still await their own release.
+
+## Component design and historical delivery notes
+
 This source slice connects protected managed launch receipts, stopped-worker result
 custody and the workflow journal. It adds `finish-capture` and `finish-record` to the
 operator interface. The currently installed immutable workflow release is unchanged;
