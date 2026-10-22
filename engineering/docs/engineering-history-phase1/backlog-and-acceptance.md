@@ -67,3 +67,8 @@ The [service access source slice](../engineering-history-service-access.md) defi
 repository-scoped passive dispatch and distinct service-peer receipts. Peer UIDs are
 supplied by tests until the following authenticated Unix transport is implemented;
 no kernel authentication or host isolation is established by these policy tests.
+
+The [Unix transport source slice](../engineering-history-unix-transport.md) implements
+real kernel peer checks, protected local framing/policy/socket lifecycle and explicit
+interactive service configuration. Disposable same-UID socket/subprocess tests do not
+replace the next isolated cross-UID sudo acceptance or a separate deployment decision.

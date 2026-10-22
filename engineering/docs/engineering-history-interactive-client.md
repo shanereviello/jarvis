@@ -4,12 +4,15 @@ Source-only local client for the accepted separate-service design. It records
 start/attach, checkpoints, pause/handoff and reported outcomes. There is no automatic
 Codex session discovery, transcript scanning, hook installation, network listener,
 privileged exporter, narrative sharing or execution/merge/deployment action.
+A separate [Unix transport source slice](engineering-history-unix-transport.md) now
+adds an explicitly selected authenticated service mode; it is not installed.
 The installed root workflow and its journal remain unchanged.
 
-## Two durable local boundaries
+## Two durable boundaries
 
-The caller-owned history database holds engineering records, receipts and documents.
-A separate caller-owned0700 client directory holds `client.sqlite3`0600: fixed local
+In local mode the caller-owned history database holds engineering records, receipts
+and documents. Unix mode sends passive requests to a separately owned service store.
+A separate caller-owned0700 client directory holds `client.sqlite3`0600: fixed
 transport configuration, active intended work context, immutable actions/requests,
 acknowledged receipts and explicit delivery dispositions. Both databases use SQLite
 FULL synchronous transactions; this is not an authenticated installed service or an
@@ -126,8 +129,9 @@ visible. No operational approval fences are removed or changed.
 The spool admits at most256 unresolved requests and10,000 actions, with128KiB bounded
 structured input. History-store bounds apply independently. Do not delete pending
 records to evade limits; intentional disposition does not remove audit history.
-No delivery service, authenticated peer grants, retention/rotation, remote credentials,
-shared narrative reader or public UI is supplied by this source slice. Mode/symlink/
+No persistent delivery service, retention/rotation, remote credentials, shared
+narrative reader or public UI is installed. Explicit authenticated Unix mode is
+covered in the transport guide; actual cross-UID acceptance remains a separate gate. Mode/symlink/
 sidecar checks protect the normal caller-owned fixture, not a malicious store owner.
 
 Tests use real private client/history SQLite databases and subprocess commands for

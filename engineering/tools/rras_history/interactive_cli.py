@@ -29,7 +29,10 @@ def main(argv=None):
     sub=parser.add_subparsers(dest='command',required=True)
     for command in ('init','start','attach','checkpoint','pause','handoff','finish','status','flush','abandon'):
         p=sub.add_parser(command);p.add_argument('--state',required=True)
-        if command=='init':p.add_argument('--history-store',required=True)
+        if command=='init':
+            choice=p.add_mutually_exclusive_group(required=True)
+            choice.add_argument('--history-store');choice.add_argument('--service-socket')
+            p.add_argument('--service-uid',type=int)
         if command in ('start','attach','checkpoint','pause','handoff','finish'):
             p.add_argument('--key',required=True);p.add_argument('--queue-only',action='store_true');p.add_argument('--occurred-at')
         if command=='start':p.add_argument('--request',required=True)
@@ -42,7 +45,7 @@ def main(argv=None):
     try:
         cls=local('interactive').Client
         if args.command=='init':
-            client=cls(args.state,store=args.history_store,create=True);result=client.status()
+            client=cls(args.state,store=args.history_store,service_socket=args.service_socket,service_uid=args.service_uid,create=True);result=client.status()
         else:
             client=cls(args.state)
             if args.command=='status':result=client.status()

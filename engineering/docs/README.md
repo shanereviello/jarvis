@@ -46,3 +46,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Explicit interactive history client](engineering-history-interactive-client.md): start/attach/checkpoint/handoff/finish with private transactional spool, pending delivery and stable receipts; local transport only.
 
 - [Engineering-history service access boundary](engineering-history-service-access.md): explicit repository grants, service peer receipt attribution and scoped passive dispatcher; no installed socket/service.
+
+- [Authenticated Unix history transport](engineering-history-unix-transport.md): kernel peer checks, bounded private RPC and explicit interactive socket mode; no installed service or cross-UID host acceptance.
