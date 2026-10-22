@@ -48,3 +48,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Engineering-history service access boundary](engineering-history-service-access.md): explicit repository grants, service peer receipt attribution and scoped passive dispatcher; no installed socket/service.
 
 - [Authenticated Unix history transport](engineering-history-unix-transport.md): kernel peer checks, bounded private RPC and explicit interactive socket mode; no installed service or cross-UID host acceptance.
+
+- [Isolated history host acceptance](engineering-history-host-acceptance.md): hash-pinned package and numeric-UID/network-isolated fixture; actual sudo result and production installation remain separate gates.

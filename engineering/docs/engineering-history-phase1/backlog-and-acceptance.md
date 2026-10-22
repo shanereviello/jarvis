@@ -72,3 +72,8 @@ The [Unix transport source slice](../engineering-history-unix-transport.md) impl
 real kernel peer checks, protected local framing/policy/socket lifecycle and explicit
 interactive service configuration. Disposable same-UID socket/subprocess tests do not
 replace the next isolated cross-UID sudo acceptance or a separate deployment decision.
+
+The [host acceptance source](../engineering-history-host-acceptance.md) prepares a
+bounded pinned payload and real distinct-UID fixture without persistent accounts.
+Actual sudo acceptance remains pending until its result is reviewed; source unit
+tests and packaging success alone do not authorize production installation.
