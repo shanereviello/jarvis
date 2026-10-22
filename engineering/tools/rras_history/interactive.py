@@ -1,10 +1,11 @@
-"""Explicit interactive client with transactional private spool; local transport only.
+"""Explicit interactive client with transactional private spool; explicit local or Unix transport.
 
 No automatic session discovery, observer/human authority, hooks or action execution.
 """
 from contextlib import contextmanager
 import importlib.util
 import os
+import re
 from pathlib import Path
 import sqlite3
 import stat
@@ -40,18 +41,25 @@ PRAGMA user_version=1;
 
 
 class Client:
-    def __init__(self, state, *, store=None, create=False):
+    def __init__(self, state, *, store=None, service_socket=None, service_uid=None, create=False):
         if os.getuid() == 0 or os.geteuid() != os.getuid():
             raise ValueError('unprivileged local client required')
         self.root = Path(state); self.path = self.root / 'client.sqlite3'
         self.guard()
         if create:
-            target = Path(store)
-            if not target.is_absolute() or target.resolve(strict=False) != target or target == self.root:
-                raise ValueError('explicit canonical local store required')
-            # Select a local transport once; do not create/adopt a history service.
-            configuration = dict(contract='engineering-client.v1', store=str(target),
-                                 client_id=uuid.uuid4().hex, writer_uid=os.getuid(), transport='local_caller_store')
+            if service_socket is None:
+                if store is None or service_uid is not None: raise ValueError('select one explicit transport')
+                target = Path(store)
+                if not target.is_absolute() or target.resolve(strict=False) != target or target == self.root:
+                    raise ValueError('explicit canonical local store required')
+                configuration = dict(contract='engineering-client.v1', store=str(target),
+                                     client_id=uuid.uuid4().hex, writer_uid=os.getuid(), transport='local_caller_store')
+            else:
+                if store is not None: raise ValueError('select one explicit transport')
+                transport = local('unix'); transport.uid(service_uid)
+                target = transport.endpoint(service_socket)
+                configuration = dict(contract='engineering-client.v2', service_socket=str(target), service_uid=service_uid,
+                                     client_id=uuid.uuid4().hex, writer_uid=os.getuid(), transport='authenticated_local_service')
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
             os.close(fd)
             with self.connection(initializing=True) as db:
@@ -60,7 +68,7 @@ class Client:
                 db.commit()
             self.sync()
         else:
-            if store is not None: raise ValueError('client transport is fixed at initialization')
+            if any(v is not None for v in (store, service_socket, service_uid)): raise ValueError('client transport is fixed at initialization')
             with self.connection() as db: self.configuration(db)
 
     def guard(self):
@@ -97,8 +105,16 @@ class Client:
         row = db.execute('SELECT body FROM configuration WHERE singleton=1').fetchone()
         if row is None: raise ValueError('client configuration unavailable')
         config = local('contract').decode(row[0])
-        if config['writer_uid'] != os.getuid() or config['transport'] != 'local_caller_store':
-            raise ValueError('local client identity/transport changed')
+        if config['writer_uid'] != os.getuid(): raise ValueError('local client identity changed')
+        common = {'contract','client_id','writer_uid','transport'}
+        if config['transport'] == 'local_caller_store':
+            if config['contract'] != 'engineering-client.v1' or set(config) != common | {'store'}:
+                raise ValueError('local client configuration changed')
+        elif config['transport'] == 'authenticated_local_service':
+            if config['contract'] != 'engineering-client.v2' or set(config) != common | {'service_socket','service_uid'}:
+                raise ValueError('service client configuration changed')
+            local('unix').uid(config['service_uid']); local('unix').endpoint(config['service_socket'])
+        else: raise ValueError('client transport changed')
         return config
 
     def enqueue(self, kind, action_key, payload, *, session_id=None, occurred_at=None):
@@ -174,9 +190,23 @@ class Client:
         """Association checks before local receipt acceptance; separate for fault tests."""
         c = local('contract')
         expected = c.digest(c.encoded(request))
-        if (receipt['request_sha256'] != expected or receipt['work_item_id'] != request['body']['work_item_id'] or
+        config = self.configuration(db)
+        fields = {'contract','receipt_id','sequence','request_sha256','work_item_id','work_revision_sha256',
+                  'recorded_at','writer_uid','transport','provenance','visibility','authority_granted','document_manifest'}
+        if config['transport'] == 'authenticated_local_service': fields.add('peer_uid')
+        if (type(receipt) is not dict or set(receipt) != fields or type(receipt['writer_uid']) is not int or
+                type(receipt['sequence']) is not int or receipt['sequence'] < 1 or
+                type(receipt['receipt_id']) is not str or not re.fullmatch('rcp_[0-9a-f]{32}',receipt['receipt_id'])):
+            raise ValueError('store receipt differs from pending request')
+        if config['transport'] == 'local_caller_store':
+            identity = (receipt.get('contract') == 'engineering-history-receipt.v1' and
+                        receipt.get('transport') == 'local_caller_store' and receipt.get('writer_uid') == os.getuid())
+        else:
+            identity = (receipt.get('contract') == 'engineering-history-receipt.v2' and
+                        receipt.get('transport') == 'authenticated_local_service' and
+                        receipt.get('writer_uid') == config['service_uid'] and type(receipt.get('peer_uid')) is int and receipt.get('peer_uid') == os.getuid())
+        if (not identity or receipt['request_sha256'] != expected or receipt['work_item_id'] != request['body']['work_item_id'] or
                 receipt['visibility'] != 'operator_private' or receipt['authority_granted'] is not False or
-                receipt['transport'] != 'local_caller_store' or receipt['writer_uid'] != os.getuid() or
                 receipt['provenance'] != request['source']['kind'] or
                 receipt['work_revision_sha256'] != (c.digest(c.encoded(request['body'])) if request['operation'].startswith('work.') else request['body']['work_revision_sha256'])):
             raise ValueError('store receipt differs from pending request')
@@ -190,10 +220,14 @@ class Client:
             for seq, raw in db.execute('SELECT sequence,request FROM queue WHERE receipt IS NULL AND disposition IS NULL ORDER BY sequence').fetchall():
                 request = c.validate(c.decode(raw))
                 try:
-                    receipt = local('store').Store(config['store']).submit(request)['receipt']
+                    if config['transport'] == 'local_caller_store':
+                        receipt = local('store').Store(config['store']).submit(request)['receipt']
+                    else:
+                        receipt = local('unix').call(config['service_socket'], config['service_uid'],
+                            {'method':'submit', 'request':request})['receipt']
                 except (OSError, sqlite3.OperationalError):
                     db.execute('UPDATE queue SET error=? WHERE sequence=?', ('store_unavailable',seq)); break
-                except (ValueError, ValidationError, sqlite3.IntegrityError):
+                except (ValueError, KeyError, TypeError, ValidationError, sqlite3.IntegrityError):
                     db.execute('UPDATE queue SET error=? WHERE sequence=?', ('store_refused',seq)); break
                 self.acknowledge(db,seq,request,receipt); delivered += 1
             db.commit(); self.sync()

@@ -3,8 +3,9 @@
 This source slice adds `tools/rras_history/access.py`, an internal dispatcher for
 the dedicated unprivileged history service. It is not a running service. No socket,
 account, production store, policy file, root exporter or browser interface is
-installed. The interactive client still uses its existing caller-owned local
-transport and v1 receipts.
+installed. The original caller-owned local transport and v1 receipts remain supported.
+The following [Unix transport source slice](engineering-history-unix-transport.md)
+adds explicit authenticated service configuration and v2 receipt checks.
 
 ## Authentication and grants
 
@@ -75,9 +76,9 @@ no schema migration. This does not make the database tamper-proof against its ow
 The service owner is the trusted writer. Only the service should be able to open
 its eventual store directory; clients must not have direct database access.
 
-The current interactive client intentionally refuses service receipts: the next
-transport slice must configure and verify the expected service identity and peer,
-update receipt checks explicitly, and retain pending data on failures. Do not point
+The interactive client accepts service receipts only in its explicitly configured
+Unix transport mode, verifying the expected service identity and caller peer, and
+retaining pending data on failures. Do not point
 its local-store configuration at a shared service database.
 
 ## Validation and remaining work
@@ -88,9 +89,10 @@ reopen, local/service replay separation, revoked grants, conflicting keys and
 identity claims without authority. These are source policy tests, not evidence of
 actual cross-UID isolation or kernel authentication.
 
-Next: bounded Unix framing, SO_PEERCRED verification in both directions, safe socket
-lifecycle/timeouts, protected policy loading and explicit interactive transport
-configuration. Then package an isolated cross-UID host acceptance for human-run sudo.
+The following Unix source slice implements bounded framing, SO_PEERCRED verification
+in both directions, safe socket lifecycle/timeouts, protected policy loading and
+explicit interactive transport configuration. Next package an isolated cross-UID
+host acceptance for human-run sudo.
 Deployment of the dedicated account/store/unit and any browser listener still need
 separate approval. Root operational export and curated narrative publication remain
 later work under the [accepted design](engineering-history-phase1/README.md).

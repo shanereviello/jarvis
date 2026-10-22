@@ -19,8 +19,8 @@ def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
-def decode(raw):
-    if not isinstance(raw, bytes) or len(raw) > MAX_REQUEST:
+def decode(raw, *, max_bytes=MAX_REQUEST):
+    if not isinstance(raw, bytes) or len(raw) > max_bytes:
         raise ValueError('bounded UTF-8 request required')
     def unique(pairs):
         result = {}
