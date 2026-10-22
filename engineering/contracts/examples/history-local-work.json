@@ -1,0 +1,30 @@
+{
+  "contract": "engineering-history.v1",
+  "operation": "work.create",
+  "client_event_key": "synthetic-work",
+  "expected_head": null,
+  "source": {
+    "kind": "imported",
+    "namespace": "synthetic_fixture",
+    "id": "local-foundation-example"
+  },
+  "occurred_at": null,
+  "body": {
+    "work_item_id": "wrk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "revision": 1,
+    "repository_id": "synthetic_example",
+    "title": "Explain a synthetic documentation change",
+    "objective": "Record intent, evidence and unknowns for a disposable documentation example.",
+    "rationale": "Demonstrate engineering history without claiming real work or approval.",
+    "acceptance_criteria": [
+      {
+        "id": "AC1",
+        "description": "An immutable private draft and durable receipt are retrievable."
+      }
+    ],
+    "allowed_paths": [
+      "docs/example.md"
+    ],
+    "baseline": null
+  }
+}

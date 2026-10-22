@@ -58,3 +58,5 @@ SQLite transactional fixtures, deterministic documents and explicit local comman
 before creating service accounts or listeners. Root export integration, privileged
 approval changes, hooks, browser controls and actual service installation follow
 separately reviewed slices. This keeps the next PR testable without sudo/model calls.
+
+The first [local foundation source slice](../engineering-history-local-foundation.md) now implements strict new envelopes, caller-owned transactional records/receipts/outbox and immutable draft rendering. It does not deploy the service or change protected approvals.

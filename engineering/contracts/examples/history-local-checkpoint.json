@@ -1,0 +1,21 @@
+{
+  "contract": "engineering-history.v1",
+  "operation": "checkpoint.append",
+  "client_event_key": "synthetic-checkpoint",
+  "expected_head": "77e4c627ab443eb2be2b2f08ad0457669eaec3d257866a7c3078f8b7308b5928",
+  "source": {
+    "kind": "imported",
+    "namespace": "synthetic_fixture",
+    "id": "local-foundation-example"
+  },
+  "occurred_at": null,
+  "body": {
+    "work_item_id": "wrk_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "work_revision_sha256": "77e4c627ab443eb2be2b2f08ad0457669eaec3d257866a7c3078f8b7308b5928",
+    "checkpoint_type": "handoff",
+    "summary": "Synthetic example only; no engineering task, approval or deployment occurred.",
+    "decisions": [],
+    "next_action": "Review the draft example.",
+    "references": []
+  }
+}
