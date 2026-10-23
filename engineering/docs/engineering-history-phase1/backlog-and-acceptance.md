@@ -78,3 +78,9 @@ bounded pinned payload and real distinct-UID fixture without persistent accounts
 The corrected operator-run attempt02 passed real cross-UID acceptance with the
 [recorded evidence](../engineering-history-host-acceptance.md#verified-attempt02-evidence).
 Production account/service installation still requires a separate concrete decision.
+
+The [production package source](../engineering-history-production-package.md) prepares
+an inactive dedicated-account/unit/policy/runtime blueprint and exact per-UID local
+ACLs. Earlier cross-UID acceptance does not establish this new hardened-unit/ACL
+combination. Its host acceptance, encrypted backup/restore and explicit staged/live
+installation decisions remain required before real production retention.

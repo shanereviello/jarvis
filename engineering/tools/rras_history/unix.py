@@ -103,12 +103,12 @@ def load_policy(path):
 
 
 class Server:
-    def __init__(self, path, store, policy):
+    def __init__(self, path, store, policy, *, on_bound=None):
         uid(os.getuid())
         if os.geteuid() != os.getuid(): raise ValueError('unprivileged service required')
         self.path = endpoint(path)
         self.access = local('access').Access(store, policy)
-        self.listener = None; self.identity = None
+        self.listener = None; self.identity = None; self.on_bound = on_bound
 
     def __enter__(self):
         if self.listener is not None or self.identity is not None: raise ValueError('service already listening')
@@ -121,6 +121,7 @@ class Server:
             listener.bind(str(self.path))
             info = self.path.lstat(); self.identity = (info.st_dev, info.st_ino)
             os.chmod(self.path, 0o660)
+            if self.on_bound is not None: self.on_bound(self.path)
             listener.listen(8); listener.settimeout(0.2)
             self.listener = listener
             return self

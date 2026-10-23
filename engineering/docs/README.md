@@ -50,3 +50,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Authenticated Unix history transport](engineering-history-unix-transport.md): kernel peer checks, bounded private RPC and explicit interactive socket mode; no installed service or cross-UID host acceptance.
 
 - [Isolated history host acceptance](engineering-history-host-acceptance.md): hash-pinned package and numeric-UID/network-isolated fixture; actual sudo result and production installation remain separate gates.
+
+- [Production history installation blueprint](engineering-history-production-package.md): inactive pinned runtime/unit/policy, exact local ACLs and disable-only rollback; separate hardened-unit, backup and installation gates.
