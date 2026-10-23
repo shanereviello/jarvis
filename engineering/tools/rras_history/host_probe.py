@@ -24,6 +24,14 @@ def local(name):
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
 
 
+def require_no_routes(text):
+    # procfs may expose no header at all for an empty network namespace.
+    lines=[line.split() for line in text.splitlines() if line.strip()]
+    header='Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT'.split()
+    if lines not in ([], [header]):
+        raise ValueError('network route rows or unexpected route table')
+
+
 def boundary():
     # setpriv arms PDEATHSIG after credential changes; verify/reset it here too.
     import ctypes
@@ -37,7 +45,7 @@ def boundary():
     for field in ('CapEff', 'CapPrm', 'CapInh', 'CapBnd', 'CapAmb'):
         assert int(status[field].strip(), 16) == 0
     assert [name for _, name in socket.if_nameindex()] == ['lo']
-    assert len(Path('/proc/net/route').read_text().splitlines()) == 1
+    require_no_routes(Path('/proc/net/route').read_text())
     assert not any(key.startswith(('OPENAI_', 'ANTHROPIC_', 'CODEX_', 'GH_', 'GITHUB_')) for key in os.environ)
     assert os.getgroups() == [SHARED]
     return dict(uid=os.getuid(), gid=os.getgid(), network='private_namespace_no_routes',

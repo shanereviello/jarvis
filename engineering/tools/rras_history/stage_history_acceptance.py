@@ -23,7 +23,7 @@ def protected(path):
 def stage(candidate,expected,state):
     if os.getuid()!=0 or os.geteuid()!=0:raise ValueError('reviewed sudo invocation required')
     state=Path(state)
-    if state!=Path('/var/lib/rras-history-acceptance-20261022'):raise ValueError('exact acceptance fixture required')
+    if state!=Path('/var/lib/rras-history-acceptance-attempt02-20261022'):raise ValueError('exact acceptance fixture required')
     release=Path('/opt/rras-engineering/releases/history-acceptance-'+expected[:12])
     python=Path('/opt/rras-engineering/releases/native-10/venv/bin/python')
     protected(release.parent);protected(state.parent);protected(python.parent);protected(python.resolve(strict=True))

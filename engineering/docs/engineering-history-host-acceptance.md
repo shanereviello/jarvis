@@ -19,9 +19,9 @@ privileged fixture orchestration. Root imports no history library or third-party
 validation dependency. Those imports occur only in the dropped-privilege children.
 The existing protected Python3.13 interpreter is reused without modifying it.
 
-The fixed first attempt uses `/var/lib/rras-history-acceptance-20261022` and
-`/opt/rras-engineering/releases/history-acceptance-<manifest-prefix>`. Both must be
-absent. Any existing path causes refusal, including an earlier failed attempt; no
+The preserved first attempt used `/var/lib/rras-history-acceptance-20261022` and
+`/opt/rras-engineering/releases/history-acceptance-<manifest-prefix>`. A new reviewed attempt uses `/var/lib/rras-history-acceptance-attempt02-20261022`
+and its new manifest-derived release. Both new destinations must be absent. Any existing path causes refusal, including an earlier failed attempt; no
 automatic retry, overwrite or deletion. Retain synthetic fixture evidence and the
 protected payload for inspection after either success or failure.
 
@@ -98,3 +98,19 @@ installation decision. Production Hermes, coding tasks, operational journal,
 credentials, containers and existing service units are untouched by this fixture.
 No GUI, hook, curated Jarvis narrative publication, root operational exporter or
 paid coding run is authorized by source merge or acceptance.
+
+
+## First host attempt diagnostic and corrected route check
+
+The first privileged fixture stopped in its initial child, before database creation
+or service startup. A separate read-only diagnostic observed the intended UID/GID,
+no-new-privileges, zero capabilities, loopback-only interface and zero IPv4 route
+lines. Imports and file metadata checks passed. The failure was the probe's
+assumption that an empty `/proc/net/route` always retains a header line.
+
+The corrected check accepts an empty/blank file or exactly the recognized Linux
+header, and rejects every route row, duplicate header and unrecognized content.
+Regression cases cover both empty formats and real route-row refusal. The network
+isolation requirement is unchanged. Attempt02 uses a fresh pinned payload and state
+directory; the original fixture/release and diagnostic remain preserved. No actual
+cross-UID acceptance success is claimed until this new attempt returns its result.

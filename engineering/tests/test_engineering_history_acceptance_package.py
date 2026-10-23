@@ -8,7 +8,7 @@ import sys
 import pytest
 from test_engineering_history_local import module
 
-p=module('history_acceptance_package');h=module('host_acceptance')
+p=module('history_acceptance_package');h=module('host_acceptance');probe=module('host_probe')
 SOURCE=Path(__file__).resolve().parents[2]
 
 
@@ -64,7 +64,7 @@ def test_operator_helper_is_self_contained_stdlib_and_checks_sudo(tmp_path):
     helper=tmp_path/'helper.py';sha=p.emit_helper(helper)
     assert hashlib.sha256(helper.read_bytes()).hexdigest()==sha
     result=subprocess.run([sys.executable,'-I','-B',str(helper),'--candidate',str(tmp_path),
-                           '--manifest-sha256','a'*64,'--state','/var/lib/rras-history-acceptance-20261022'],capture_output=True)
+                           '--manifest-sha256','a'*64,'--state','/var/lib/rras-history-acceptance-attempt02-20261022'],capture_output=True)
     assert result.returncode==1 and b'preserve protected' in result.stderr and not result.stdout
     assert 'from jsonschema' not in helper.read_text()
 
@@ -91,3 +91,18 @@ def test_launch_drops_uid_groups_caps_and_network_without_production_unit():
     assert command[command.index('--regid')+1]==str(h.SHARED)
     assert 'systemctl' not in ' '.join(command) and 'docker' not in ' '.join(command)
     assert not any(key.startswith(('OPENAI_','CODEX_','GH_')) for key in h.ENV)
+
+
+@pytest.mark.parametrize('text', ['', '\n\t \n',
+    'Iface\tDestination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n'])
+def test_empty_network_namespace_route_representations(text):
+    probe.require_no_routes(text)
+
+
+@pytest.mark.parametrize('text', [
+    'Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\nlo 00000000 00000000 0001 0 0 0 00000000 0 0 0\n',
+    'lo 00000000 00000000 0001 0 0 0 00000000 0 0 0\n',
+    'Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\nIface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n',
+    'unexpected contents\n'])
+def test_nonempty_or_unrecognized_route_table_is_refused(text):
+    with pytest.raises(ValueError,match='network route'):probe.require_no_routes(text)
