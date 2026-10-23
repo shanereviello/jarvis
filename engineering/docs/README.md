@@ -52,3 +52,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Isolated history host acceptance](engineering-history-host-acceptance.md): hash-pinned package and numeric-UID/network-isolated fixture; actual sudo result and production installation remain separate gates.
 
 - [Production history installation blueprint](engineering-history-production-package.md): inactive pinned runtime/unit/policy, exact local ACLs and disable-only rollback; separate hardened-unit, backup and installation gates.
+
+- [Actual history unit/ACL host acceptance](engineering-history-hardened-unit-acceptance.md): isolated production-profile unit, private client groups, revocation/replay and UID1000 ACL reachability; sudo result pending.

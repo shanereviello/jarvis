@@ -84,3 +84,8 @@ an inactive dedicated-account/unit/policy/runtime blueprint and exact per-UID lo
 ACLs. Earlier cross-UID acceptance does not establish this new hardened-unit/ACL
 combination. Its host acceptance, encrypted backup/restore and explicit staged/live
 installation decisions remain required before real production retention.
+
+The [hardened-unit fixture](../engineering-history-hardened-unit-acceptance.md)
+prepares the next actual systemd/per-UID-ACL gate with private client groups and
+controlled revocation. Its offline packaging/unit syntax tests are not a privileged
+success result; the pinned operator-run acceptance remains pending.
