@@ -75,5 +75,6 @@ replace the next isolated cross-UID sudo acceptance or a separate deployment dec
 
 The [host acceptance source](../engineering-history-host-acceptance.md) prepares a
 bounded pinned payload and real distinct-UID fixture without persistent accounts.
-Actual sudo acceptance remains pending until its result is reviewed; source unit
-tests and packaging success alone do not authorize production installation.
+The corrected operator-run attempt02 passed real cross-UID acceptance with the
+[recorded evidence](../engineering-history-host-acceptance.md#verified-attempt02-evidence).
+Production account/service installation still requires a separate concrete decision.

@@ -2,8 +2,9 @@
 
 This source prepares an operator-run fixture for the
 [Unix history transport](engineering-history-unix-transport.md). It is not a
-production installer. Actual host acceptance remains pending until the reviewed
-hash-pinned sudo procedure returns its success record.
+production installer. The reviewed attempt02 returned
+`isolated_history_cross_uid_verified`; production installation remains a separate
+explicit decision.
 
 ## Scope and custody
 
@@ -21,7 +22,8 @@ The existing protected Python3.13 interpreter is reused without modifying it.
 
 The preserved first attempt used `/var/lib/rras-history-acceptance-20261022` and
 `/opt/rras-engineering/releases/history-acceptance-<manifest-prefix>`. A new reviewed attempt uses `/var/lib/rras-history-acceptance-attempt02-20261022`
-and its new manifest-derived release. Both new destinations must be absent. Any existing path causes refusal, including an earlier failed attempt; no
+and its new manifest-derived release. Both destinations had to be absent before
+execution. Any existing path causes refusal, including an earlier failed attempt; no
 automatic retry, overwrite or deletion. Retain synthetic fixture evidence and the
 protected payload for inspection after either success or failure.
 
@@ -91,8 +93,8 @@ fixture path checks and privilege-drop command construction. They do not establi
 cross-UID runtime behavior. The full existing history suite independently verifies
 contracts, storage, client queues, policy and actual same-UID Unix transport.
 
-After the actual sudo fixture succeeds, review its reported evidence and merge the
-acceptance source separately. Then prepare the concrete production account, protected
+The actual sudo fixture succeeded with the evidence below. Merge the acceptance
+source separately. Then prepare the concrete production account, protected
 release/store/policy, hardened service unit and rollback plan for an explicit
 installation decision. Production Hermes, coding tasks, operational journal,
 credentials, containers and existing service units are untouched by this fixture.
@@ -112,5 +114,31 @@ The corrected check accepts an empty/blank file or exactly the recognized Linux
 header, and rejects every route row, duplicate header and unrecognized content.
 Regression cases cover both empty formats and real route-row refusal. The network
 isolation requirement is unchanged. Attempt02 uses a fresh pinned payload and state
-directory; the original fixture/release and diagnostic remain preserved. No actual
-cross-UID acceptance success is claimed until this new attempt returns its result.
+directory; the original fixture/release and diagnostic remain preserved. The
+corrected attempt succeeded as recorded below.
+
+
+## Verified attempt02 evidence
+
+The operator-run pinned procedure returned `isolated_history_cross_uid_verified`:
+
+- Tested source: `b43d7c55c32a9c49cd46634b7859f28de7bfb013`.
+- Payload manifest: `27f6fb9c42c62a093f07082b493ff53c2f2322c105a7570ecf30e8eff3628189`.
+- Protected acceptance release:
+  `/opt/rras-engineering/releases/history-acceptance-27f6fb9c42c6`.
+- Synthetic state/evidence:
+  `/var/lib/rras-history-acceptance-attempt02-20261022`.
+- Service UID61081 and client UIDs61082/61083 exercised distinct kernel principals.
+- All nine reported case groups passed: offline queue recovery, distinct identities,
+  isolated network/capabilities/environment, restart/replay, repository isolation,
+  unknown/worker/control and read-only grants, actual OS file denial, immutable
+  private documents/no action route, and frame/deadline recovery.
+- Fixture service stopped normally and its socket was removed. The report records
+  zero API calls, no real credentials, no permanent account creation and no production
+  configuration/journal/service changes. No automatic retry occurred.
+
+These observations establish the isolated tested boundary. They do not establish
+an installed production account/service, production policy, automatic interactive
+capture, root export, curated narrative access or browser controls. Documentation
+updates after the tested source commit do not change the pinned acceptance payload.
+The preceding32 unprivileged packaging/route regression cases also passed.
