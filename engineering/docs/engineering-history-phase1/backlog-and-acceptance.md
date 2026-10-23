@@ -72,3 +72,9 @@ The [Unix transport source slice](../engineering-history-unix-transport.md) impl
 real kernel peer checks, protected local framing/policy/socket lifecycle and explicit
 interactive service configuration. Disposable same-UID socket/subprocess tests do not
 replace the next isolated cross-UID sudo acceptance or a separate deployment decision.
+
+The [host acceptance source](../engineering-history-host-acceptance.md) prepares a
+bounded pinned payload and real distinct-UID fixture without persistent accounts.
+The corrected operator-run attempt02 passed real cross-UID acceptance with the
+[recorded evidence](../engineering-history-host-acceptance.md#verified-attempt02-evidence).
+Production account/service installation still requires a separate concrete decision.
