@@ -10,8 +10,8 @@ import sys
 import traceback
 
 ROOT=Path(__file__).resolve().parents[3]
-STATE=Path('/var/lib/rras-history-unit-acceptance-20261022')
-RUNTIME=Path('/run/rras-history-unit-acceptance-20261022')
+STATE=Path('/var/lib/rras-history-unit-acceptance-attempt02-20261022')
+RUNTIME=Path('/run/rras-history-unit-acceptance-attempt02-20261022')
 SERVICE=61081
 sys.path.insert(0,str(ROOT/'vendor'))
 

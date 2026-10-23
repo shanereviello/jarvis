@@ -7,15 +7,18 @@ new systemd/ACL boundary. No production service/account is installed here.
 
 ## Exact fixture resources
 
-- Fresh state: `/var/lib/rras-history-unit-acceptance-20261022`.
+- Fresh state: `/var/lib/rras-history-unit-acceptance-attempt02-20261022`.
 - Protected code: `/opt/rras-engineering/releases/history-unit-acceptance-<pin>`.
-- Runtime: `/run/rras-history-unit-acceptance-20261022`.
-- Only controlled unit: `rras-history-unit-acceptance-20261022.service`.
-- Temporary runtime unit file: `/run/systemd/system/rras-history-unit-acceptance-20261022.service`.
+- Runtime: `/run/rras-history-unit-acceptance-attempt02-20261022`.
+- Only controlled unit: `rras-history-unit-acceptance-attempt02-20261022.service`.
+- Temporary runtime unit file: `/run/systemd/system/rras-history-unit-acceptance-attempt02-20261022.service`.
 - Numeric service UID/GID61081; client61082/61083, reader61085 and unknown61084;
   existing operatorUID1000 and worker/control996/997 participate in fixed probes.
 
-There are no account/group database writes. Each caller uses its own primary GID
+The corrected fixture creates only a locked temporary account/group named
+`rras-hist-fixture`, mapped to61081. It has a nologin shell, nonexistent home, no
+created home/mail spool and no unrelated memberships. The group/account names and
+IDs must be absent before creation. Each caller uses its own primary GID
 with cleared supplementary groups. The service may retain only its private primary
 group in its group list. No caller shares the service group. Root preflight checks
 reserved identity collisions, protected tools/paths, existing unit and all fresh
@@ -43,8 +46,12 @@ the production history unit, coding unit, Hermes or containers. It loads the one
 fresh runtime unit with daemon-reload. Success stops the fixture, removes only its
 matching hashed runtime unit file and reloads manager configuration; no production
 unit is restarted or enabled. The original fixture unit bytes, logs, store, spools
-and preserved runtime directory remain evidence. Failure stops the fixture when
-possible and retains its runtime unit/evidence for inspection.
+and runtime directory remain evidence. Before deleting the temporary identity on
+success, root verifies no service-UID process remains and preserves service data/
+runtime files under root custody. Account deletion never removes home directories or
+evidence. Name/UID/GID/member checks prevent adopting/deleting unrelated identities.
+Failure stops the unit when possible and retains its identity and evidence for
+inspection; it does not perform an automatic account cleanup or retry.
 
 ## Cases and actual observations required
 
@@ -98,3 +105,24 @@ operator-run result can satisfy this unit/ACL gate. Encrypted consistent backup 
 isolated restore remain next, followed by explicit inactive installation and live
 activation decisions. No real credentials, paid API call, automatic interactive
 capture, root operational export or public listener is part of this test.
+
+
+## First actual-unit failure and corrected identity setup
+
+The first attempt stopped at systemd exit217/USER. Read-only status showed MainPID0,
+and accessible journal categories identified user-credential lookup failure before
+service execution. It used a numeric UID with no NSS user entry. The preceding
+`setpriv` tests permitted that numeric identity, while the actual systemd unit
+requires an existing service identity when DynamicUser is disabled.
+
+Attempt02 registers the locked fixture-only account/group and uses its name in
+User/Group and the unchanged production entry's account check. It keeps the same
+production hardening and stable61081 receipt/store identity. DynamicUser is not
+substituted for the planned stable dedicated production account. The first failed
+fixture/unit/release are preserved. A new pinned payload, state/runtime directory
+and runtime unit name prevent overwriting the original attempt.
+
+This is a test identity lifecycle change, not production account installation.
+Actual attempt02 acceptance remains pending. The production design already specifies
+a dedicated registered account; no production architecture or existing-user groups
+change. The operator's sudo invocation authorizes only this concrete fixture.

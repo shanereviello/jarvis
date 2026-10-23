@@ -7,6 +7,8 @@ import hashlib
 import importlib.util
 import json
 import os
+import pwd
+import grp
 import re
 from pathlib import Path
 import signal
@@ -16,14 +18,15 @@ import time
 import traceback
 
 ROOT=Path(__file__).resolve().parents[3]
-STATE=Path('/var/lib/rras-history-unit-acceptance-20261022')
-NAME='rras-history-unit-acceptance-20261022'
+STATE=Path('/var/lib/rras-history-unit-acceptance-attempt02-20261022')
+NAME='rras-history-unit-acceptance-attempt02-20261022'
 UNIT=NAME+'.service'
 UNIT_FILE=Path('/run/systemd/system')/UNIT
 RUNTIME=Path('/run')/NAME
 PYTHON=Path('/opt/rras-engineering/releases/native-10/venv/bin/python')
 ENV={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'}
 SERVICE=61081
+ACCOUNT='rras-hist-fixture'
 
 
 def local(name):
@@ -35,7 +38,7 @@ def local(name):
 def fixture_unit(original,release):
     """Only fixture identities/paths/conditions change; hardening stays identical."""
     text=original.decode()
-    text=text.replace('User=rras-history\n','User=61081\n').replace('Group=rras-history\n','Group=61081\nSupplementaryGroups=\n')
+    text=text.replace('User=rras-history\n','User='+ACCOUNT+'\n').replace('Group=rras-history\n','Group='+ACCOUNT+'\nSupplementaryGroups=\n')
     text=text.replace('/var/lib/rras-engineering-history',str(STATE/'private'))
     text=text.replace('/etc/rras-engineering-history/access-policy.json',str(STATE/'policy.json'))
     text=text.replace('/run/rras-engineering-history',str(RUNTIME))
@@ -45,7 +48,7 @@ def fixture_unit(original,release):
     text=text.replace(original_release,str(release))
     entry=str(Path(release)/'engineering/tools/rras_history/production_entry.py')
     start=f'ExecStart={PYTHON} -I -B {entry} serve'
-    arguments=f' --account {SERVICE} --store {STATE}/private --socket {RUNTIME}/service.sock --policy {STATE}/policy.json'
+    arguments=f' --account {ACCOUNT} --store {STATE}/private --socket {RUNTIME}/service.sock --policy {STATE}/policy.json'
     if text.count(start+'\n')!=1:raise ValueError('exact fixture command binding required')
     text=text.replace(start+'\n',start+arguments+'\nExecStartPost='+str(PYTHON)+' -I -B '+str(Path(release)/'engineering/tools/rras_history/unit_acceptance_probe.py')+' unit-check\n')
     text=text.replace('TimeoutStopSec=15s\n','TimeoutStopSec=15s\nTimeoutStartSec=25s\nRuntimeMaxSec=180s\n')
@@ -75,12 +78,50 @@ def child_command(role,uid):
 
 
 class Fixture:
-    def __init__(self):self.counter=0;self.installed=False;self.unit_sha=None;self.probe_errors=[]
+    def __init__(self):self.counter=0;self.installed=False;self.unit_sha=None;self.probe_errors=[];self.account_created=False
 
     def log(self,tag,result):
         self.counter+=1
         write(STATE/f'{self.counter:03d}-{tag}-stdout.txt',result.stdout)
         write(STATE/f'{self.counter:03d}-{tag}-stderr.txt',result.stderr)
+
+    def identity_command(self,argv,tag):
+        result=subprocess.run(argv,stdin=subprocess.DEVNULL,capture_output=True,env=ENV,timeout=20)
+        self.log(tag,result)
+        if result.returncode:raise ValueError('fixture identity operation failed')
+
+    def create_identity(self):
+        self.identity_command(group_create_command(),'fixture-group-create')
+        self.identity_command(user_create_command(),'fixture-user-create')
+        self.account_created=True
+        verify_identity()
+        write(STATE/'temporary-identity-created.json',encode(dict(name=ACCOUNT,uid=SERVICE,gid=SERVICE,permanent=False)))
+
+    def remove_identity(self):
+        verify_identity()
+        require_no_service_processes()
+        # Preserve bytes under root custody before releasing the temporary ID.
+        for tree in (STATE/'private',RUNTIME):
+            if tree.resolve(strict=True)!=tree:raise ValueError('fixture custody path changed')
+            paths=[tree,*tree.rglob('*')]
+            for path in paths:
+                if path.is_symlink():raise ValueError('fixture custody symlink refused')
+                if not(path.is_dir() or path.is_file()):raise ValueError('unexpected retained fixture object')
+                if path.is_file() and path.lstat().st_nlink!=1:raise ValueError('retained fixture hard link refused')
+            for path in reversed(paths):
+                os.chown(path,0,0);os.chmod(path,0o700 if path.is_dir() else 0o600)
+        os.chown(STATE/'policy.json',0,0);os.chmod(STATE/'policy.json',0o600)
+        self.identity_command(['/usr/sbin/userdel',ACCOUNT],'fixture-user-remove')
+        try:group=grp.getgrnam(ACCOUNT)
+        except KeyError:pass
+        else:
+            if group.gr_gid!=SERVICE or group.gr_mem or any(user.pw_gid==SERVICE for user in pwd.getpwall()):raise ValueError('fixture group association changed')
+            self.identity_command(['/usr/sbin/groupdel',ACCOUNT],'fixture-group-remove')
+        for lookup in (pwd.getpwnam,grp.getgrnam):
+            try:lookup(ACCOUNT)
+            except KeyError:pass
+            else:raise ValueError('fixture identity retained after cleanup')
+        self.account_created=False
 
     def child(self,role,uid=61082,message=None):
         result=subprocess.run(child_command(role,uid),input=b'' if message is None else encode(message),
@@ -153,6 +194,40 @@ class Fixture:
         self.installed=False
 
 
+def require_identity_absent():
+    for lookup in (pwd.getpwnam,grp.getgrnam):
+        try:lookup(ACCOUNT)
+        except KeyError:continue
+        raise ValueError('fixture identity name already allocated')
+
+
+def group_create_command():
+    return ['/usr/sbin/groupadd','--gid',str(SERVICE),ACCOUNT]
+
+
+def user_create_command():
+    return ['/usr/sbin/useradd','--system','--uid',str(SERVICE),'--gid',ACCOUNT,'--no-user-group',
+            '--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',
+            '--no-log-init','--password','!','-K','CREATE_MAIL_SPOOL=no',ACCOUNT]
+
+
+def verify_identity():
+    user=pwd.getpwnam(ACCOUNT);group=grp.getgrnam(ACCOUNT)
+    if (user.pw_uid!=SERVICE or user.pw_gid!=SERVICE or group.gr_gid!=SERVICE or group.gr_mem or
+            user.pw_dir!='/nonexistent' or user.pw_shell!='/usr/sbin/nologin'):
+        raise ValueError('fixture identity association changed')
+    if any(other.pw_gid==SERVICE and other.pw_name!=ACCOUNT for other in pwd.getpwall()):
+        raise ValueError('fixture group has unrelated primary member')
+
+
+def require_no_service_processes():
+    for status in Path('/proc').glob('[0-9]*/status'):
+        try:lines=status.read_text().splitlines()
+        except (FileNotFoundError,ProcessLookupError):continue
+        for line in lines:
+            if line.startswith('Uid:') and str(SERVICE) in line.split()[1:]:raise ValueError('fixture service UID still active')
+
+
 def policy(revoked=False):
     peers=[dict(uid=1000,private_read=['example'],write=['example']),dict(uid=61083,private_read=['other'],write=['other']),
            dict(uid=61085,private_read=['example'],write=[])]
@@ -168,12 +243,11 @@ def run():
     old=local('host_acceptance');package=local('production_package')
     for path in (STATE.parent,UNIT_FILE.parent,RUNTIME.parent,Path(__file__),PYTHON.parent,PYTHON.resolve(strict=True)):
         old.protected(path)
-    for name in ('/usr/bin/systemctl','/usr/bin/journalctl','/usr/bin/setfacl','/usr/bin/getfacl','/usr/bin/unshare','/usr/bin/setpriv'):
+    for name in ('/usr/bin/systemctl','/usr/bin/journalctl','/usr/bin/setfacl','/usr/bin/getfacl','/usr/bin/unshare','/usr/bin/setpriv','/usr/sbin/useradd','/usr/sbin/userdel','/usr/sbin/groupadd','/usr/sbin/groupdel'):
         old.protected(Path(name))
     for path in (STATE,RUNTIME,UNIT_FILE):
         if path.exists() or path.is_symlink():raise ValueError('preserve existing fixture; no automatic retry')
-    old.ids_unused()
-    import grp
+    old.ids_unused();require_identity_absent()
     if any(g.gr_gid in range(61081,61086) for g in grp.getgrall()):raise ValueError('fixture primary GID already allocated')
     existing=subprocess.run(['/usr/bin/systemctl','show',UNIT,'--property=LoadState','--value'],capture_output=True,env=ENV,timeout=10)
     if existing.stdout.strip() not in (b'not-found',b''):raise ValueError('fixture unit already exists')
@@ -187,10 +261,11 @@ def run():
     write(STATE/'policy.json',encode(policy()),0o640,SERVICE)
     fixture=Fixture();cases=[]
     try:
+        fixture.create_identity()
         # Initialization uses the unchanged production entry under the service UID.
         command=child_command('unused',SERVICE)
         command=command[:command.index(str(PYTHON))]+[str(PYTHON),'-I','-B',str(ROOT/'engineering/tools/rras_history/production_entry.py'),
-                 'initialize-empty','--account',str(SERVICE),'--store',str(STATE/'private')]
+                 'initialize-empty','--account',ACCOUNT,'--store',str(STATE/'private')]
         result=subprocess.run(command,capture_output=True,env=ENV,cwd=ROOT,timeout=20);fixture.log('initialize-empty',result)
         if result.returncode or not json.loads(result.stdout)['empty_store_initialized']:raise ValueError('fixture initialization failed')
         offline=fixture.child('client',61082,old.work('example',1))
@@ -249,9 +324,9 @@ def run():
         assert len(fixture.rpc(history('example'),1000)['records'])==3
         cases.append('restart_revocation_removes_acl_and_blocks_replay')
         assert (STATE/'outside-write-probe').read_bytes()==b'synthetic read-only mount probe\n'
-        fixture.journal();fixture.cleanup_unit()
+        fixture.journal();fixture.cleanup_unit();fixture.remove_identity()
         answer=dict(phase='isolated_history_hardened_unit_verified',root=str(STATE),unit=UNIT,service_uid=SERVICE,
-                    client_uids=[61082,61083,1000],cases=cases,api_calls=0,real_credentials_used=False,permanent_accounts_created=False,
+                    client_uids=[61082,61083,1000],cases=cases,api_calls=0,real_credentials_used=False,permanent_accounts_created=False,temporary_account_created=True,temporary_account_removed=True,
                     production_configuration_changed=False,production_services_mutated=False,production_journal_changed=False,
                     fixture_unit_stopped=True,fixture_runtime_unit_removed=True,fixture_socket_removed=True,automatic_retry=False,
                     runtime_payload_sha256=manifest['payload_sha256'])
@@ -266,7 +341,7 @@ def run():
         # Error metadata only, never journal messages or narrative/config values.
         frames=[dict(file=Path(f.filename).name,function=f.name,line=f.lineno) for f in traceback.extract_tb(exc.__traceback__)]
         print(json.dumps(dict(phase='history_unit_acceptance_stopped',exception_type=type(exc).__name__,frames=frames,
-                              protected_evidence=str(STATE),probe_errors=fixture.probe_errors[-4:],automatic_retry=False)),file=sys.stderr)
+                              protected_evidence=str(STATE),temporary_identity_may_be_retained=True,probe_errors=fixture.probe_errors[-4:],automatic_retry=False)),file=sys.stderr)
         raise ValueError('fixture stopped; preserve evidence') from None
 
 
