@@ -18,15 +18,15 @@ import time
 import traceback
 
 ROOT=Path(__file__).resolve().parents[3]
-STATE=Path('/var/lib/rras-history-unit-acceptance-attempt02-20261022')
-NAME='rras-history-unit-acceptance-attempt02-20261022'
+STATE=Path('/var/lib/rras-history-unit-acceptance-attempt03-20261023')
+NAME='rras-history-unit-acceptance-attempt03-20261023'
 UNIT=NAME+'.service'
 UNIT_FILE=Path('/run/systemd/system')/UNIT
 RUNTIME=Path('/run')/NAME
 PYTHON=Path('/opt/rras-engineering/releases/native-10/venv/bin/python')
 ENV={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'}
-SERVICE=61081
-ACCOUNT='rras-hist-fixture'
+SERVICE=61091
+ACCOUNT='rras-hist-fixture3'
 
 
 def local(name):
@@ -71,7 +71,7 @@ def control(action):
 
 
 def child_command(role,uid):
-    if uid not in (61081,61082,61083,61084,61085,996,997,1000):raise ValueError('unknown fixture UID')
+    if uid not in (61091,61092,61093,61094,61095,996,997,1000):raise ValueError('unknown fixture UID')
     return ['/usr/bin/unshare','--net','--','/usr/bin/setpriv','--reuid',str(uid),'--regid',str(uid),
             '--clear-groups','--pdeathsig=TERM','--no-new-privs','--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all',
             str(PYTHON),'-I','-B',str(ROOT/'engineering/tools/rras_history/unit_acceptance_probe.py'),role]
@@ -123,7 +123,7 @@ class Fixture:
             else:raise ValueError('fixture identity retained after cleanup')
         self.account_created=False
 
-    def child(self,role,uid=61082,message=None):
+    def child(self,role,uid=61092,message=None):
         result=subprocess.run(child_command(role,uid),input=b'' if message is None else encode(message),
                               capture_output=True,env=ENV,cwd=ROOT,timeout=20)
         self.log('child-'+role,result)
@@ -132,7 +132,7 @@ class Fixture:
         if record['contract']!='history-unit-probe.v1' or record['identity']['uid']!=uid:raise ValueError('fixture probe association differs')
         return record['result']
 
-    def rpc(self,message,uid=61082,accepted=True):
+    def rpc(self,message,uid=61092,accepted=True):
         value=self.child('rpc',uid,message)
         if value['accepted'] is not accepted:raise ValueError('fixture access decision differs')
         return value.get('value')
@@ -194,6 +194,18 @@ class Fixture:
         self.installed=False
 
 
+def require_ids_unused():
+    ids=set(range(61091,61096))
+    if any(p.pw_uid in ids for p in pwd.getpwall()) or any(g.gr_gid in ids for g in grp.getgrall()):
+        raise ValueError('numeric fixture identity already allocated')
+    for status in Path('/proc').glob('[0-9]*/status'):
+        try:lines=status.read_text().splitlines()
+        except (FileNotFoundError,ProcessLookupError):continue
+        for line in lines:
+            if line.startswith('Uid:') and set(map(int,line.split()[1:]))&ids:
+                raise ValueError('numeric fixture UID already active')
+
+
 def require_identity_absent():
     for lookup in (pwd.getpwnam,grp.getgrnam):
         try:lookup(ACCOUNT)
@@ -208,7 +220,7 @@ def group_create_command():
 def user_create_command():
     return ['/usr/sbin/useradd','--system','--uid',str(SERVICE),'--gid',ACCOUNT,'--no-user-group',
             '--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',
-            '--no-log-init','--password','!','-K','CREATE_MAIL_SPOOL=no',ACCOUNT]
+            '--no-log-init','--password','!',ACCOUNT]
 
 
 def verify_identity():
@@ -229,9 +241,9 @@ def require_no_service_processes():
 
 
 def policy(revoked=False):
-    peers=[dict(uid=1000,private_read=['example'],write=['example']),dict(uid=61083,private_read=['other'],write=['other']),
-           dict(uid=61085,private_read=['example'],write=[])]
-    if not revoked:peers.append(dict(uid=61082,private_read=['example'],write=['example']))
+    peers=[dict(uid=1000,private_read=['example'],write=['example']),dict(uid=61093,private_read=['other'],write=['other']),
+           dict(uid=61095,private_read=['example'],write=[])]
+    if not revoked:peers.append(dict(uid=61092,private_read=['example'],write=['example']))
     return dict(contract='engineering-history-access.v1',principals=peers)
 
 
@@ -247,15 +259,15 @@ def run():
         old.protected(Path(name))
     for path in (STATE,RUNTIME,UNIT_FILE):
         if path.exists() or path.is_symlink():raise ValueError('preserve existing fixture; no automatic retry')
-    old.ids_unused();require_identity_absent()
-    if any(g.gr_gid in range(61081,61086) for g in grp.getgrall()):raise ValueError('fixture primary GID already allocated')
+    require_ids_unused();require_identity_absent()
+    if any(g.gr_gid in range(61091,61096) for g in grp.getgrall()):raise ValueError('fixture primary GID already allocated')
     existing=subprocess.run(['/usr/bin/systemctl','show',UNIT,'--property=LoadState','--value'],capture_output=True,env=ENV,timeout=10)
     if existing.stdout.strip() not in (b'not-found',b''):raise ValueError('fixture unit already exists')
     runtime_manifest=(ROOT/'runtime-manifest.json').read_bytes()
     manifest,_=package.verify(ROOT,hashlib.sha256(runtime_manifest).hexdigest())
     os.umask(0o077);old.mkdir(STATE)
     old.mkdir(STATE/'private',0o700,SERVICE,SERVICE)
-    for uid in (61082,1000):old.mkdir(STATE/('client-'+str(uid)),0o700,uid,uid)
+    for uid in (61092,1000):old.mkdir(STATE/('client-'+str(uid)),0o700,uid,uid)
     old.mkdir(STATE/'root-private',0o700);write(STATE/'root-private/sentinel',b'synthetic root fixture\n')
     write(STATE/'outside-write-probe',b'synthetic read-only mount probe\n',0o666)
     write(STATE/'policy.json',encode(policy()),0o640,SERVICE)
@@ -268,7 +280,7 @@ def run():
                  'initialize-empty','--account',ACCOUNT,'--store',str(STATE/'private')]
         result=subprocess.run(command,capture_output=True,env=ENV,cwd=ROOT,timeout=20);fixture.log('initialize-empty',result)
         if result.returncode or not json.loads(result.stdout)['empty_store_initialized']:raise ValueError('fixture initialization failed')
-        offline=fixture.child('client',61082,old.work('example',1))
+        offline=fixture.child('client',61092,old.work('example',1))
         assert offline['status']['recording_state']=='pending'
         unit=fixture_unit((ROOT/'deployment/rras-engineering-history.service').read_bytes(),ROOT)
         write(STATE/'fixture.service',unit,0o644)
@@ -278,17 +290,17 @@ def run():
         write(UNIT_FILE,unit,0o644);fixture.installed=True;fixture.unit_sha=hashlib.sha256(unit).hexdigest()
         subprocess.run(['/usr/bin/systemctl','daemon-reload'],stdin=subprocess.DEVNULL,capture_output=True,check=True,env=ENV,timeout=20)
         fixture.start()
-        assert fixture.child('flush',61082)['delivered_now']==2
+        assert fixture.child('flush',61092)['delivered_now']==2
         records=fixture.rpc(history('example'))['records'];first=records[0]['receipt']
-        assert first['writer_uid']==SERVICE and first['peer_uid']==61082
+        assert first['writer_uid']==SERVICE and first['peer_uid']==61092
         assert len(fixture.rpc(history('example'),1000)['records'])==2
         cases.extend(['actual_hardened_systemd_unit_and_numeric_private_groups','unit_mount_proc_socket_and_privilege_boundaries',
                       'per_uid_acl_access_without_shared_group_and_uid1000','offline_spool_recovered_via_production_entry'])
-        fixture.rpc(dict(method='submit',request=old.work('other',2)),61083)
-        fixture.rpc(history('other'),61082,False);fixture.rpc(history('example'),61083,False)
-        for uid in (61084,996,997):fixture.rpc(history('example'),uid,False)
-        fixture.rpc(dict(method='submit',request=old.work('example',3)),61085,False)
-        for uid in (61082,61083,61084,61085,996,997,1000):assert all(fixture.child('denial',uid).values())
+        fixture.rpc(dict(method='submit',request=old.work('other',2)),61093)
+        fixture.rpc(history('other'),61092,False);fixture.rpc(history('example'),61093,False)
+        for uid in (61094,996,997):fixture.rpc(history('example'),uid,False)
+        fixture.rpc(dict(method='submit',request=old.work('example',3)),61095,False)
+        for uid in (61092,61093,61094,61095,996,997,1000):assert all(fixture.child('denial',uid).values())
         cases.append('cross_repository_unknown_worker_reader_and_private_file_denials')
 
         template=(ROOT/'engineering/docs/engineering-history-phase1/templates/review.md').read_text()
@@ -303,9 +315,9 @@ def run():
                                 supersedes_document_sha256=None,fields=fields,references=[]))
         receipt=fixture.rpc(dict(method='submit',request=document))['receipt']
         read=dict(method='document',document_id=document['body']['document_id'],version=1)
-        fetched=fixture.rpc(read,61085)
+        fetched=fixture.rpc(read,61095)
         assert hashlib.sha256(fetched['markdown'].encode()).hexdigest()==receipt['document_manifest']['markdown_sha256']
-        fixture.rpc(read,61083,False);fixture.rpc(dict(method='execute'),1000,False)
+        fixture.rpc(read,61093,False);fixture.rpc(dict(method='execute'),1000,False)
         cases.append('actual_unit_immutable_document_and_no_action_route')
 
         fixture.stop();fixture.start()
@@ -317,16 +329,16 @@ def run():
         write(STATE/'policy.next',encode(policy(revoked=True)),0o640,SERVICE)
         os.replace(STATE/'policy.next',STATE/'policy.json')
         fixture.start()
-        fixture.rpc(dict(method='submit',request=records[0]['submission']),61082,False)
+        fixture.rpc(dict(method='submit',request=records[0]['submission']),61092,False)
         for path in (RUNTIME,RUNTIME/'service.sock'):
             text=subprocess.check_output(['/usr/bin/getfacl','--numeric','--omit-header',str(path)],env=ENV,text=True)
-            assert 'user:61082:' not in text and 'default:' not in text
+            assert 'user:61092:' not in text and 'default:' not in text
         assert len(fixture.rpc(history('example'),1000)['records'])==3
         cases.append('restart_revocation_removes_acl_and_blocks_replay')
         assert (STATE/'outside-write-probe').read_bytes()==b'synthetic read-only mount probe\n'
         fixture.journal();fixture.cleanup_unit();fixture.remove_identity()
         answer=dict(phase='isolated_history_hardened_unit_verified',root=str(STATE),unit=UNIT,service_uid=SERVICE,
-                    client_uids=[61082,61083,1000],cases=cases,api_calls=0,real_credentials_used=False,permanent_accounts_created=False,temporary_account_created=True,temporary_account_removed=True,
+                    client_uids=[61092,61093,1000],cases=cases,api_calls=0,real_credentials_used=False,permanent_accounts_created=False,temporary_account_created=True,temporary_account_removed=True,
                     production_configuration_changed=False,production_services_mutated=False,production_journal_changed=False,
                     fixture_unit_stopped=True,fixture_runtime_unit_removed=True,fixture_socket_removed=True,automatic_retry=False,
                     runtime_payload_sha256=manifest['payload_sha256'])

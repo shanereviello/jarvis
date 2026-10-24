@@ -32,7 +32,7 @@ def test_nested_runtime_and_all_tooling_are_pinned(candidate):
 def test_fixture_changes_only_scoped_identity_paths_and_extra_safety_bounds(candidate):
     root,_=candidate;original=(root/'deployment/rras-engineering-history.service').read_bytes()
     text=u.fixture_unit(original,root).decode()
-    assert 'User=rras-hist-fixture\n' in text and 'Group=rras-hist-fixture\nSupplementaryGroups=\n' in text
+    assert 'User=rras-hist-fixture3\n' in text and 'Group=rras-hist-fixture3\nSupplementaryGroups=\n' in text
     assert 'RuntimeDirectory='+u.NAME+'\n' in text
     assert str(u.STATE/'private') in text and str(u.RUNTIME/'service.sock') in text
     assert '[Install]' not in text and 'WantedBy=' not in text
@@ -76,11 +76,11 @@ def test_control_api_can_only_start_stop_its_fixed_fixture_unit(action):
 
 
 def test_private_groups_and_fixed_unit_scope():
-    for uid in (61081,61082,61083,1000,996):
+    for uid in (61091,61092,61093,1000,996):
         command=u.child_command('rpc',uid)
         assert command[command.index('--regid')+1]==str(uid) and '--clear-groups' in command
         assert '--groups' not in command and '--net' in command
-    assert u.control('start')==['/usr/bin/systemctl','start','rras-history-unit-acceptance-attempt02-20261022.service']
+    assert u.control('start')==['/usr/bin/systemctl','start','rras-history-unit-acceptance-attempt03-20261023.service']
     assert u.control('stop')[-1]==u.UNIT
     with pytest.raises(ValueError):u.child_command('rpc',0)
 
@@ -106,13 +106,13 @@ def test_denial_probe_never_writes_an_unexpectedly_accessible_file(tmp_path):
 
 def test_fixture_identity_is_locked_no_home_and_exactly_scoped():
     command=u.user_create_command()
-    assert command[0]=='/usr/sbin/useradd' and command[-1]=='rras-hist-fixture'
-    assert command[command.index('--uid')+1]=='61081'
+    assert command[0]=='/usr/sbin/useradd' and command[-1]=='rras-hist-fixture3'
+    assert command[command.index('--uid')+1]=='61091'
     assert command[command.index('--password')+1]=='!'
     assert command[command.index('--shell')+1]=='/usr/sbin/nologin'
     assert '--no-create-home' in command and '--no-log-init' in command
-    assert 'CREATE_MAIL_SPOOL=no' in command
-    assert u.group_create_command()==['/usr/sbin/groupadd','--gid','61081','rras-hist-fixture']
+    assert '-K' not in command
+    assert u.group_create_command()==['/usr/sbin/groupadd','--gid','61091','rras-hist-fixture3']
 
 
 def test_fixture_identity_collision_is_refused(monkeypatch):
@@ -123,8 +123,8 @@ def test_fixture_identity_collision_is_refused(monkeypatch):
 @pytest.mark.parametrize('change',['uid','group','home','shell','member'])
 def test_identity_cleanup_guard_refuses_unrelated_or_changed_account(monkeypatch,change):
     from types import SimpleNamespace
-    user=SimpleNamespace(pw_uid=61081,pw_gid=61081,pw_dir='/nonexistent',pw_shell='/usr/sbin/nologin',pw_name=u.ACCOUNT)
-    group=SimpleNamespace(gr_gid=61081,gr_mem=[])
+    user=SimpleNamespace(pw_uid=61091,pw_gid=61091,pw_dir='/nonexistent',pw_shell='/usr/sbin/nologin',pw_name=u.ACCOUNT)
+    group=SimpleNamespace(gr_gid=61091,gr_mem=[])
     if change=='uid':user.pw_uid=1000
     if change=='group':group.gr_gid=1000
     if change=='home':user.pw_dir='/home/unrelated'
@@ -134,3 +134,19 @@ def test_identity_cleanup_guard_refuses_unrelated_or_changed_account(monkeypatch
     monkeypatch.setattr(u.grp,'getgrnam',lambda _:group)
     monkeypatch.setattr(u.pwd,'getpwall',lambda:[user])
     with pytest.raises(ValueError,match='association changed'):u.verify_identity()
+
+
+def test_new_attempt_refuses_allocated_numeric_group(monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(u.pwd,'getpwall',lambda:[])
+    monkeypatch.setattr(u.grp,'getgrall',lambda:[SimpleNamespace(gr_gid=u.SERVICE)])
+    with pytest.raises(ValueError,match='already allocated'):u.require_ids_unused()
+
+
+def test_new_attempt_does_not_adopt_retained_old_group(monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(u.pwd,'getpwall',lambda:[])
+    monkeypatch.setattr(u.grp,'getgrall',lambda:[SimpleNamespace(gr_gid=61081)])
+    monkeypatch.setattr(u.Path,'glob',lambda *_:[])
+    u.require_ids_unused()
+    assert u.SERVICE==61091 and u.ACCOUNT=='rras-hist-fixture3'

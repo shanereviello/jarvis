@@ -126,3 +126,16 @@ This is a test identity lifecycle change, not production account installation.
 Actual attempt02 acceptance remains pending. The production design already specifies
 a dedicated registered account; no production architecture or existing-user groups
 change. The operator's sudo invocation authorizes only this concrete fixture.
+
+Attempt02 stopped before starting the service: the host rejected the
+`useradd -K CREATE_MAIL_SPOOL=no` override because that name belongs to
+`/etc/default/useradd`, rather than the login.defs keys accepted by `-K`.
+The root-only diagnostic confirmed this error. The corrected system-account
+command omits the unsupported override and retains locked password, no login
+shell, no home creation and no login-log initialization.
+
+Attempt03 uses a fresh fixture name (`rras-hist-fixture3`), numeric identities
+61091–61095 and paths ending `attempt03-20261023`. The failed attempt02 group
+and evidence remain untouched. Fresh IDs are checked against NSS and running
+processes before mutation; existing identities are never adopted. Actual unit
+acceptance remains pending until the operator runs this candidate.

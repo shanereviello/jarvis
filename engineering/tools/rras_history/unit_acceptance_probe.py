@@ -10,9 +10,9 @@ import sys
 import traceback
 
 ROOT=Path(__file__).resolve().parents[3]
-STATE=Path('/var/lib/rras-history-unit-acceptance-attempt02-20261022')
-RUNTIME=Path('/run/rras-history-unit-acceptance-attempt02-20261022')
-SERVICE=61081
+STATE=Path('/var/lib/rras-history-unit-acceptance-attempt03-20261023')
+RUNTIME=Path('/run/rras-history-unit-acceptance-attempt03-20261023')
+SERVICE=61091
 sys.path.insert(0,str(ROOT/'vendor'))
 
 
@@ -59,7 +59,7 @@ def unit_boundary():
 
 def child(role):
     identity=process_boundary()
-    uid=os.getuid();assert uid in (61081,61082,61083,61084,61085,996,997,1000)
+    uid=os.getuid();assert uid in (61091,61092,61093,61094,61095,996,997,1000)
     transport=local('unix')
     if role=='rpc':
         raw=sys.stdin.buffer.read(local('contract').MAX_REQUEST+1)
@@ -67,7 +67,7 @@ def child(role):
         try:result=dict(accepted=True,value=transport.call(RUNTIME/'service.sock',SERVICE,request))
         except (ValueError,OSError):result=dict(accepted=False)
     elif role in ('client','flush'):
-        assert uid in (61082,1000)
+        assert uid in (61092,1000)
         path=STATE/('client-'+str(uid))
         if role=='client':
             request=local('contract').decode(sys.stdin.buffer.read(local('contract').MAX_REQUEST+1))
