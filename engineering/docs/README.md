@@ -59,3 +59,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Inactive history installer](engineering-history-inactive-install.md): pinned stdlib-only installer, additive private custody, empty initialization and stopped/disabled verification.
 
 - [First history activation](engineering-history-first-activation.md): exact inactive-state preflight, start/read-only acceptance/boot enablement and evidence-preserving failure handling; separate live decision required.
+
+- [Managed engineering-history links](engineering-history-managed-links.md): allowlisted read-only operational export, exact work/revision binding and durable passive import checkpoints; source-only, no privileged deployment.
