@@ -16,7 +16,7 @@ def protected(path):
 
 def stage(candidate,expected):
     if os.getuid()!=0 or os.geteuid()!=0:raise ValueError('reviewed sudo invocation required')
-    state=Path('/var/lib/rras-history-unit-acceptance-attempt02-20261022')
+    state=Path('/var/lib/rras-history-unit-acceptance-attempt03-20261023')
     release=Path('/opt/rras-engineering/releases/history-unit-acceptance-'+expected[:12])
     protected(release.parent);protected(state.parent)
     if release.exists() or release.is_symlink() or state.exists() or state.is_symlink():

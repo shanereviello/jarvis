@@ -150,3 +150,22 @@ def test_new_attempt_does_not_adopt_retained_old_group(monkeypatch):
     monkeypatch.setattr(u.Path,'glob',lambda *_:[])
     u.require_ids_unused()
     assert u.SERVICE==61091 and u.ACCOUNT=='rras-hist-fixture3'
+
+
+def test_staging_guard_matches_actual_fixture_state_and_precedes_mutations(tmp_path,monkeypatch):
+    import importlib.util
+    helper=tmp_path/'helper.py';p.emit_helper(helper)
+    spec=importlib.util.spec_from_file_location('generated_unit_stage',helper)
+    stage=importlib.util.module_from_spec(spec);spec.loader.exec_module(stage)
+    monkeypatch.setattr(stage.os,'getuid',lambda:0)
+    monkeypatch.setattr(stage.os,'geteuid',lambda:0)
+    monkeypatch.setattr(stage,'protected',lambda _:None)
+    seen=[]
+    def exists(path):
+        seen.append(path)
+        return path==u.STATE
+    monkeypatch.setattr(stage.Path,'exists',exists)
+    monkeypatch.setattr(stage.Path,'is_symlink',lambda _:False)
+    monkeypatch.setattr(stage,'verify',lambda *_:pytest.fail('guard must run before reading candidate or mutating'))
+    with pytest.raises(ValueError,match='preserve existing unit fixture'):stage.stage(tmp_path,'a'*64)
+    assert u.STATE in seen
