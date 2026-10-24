@@ -57,3 +57,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 
 - [Backup deferral](engineering-history-backup-deferral.md): dated operator decision superseding the original pre-retention backup gate.
 - [Inactive history installer](engineering-history-inactive-install.md): pinned stdlib-only installer, additive private custody, empty initialization and stopped/disabled verification.
+
+- [First history activation](engineering-history-first-activation.md): exact inactive-state preflight, start/read-only acceptance/boot enablement and evidence-preserving failure handling; separate live decision required.
