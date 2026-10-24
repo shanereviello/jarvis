@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+from jsonschema import ValidationError
 
 
 def local(name):
@@ -78,7 +79,7 @@ def control_files():
     names = ('operator_control.py', 'repository_admission.py', 'workflow_records.py',
              'approval.py', 'approved_launch.py', 'activity.py', 'task_contract.py',
              'managed_events.py', 'workflow_journal.py')
-    return [root / name for name in names] + [local('workflow_records').SCHEMA]
+    return [root / name for name in names] + [local('workflow_records').SCHEMA] + local('document_approval').dependencies()
 
 
 def control_hashes():
@@ -303,6 +304,14 @@ def main(argv=None):
             parser.add_argument('--' + name, required=True)
         if command == 'approve':
             parser.add_argument('--approve-one-execution', action='store_true')
+    for command in ('document-prepare','document-review','document-approve'):
+        doc=sub.add_parser(command)
+        for name in ('state','review-id','config'):doc.add_argument('--'+name,required=True)
+        if command=='document-prepare':
+            for name in ('work-request','narrative','document-id'):doc.add_argument('--'+name,required=True)
+        if command=='document-approve':
+            for name in ('binding-sha256','markdown-sha256'):doc.add_argument('--'+name,required=True)
+            doc.add_argument('--approve-one-execution',action='store_true')
     launch_parser = sub.add_parser('launch')
     for name in ('state', 'authorization-id', 'config', 'jobs', 'workers', 'credential'):
         launch_parser.add_argument('--' + name, required=True)
@@ -346,6 +355,18 @@ def main(argv=None):
             result = review(args.state, args.review_id, args.config)
         elif args.command == 'approve':
             result = approve(args.state, args.review_id, args.config, approve_one_execution=args.approve_one_execution)
+        elif args.command == 'document-prepare':
+            # Treat selected private input as proposal data; protected capture comes
+            # from root state, never these files. Loading executes no caller code.
+            require_operator(args.state)
+            doc=local('document_approval')
+            result=doc.prepare(args.state,args.review_id,args.config,
+                doc.read_proposal(args.work_request),doc.read_proposal(args.narrative),args.document_id)
+        elif args.command == 'document-review':
+            result=local('document_approval').view(args.state,args.review_id,args.config)
+        elif args.command == 'document-approve':
+            result=local('document_approval').approve(args.state,args.review_id,args.config,
+                args.binding_sha256,args.markdown_sha256,approve_one_execution=args.approve_one_execution)
         elif args.command == 'launch':
             result = launch(args.state, args.authorization_id, args.config, args.jobs, args.workers, args.credential)
         elif args.command == 'validation-release':
@@ -377,7 +398,7 @@ def main(argv=None):
             result = reconcile(args.state, args.authorization_id)
         else:
             result = evidence(args.state, args.authorization_id)
-    except (ValueError, OSError, KeyError, TypeError, sqlite3.Error):
+    except (ValueError, OSError, KeyError, TypeError, sqlite3.Error, ValidationError):
         p.exit(1, 'Operator command refused; preserve records and inspect admission/configuration.\n')
     print(json.dumps(result))
     if args.command == 'launch' and (result['service_exit'] != 0 or result['host_stop_verified'] is not True):
