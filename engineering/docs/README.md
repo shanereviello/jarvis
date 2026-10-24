@@ -61,3 +61,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [First history activation](engineering-history-first-activation.md): exact inactive-state preflight, start/read-only acceptance/boot enablement and evidence-preserving failure handling; separate live decision required.
 
 - [Managed engineering-history links](engineering-history-managed-links.md): allowlisted read-only operational export, exact work/revision binding and durable passive import checkpoints; source-only, no privileged deployment.
+
+- [Managed-history host acceptance](engineering-history-managed-host-acceptance.md): pinned synthetic root exporter, distinct numeric UID handoff, lost-response/cursor recovery and restart/replay; actual sudo acceptance pending.
