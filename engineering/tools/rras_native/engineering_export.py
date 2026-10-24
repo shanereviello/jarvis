@@ -49,7 +49,12 @@ def read_snapshot(root):
 
 def export(root,journal_id,work_sha,*,after=0,limit=100):
     j=local('workflow_journal');j.exact_digest(work_sha);j.bounds(after,limit)
-    rows=read_snapshot(root)
+    return from_snapshot(read_snapshot(root),journal_id,work_sha,after=after,limit=limit)
+
+
+def from_snapshot(rows,journal_id,work_sha,*,after=0,limit=100):
+    """Build a page from the frozen, validated rows returned by read_snapshot."""
+    j=local('workflow_journal');j.exact_digest(work_sha);j.bounds(after,limit)
     works=[record for record,meta in rows if record['kind']=='work_item' and meta['digest']==work_sha]
     if len(works)!=1:raise ValueError('exact operational work revision required')
     work=works[0]
