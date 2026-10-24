@@ -67,3 +67,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [One-work production history export](engineering-history-production-export.md): exact reviewed target, frozen read-only source snapshot, protected original and private operator handoff; no import or lifecycle deployment.
 
 - [Repeatable managed-history receiver](engineering-history-managed-sync.md): explicit private capture review, frozen delivery/resume and receipt-verified status; no automatic lifecycle trigger.
+
+- [Standard managed review document](engineering-history-managed-review-document.md): deterministic private document and passive capture companion; protected custody and versioned approval enforcement remain separate.
