@@ -1,5 +1,9 @@
 # Architecture decision D1: engineering history authority and storage
 
+Current rollout: the operator deferred the encrypted-backup/restore gate on
+2026-10-23. See [the superseding decision](engineering-history-backup-deferral.md).
+Other isolation and merge/install/activation requirements remain in effect.
+
 Status: **D1 separate-service direction accepted by the operator**, October22,2026.
 Detailed implementation design remains subject to source review. No live paths or
 owners change. This document distinguishes operational authorization from engineering

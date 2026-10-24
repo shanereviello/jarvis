@@ -53,4 +53,7 @@ Historical bring-up reports, canary launchers and container experiments are reta
 
 - [Production history installation blueprint](engineering-history-production-package.md): inactive pinned runtime/unit/policy, exact local ACLs and disable-only rollback; separate hardened-unit, backup and installation gates.
 
-- [Actual history unit/ACL host acceptance](engineering-history-hardened-unit-acceptance.md): isolated production-profile unit, private client groups, revocation/replay and UID1000 ACL reachability; sudo result pending.
+- [Actual history unit/ACL host acceptance](engineering-history-hardened-unit-acceptance.md): isolated production-profile unit, private client groups, revocation/replay and UID1000 ACL reachability; actual isolated host acceptance passed; production installation remains separate.
+
+- [Backup deferral](engineering-history-backup-deferral.md): dated operator decision superseding the original pre-retention backup gate.
+- [Inactive history installer](engineering-history-inactive-install.md): pinned stdlib-only installer, additive private custody, empty initialization and stopped/disabled verification.

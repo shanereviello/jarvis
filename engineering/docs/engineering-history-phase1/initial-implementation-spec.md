@@ -1,5 +1,9 @@
 # Initial implementation specification
 
+Current rollout: the operator deferred the encrypted-backup/restore gate on
+2026-10-23. See [the superseding decision](engineering-history-backup-deferral.md).
+Other isolation and merge/install/activation requirements remain in effect.
+
 Status: detailed design under the operator-accepted D1 separate-service direction.
 No proposed account, path, socket or schema exists in production because of this file.
 These choices define an initial implementation baseline, not deployment authorization.

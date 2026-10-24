@@ -85,12 +85,13 @@ def artifacts(release,payload_sha):
               socket='/run/rras-engineering-history/service.sock',unit='rras-engineering-history.service',
               client_wrapper='/usr/local/bin/rras-history-client',client_uid=1000,
               socket_access='exact-per-uid-posix-acl-before-listen',change_existing_user_groups=False,
+              backup_status='deferred-by-operator-2026-10-23-no-verified-recovery',
               initial_data='empty-only-no-synthetic-fixture-import',stage_authorized=False,activation_authorized=False,
               custody=dict(release='root:root directories0755 files0444',config='root:rras-history directory0750 policy0640',
                            store='rras-history:rras-history directory0700 database0600',unit='root:root0644',wrapper='root:root0755',
                            runtime='service-owned0700 plus exact named-client traverse/socket ACLs'),
               installation_journal='/var/lib/rras-history-installations/'+Path(release).name,
-              gates=['separate-source-merge','isolated-hardened-unit-and-acl-host-acceptance','encrypted-backup-and-restore-acceptance',
+              gates=['separate-source-merge','isolated-hardened-unit-and-acl-host-acceptance','operator-backup-deferral-recorded',
                      'explicit-inactive-install-decision','explicit-activation-decision'],
               rollback='disable-and-stop-history-unit-preserve-account-store-config-release-and-spools')
     wrapper=('#!/bin/sh\nexec /opt/rras-engineering/releases/native-10/venv/bin/python -I -B '+release+'/engineering/tools/rras_history/client_entry.py "$@"\n').encode()
