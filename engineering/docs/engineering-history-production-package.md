@@ -1,5 +1,9 @@
 # Engineering-history production installation blueprint
 
+Current rollout: the operator deferred the encrypted-backup/restore gate on
+2026-10-23. See [the superseding decision](engineering-history-backup-deferral.md).
+Other isolation and merge/install/activation requirements remain in effect.
+
 This source builds and verifies an **inactive package**, not an installed service.
 The [cross-UID fixture](engineering-history-host-acceptance.md#verified-attempt02-evidence)
 passed. This package adds a production entry, exact socket ACL setup and a hardened

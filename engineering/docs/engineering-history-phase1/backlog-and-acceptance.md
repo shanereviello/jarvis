@@ -1,5 +1,9 @@
 # Ordered implementation backlog and acceptance specification
 
+Current rollout: the operator deferred the encrypted-backup/restore gate on
+2026-10-23. See [the superseding decision](engineering-history-backup-deferral.md).
+Other isolation and merge/install/activation requirements remain in effect.
+
 No implementation slice starts from a document saying 'approved' alone. D1 direction is accepted;
 review source/fixtures, separately approve installation/activation and keep paid-task
 approval separate. D2 must be resolved before browser deployment. Estimates/task

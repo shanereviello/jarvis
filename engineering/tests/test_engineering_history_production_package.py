@@ -34,7 +34,8 @@ def test_package_is_deterministic_and_inactive(package,tmp_path):
     assert manifest['stage_authorized'] is False
     plan=json.loads(files['deployment/install-plan.json'])
     assert not plan['change_existing_user_groups'] and plan['initial_data']=='empty-only-no-synthetic-fixture-import'
-    assert 'encrypted-backup-and-restore-acceptance' in plan['gates']
+    assert 'operator-backup-deferral-recorded' in plan['gates']
+    assert plan['backup_status']=='deferred-by-operator-2026-10-23-no-verified-recovery'
     assert p.build(SOURCE,tmp_path/'vendor',tmp_path/'other','a'*40)==result
     assert not any(name.endswith(('host_probe.py','host_acceptance.py')) for name in files)
 
