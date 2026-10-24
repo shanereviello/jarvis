@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rras:engineering-managed-export:v1",
+  "title": "Allowlisted operational claims for private passive engineering links",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "const": "engineering-managed-export.v1"
+    },
+    "journal_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+    },
+    "work": {
+      "type": "object",
+      "properties": {
+        "work_item_id": {
+          "type": "string",
+          "pattern": "^wrk_[0-9a-f]{32}(?![\\s\\S])"
+        },
+        "repository_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}(?![\\s\\S])"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mode": {
+          "enum": [
+            "interactive",
+            "approval_driven",
+            "delegated"
+          ]
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+                }
+              },
+              "required": [
+                "ref",
+                "commit"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requested_paths": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "work_item_id",
+        "repository_id",
+        "revision",
+        "mode",
+        "baseline",
+        "requested_paths",
+        "record_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "after": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "next_after": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "facts": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^evt_[0-9a-f]{32}(?![\\s\\S])"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "event_type": {
+            "enum": [
+              "work.prepared",
+              "decision.recorded",
+              "review.captured",
+              "execution.approval_recorded",
+              "attempt.started",
+              "attempt.interrupted",
+              "attempt.finished",
+              "validation.finished",
+              "artifact.recorded",
+              "branch.published",
+              "pull_request.opened",
+              "change.merged",
+              "release.deployed",
+              "release.verified",
+              "cancellation.recorded",
+              "recovery.recorded"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "uncertain",
+              "approved",
+              "rejected",
+              "cancelled"
+            ]
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z(?![\\s\\S])"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z(?![\\s\\S])"
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^att_[0-9a-f]{32}(?![\\s\\S])"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corrects_event_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^evt_[0-9a-f]{32}(?![\\s\\S])"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decision_subject": {
+            "anyOf": [
+              {
+                "enum": [
+                  "scope_change",
+                  "deliverable_acceptance",
+                  "merge",
+                  "deployment",
+                  "other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "record_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+          },
+          "provenance": {
+            "enum": [
+              "observed",
+              "imported",
+              "human_reported"
+            ]
+          },
+          "ingestion": {
+            "enum": [
+              "operator_record",
+              "interactive_import"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_id": {
+                  "type": "string",
+                  "pattern": "^art_[0-9a-f]{32}(?![\\s\\S])"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+                },
+                "purpose": {
+                  "enum": [
+                    "request",
+                    "review",
+                    "approval",
+                    "execution",
+                    "validation",
+                    "diff",
+                    "publication",
+                    "deployment",
+                    "other"
+                  ]
+                }
+              },
+              "required": [
+                "artifact_id",
+                "sha256",
+                "purpose"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "public_references": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "properties": {
+                "namespace": {
+                  "enum": [
+                    "git_commit",
+                    "pull_request"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              },
+              "required": [
+                "namespace",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "omitted_reference_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 128
+          }
+        },
+        "required": [
+          "event_id",
+          "sequence",
+          "event_type",
+          "outcome",
+          "occurred_at",
+          "recorded_at",
+          "attempt_id",
+          "corrects_event_id",
+          "decision_subject",
+          "record_sha256",
+          "provenance",
+          "ingestion",
+          "artifacts",
+          "public_references",
+          "omitted_reference_count"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "contract",
+    "journal_id",
+    "work",
+    "after",
+    "next_after",
+    "has_more",
+    "facts"
+  ],
+  "additionalProperties": false
+}
