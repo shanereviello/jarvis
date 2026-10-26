@@ -71,3 +71,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Standard managed review document](engineering-history-managed-review-document.md): deterministic private document and passive capture companion; protected custody and versioned approval enforcement remain separate.
 
 - [Protected document approval](engineering-history-document-approval.md): private Markdown custody and opt-in v2 approval/launch verification; source-only, isolated host acceptance and installation remain separate.
+
+- [Document approval host acceptance](engineering-history-document-host-acceptance.md): pinned model-free v2 custody/launch and real UID denial fixture; actual sudo result required.

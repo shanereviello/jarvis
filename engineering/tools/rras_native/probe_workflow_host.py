@@ -35,7 +35,7 @@ def fixture_records(here, repo, commit, repository_id):
     return registration, work
 
 
-def run(root, repository_id='example_library'):
+def run(root, repository_id='example_library', *, document_bound=False):
     if os.getuid() != 0 or os.geteuid() != 0:
         raise ValueError('root acceptance required')
     root = Path(root)
@@ -91,12 +91,19 @@ def run(root, repository_id='example_library'):
         return argv[:index] + ['-p', 'PrivateNetwork=yes', '-p', 'RestrictAddressFamilies=AF_UNIX'] + argv[index:]
     launcher.argv = offline_argv
     captured = operator.capture(config, proposals, prepared['candidate_id'], approvals, 'codex/offline-fixture')
-    first = operator.approve(approvals, captured['review_id'], config, approve_one_execution=True)
-    second = operator.approve(approvals, captured['review_id'], config, approve_one_execution=True)
+    document_bundle=None;document_cases=[]
+    if document_bound:
+        document_bundle=local('document_host_cases').initialize(operator,approvals,captured,config,work)
+        first,second=document_bundle['first'],document_bundle['second']
+    else:
+        first = operator.approve(approvals, captured['review_id'], config, approve_one_execution=True)
+        second = operator.approve(approvals, captured['review_id'], config, approve_one_execution=True)
     key = state / 'sentinel'
     a.absent(key, fixture.SENTINEL.encode())
     def invoke(authorization):
         return operator.launch(approvals, authorization, config, root / 'jobs', root / 'workers', key)
+    if document_bound:
+        document_cases=local('document_host_cases').negative_launches(invoke,approvals,captured,config,document_bundle,root/'jobs')
     ready = busy = False
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(invoke, first['authorization_id'])
@@ -129,6 +136,37 @@ def run(root, repository_id='example_library'):
     a.fsync_directory(state)
     if not revoked or (approvals / (second['authorization_id'] + '.consumed.json')).exists():
         raise ValueError('configuration revocation failed')
+    if document_bound:
+        legacy=invoke(document_bundle['legacy']['authorization_id'])
+        if legacy['service_exit']!=0 or legacy['host_stop_verified'] is not True:raise ValueError('preexisting legacy grant continuity failed')
+        document_cases+=['preexisting_v1_grant_continuity','standalone_document_exact_view','explicit_v2_hash_approval','new_legacy_approval_refused']
+        # Both principals must be denied actual read AND write of existing files.
+        names=[approvals/(captured['review_id']+suffix) for suffix in ('.review.md','.review-document.json')]
+        for path in names:
+            info=path.stat()
+            if info.st_uid!=0 or info.st_mode&0o777!=0o600 or info.st_nlink!=1:raise ValueError('private single-link root document required')
+        denial='''from pathlib import Path
+import sys,importlib.util
+root=Path(sys.argv[1]);state=Path(sys.argv[2]);sys.path.insert(0,str(root/'vendor'))
+p=root/'engineering/tools/rras_native/operator_control.py'
+s=importlib.util.spec_from_file_location('denied_operator',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+try:m.require_operator(state)
+except ValueError as error:
+ if 'root operator' not in str(error):raise
+else:raise AssertionError('unprivileged operator admitted')
+for value in sys.argv[3:]:
+ for mode in ('rb','ab'):
+  try:
+   with Path(value).open(mode): pass
+  except PermissionError: pass
+  else: raise AssertionError('private document accessible')
+'''
+        for uid in (996,1000):
+            subprocess.run(['/usr/bin/unshare','--net','--','/usr/bin/setpriv','--reuid='+str(uid),'--regid='+str(uid),
+                '--clear-groups','--no-new-privs','--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all',
+                str(launcher.RELEASE/'venv/bin/python'),'-I','-B','-c',denial,str(here.parents[2]),str(approvals),*map(str,names)],
+                check=True,capture_output=True,timeout=15,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
+        document_cases.append('actual_root_document_read_write_denied_996_and_1000')
     projection = root / 'views' / 'work.json'
     store.publish_jarvis(projection, work['work_item_id'])
     os.chown(root / 'views', 0, 1000)
@@ -167,6 +205,11 @@ print('permission_boundary_verified')
                         'journal_reconciliation_idempotent', 'configuration_revocation',
                         'private_journal_denied_996_and_1000', 'projection_read_only_for_1000',
                         'outbox_restart_retained', 'task_success_not_inferred']}
+    if document_bound:
+        answer.update(phase='isolated_document_approval_host_verified',approval_protocol=2,
+                      production_services_mutated=False,production_journal_changed=False,production_history_changed=False,
+                      permanent_accounts_created=False,automatic_retry=False)
+        answer['cases']+=document_cases
     a.absent(state / 'acceptance-result.json', a.encoded(answer))
     return answer
 
