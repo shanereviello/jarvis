@@ -26,7 +26,7 @@ def committed_source(tmp_path):
     m = module('prepare_workflow_release')
     repo = tmp_path / 'source'
     repo.mkdir()
-    names = ['engineering/tools/rras_native/' + name for name in (*m.MODULES,*m.ASSETS)] + [
+    names = ['engineering/tools/rras_native/' + name for name in (*m.MODULES,*m.ASSETS)] + list(m.DOCUMENT_FILES) + [
         'engineering/contracts/workflow-v1.schema.json', 'engineering/config/workflow-dependency-lock.json',
         'engineering/config/jarvis-registration.candidate.json']
     for name in names:
@@ -231,3 +231,14 @@ print('isolated_payload_imports_passed')
 """
     result=subprocess.run([sys.executable,'-I','-S','-B','-c',script,str(out)],capture_output=True,text=True,check=True)
     assert result.stdout.strip()=='isolated_payload_imports_passed'
+
+
+def test_document_approval_payload_and_generated_operator_help(committed_source,tmp_path):
+    m,repo,commit,_=committed_source;out=tmp_path/'documents';m.build(repo,commit,out)
+    assert (out/'engineering/tools/rras_native/document_approval.py').is_file()
+    for name in m.DOCUMENT_FILES:assert (out/name).is_file()
+    result=subprocess.run([sys.executable,'-I','-B',str(out/'entrypoints/operator.py'),'--help'],
+                          capture_output=True,text=True,check=True)
+    assert 'document-prepare' in result.stdout and 'document-approve' in result.stdout
+    wrapper=(out/'entrypoints/operator.py').read_text()
+    assert "'document-review'" in wrapper

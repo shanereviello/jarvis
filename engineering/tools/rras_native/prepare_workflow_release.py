@@ -14,7 +14,7 @@ import re
 import sys
 
 MODULES = tuple(name + '.py' for name in (
-    'activity', 'approval', 'approved_launch', 'credentials', 'draft_pr_connector',
+    'activity', 'approval', 'approved_launch', 'credentials', 'document_approval', 'draft_pr_connector',
     'managed_events', 'manual_runner', 'native_observation', 'native_task_cli',
     'operator_control', 'post_validation', 'publication', 'publication_capture',
     'publication_custody', 'publication_handoff', 'publication_policy',
@@ -23,6 +23,10 @@ MODULES = tuple(name + '.py' for name in (
     'wait_worker', 'workflow_finish', 'workflow_journal', 'workflow_publication',
     'workflow_read_stdio', 'workflow_read_tools', 'workflow_records'))
 ASSETS = ('draft_pr_frontend.js', 'draft_pr_operator.js')
+DOCUMENT_FILES = tuple('engineering/tools/rras_history/'+name for name in
+    ('managed_review.py','documents.py','contract.py')) + (
+    'engineering/contracts/engineering-history-v1.schema.json',
+    'engineering/docs/engineering-history-phase1/templates/review.md')
 
 PROFILE = '/opt/rras-engineering/releases/operator-project-trust-v1/profile.json'
 PROFILE_SHA = 'd6559b7171ff3c9317e05040efd0d8b01f6ae1cca1f45f7c7e1f9a461d4ef64f'
@@ -71,7 +75,7 @@ def offline_dependencies(lock):
 
 def wrapper(module, *, managed=False):
     checks = '''
-if len(sys.argv)>1 and sys.argv[1] in {'capture','review','approve','launch'}:
+if len(sys.argv)>1 and sys.argv[1] in {'capture','review','approve','launch','document-prepare','document-review','document-approve'}:
     try: config=sys.argv[sys.argv.index('--config')+1]
     except (ValueError,IndexError): raise SystemExit('Explicit protected configuration required')
     if 'journal' not in m.configuration(config)[0]: raise SystemExit('Installed managed workflow requires a journal')
@@ -91,16 +95,24 @@ def verify_module_closure(files):
     Dynamic dispatch still requires source review; this audits the supported
     local()/with_name() conventions rather than claiming a Python import sandbox.
     """
-    prefix='engineering/tools/rras_native/'
-    for name in MODULES:
-        tree=ast.parse(files[prefix+name])
+    native='engineering/tools/rras_native/'
+    names=[native+name for name in MODULES]+[name for name in DOCUMENT_FILES if name.endswith('.py')]
+    for name in names:
+        prefix=str(PurePosixPath(name).parent)+'/'
+        tree=ast.parse(files[name])
         for node in ast.walk(tree):
             if not isinstance(node,ast.Call) or not node.args or not isinstance(node.args[0],ast.Constant):continue
             value=node.args[0].value
             if not isinstance(value,str):continue
             function=node.func.id if isinstance(node.func,ast.Name) else node.func.attr if isinstance(node.func,ast.Attribute) else ''
             target=value+'.py' if function=='local' else value if function=='with_name' and value.endswith('.py') else None
-            if target is not None and prefix+target not in files:
+            target_prefix=prefix
+            if function=='local' and len(node.args)>1:
+                family=node.args[1]
+                if not isinstance(family,ast.Constant) or family.value not in ('rras_native','rras_history'):
+                    raise ValueError('unreviewed local module family')
+                target_prefix='engineering/tools/'+family.value+'/'
+            if target is not None and target_prefix+target not in files:
                 raise ValueError('unpackaged local dependency: '+target)
 
 
@@ -154,6 +166,7 @@ def build(source, commit, output, upgrade=None):
     lock = json.loads(committed(source, commit, 'engineering/config/workflow-dependency-lock.json'))
     files = {'engineering/tools/rras_native/' + name: committed(source, commit, 'engineering/tools/rras_native/' + name) for name in MODULES}
     files.update({'engineering/tools/rras_native/'+name: committed(source,commit,'engineering/tools/rras_native/'+name) for name in ASSETS})
+    files.update({name:committed(source,commit,name) for name in DOCUMENT_FILES})
     verify_module_closure(files)
     files['engineering/contracts/workflow-v1.schema.json'] = committed(source, commit, 'engineering/contracts/workflow-v1.schema.json')
     files['config/jarvis-registration.json'] = committed(source, commit, 'engineering/config/jarvis-registration.candidate.json')

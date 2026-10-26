@@ -4,6 +4,9 @@ Operator CLI only. No worker launch or publication. Root-owned records are kept
 separate from Hermes-writable proposals and worker-writable execution state.
 """
 import argparse
+from contextlib import contextmanager
+import fcntl
+import stat
 import importlib.util
 import json
 import os
@@ -86,13 +89,40 @@ def read_review(state,review_id):
     return review
 
 
+@contextmanager
+def protocol_lock(state):
+    fd=os.open(Path(state)/'.approval-protocol.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+    try:
+        info=os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1 or
+                stat.S_IMODE(info.st_mode)!=0o600):raise ValueError('private approval protocol lock required')
+        try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise ValueError('another approval operation is active') from None
+        yield
+    finally:os.close(fd)
+
+
+def validate_authorization(state,approval):
+    fields={'schema_version','authorization_id','review_id','execution_authorized','publication_authorized','authorized_os_uid'}
+    if (type(approval.get('schema_version')) is not int or approval['schema_version'] not in (1,2) or
+            approval.get('execution_authorized') is not True or approval.get('publication_authorized') is not False or
+            type(approval.get('authorized_os_uid')) is not int or approval.get('authorized_os_uid')!=0):raise ValueError('invalid approval protocol')
+    if approval['schema_version']==1:
+        if set(approval)!=fields:raise ValueError('invalid legacy authorization fields')
+    else:local('document_approval').verify_authorization(state,approval)
+
+
 def approve(state,review_id):
-    a=local('activity');review=read_review(state,review_id)
-    authorization_id=uuid.uuid4().hex
-    approval={'schema_version':1,'authorization_id':authorization_id,'review_id':review_id,
-              'execution_authorized':True,'publication_authorized':False,
-              'authorized_os_uid':os.getuid()}
-    a.absent(Path(state)/(authorization_id+'.approval.json'),a.encoded(approval))
+    a=local('activity')
+    with protocol_lock(state):
+        review=read_review(state,review_id)
+        marker=Path(state)/(review_id+'.review-document.json')
+        if marker.exists() or marker.is_symlink():raise ValueError('document-bound approval required for this capture')
+        authorization_id=uuid.uuid4().hex
+        approval={'schema_version':1,'authorization_id':authorization_id,'review_id':review_id,
+                  'execution_authorized':True,'publication_authorized':False,
+                  'authorized_os_uid':os.getuid()}
+        a.absent(Path(state)/(authorization_id+'.approval.json'),a.encoded(approval))
     return approval
 
 
@@ -101,6 +131,7 @@ def consume(state,authorization_id):
     if not re.fullmatch('[0-9a-f]{32}',authorization_id):raise ValueError('exact authorization ID required')
     a=local('activity');root=Path(state);approval=a.load(root/(authorization_id+'.approval.json'))
     if approval['authorization_id']!=authorization_id or approval['execution_authorized'] is not True or approval['publication_authorized'] is not False or approval['authorized_os_uid']!=0:raise ValueError('invalid approval')
+    validate_authorization(state,approval)
     review=read_review(root,approval['review_id'])
     # Unlike evidence's idempotent writes, consumption is deliberately exclusive.
     with (root/(authorization_id+'.consumed.json')).open('xb') as stream:

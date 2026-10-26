@@ -74,6 +74,7 @@ def launch(state,authorization_id,jobs,workers,policy,credential):
     if not stat.S_ISREG(cs.st_mode) or cs.st_mode&0o077:raise ValueError('private credential source required')
     if not __import__('re').fullmatch('[0-9a-f]{32}',authorization_id):raise ValueError('exact authorization required')
     record=a.load(state/(authorization_id+'.approval.json'))
+    approval.validate_authorization(state,record)
     review=approval.read_review(state,record['review_id'])
     if a.digest(Path(policy).read_bytes())!=review['policy_sha256']:raise ValueError('policy changed since review')
     for field in ('profile','codex_config'):

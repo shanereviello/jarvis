@@ -69,3 +69,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Repeatable managed-history receiver](engineering-history-managed-sync.md): explicit private capture review, frozen delivery/resume and receipt-verified status; no automatic lifecycle trigger.
 
 - [Standard managed review document](engineering-history-managed-review-document.md): deterministic private document and passive capture companion; protected custody and versioned approval enforcement remain separate.
+
+- [Protected document approval](engineering-history-document-approval.md): private Markdown custody and opt-in v2 approval/launch verification; source-only, isolated host acceptance and installation remain separate.
