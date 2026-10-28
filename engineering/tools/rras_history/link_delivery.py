@@ -56,11 +56,11 @@ def prepare(root,work,packet,*,previous=None):
     return {'prepared':True,'requests':len(plan['requests']),'plan_sha256':c.digest(c.encoded(plan)),'delivery_started':False}
 
 
-def check_receipt(receipt,request,writer_uid,peer_uid):
+def check_receipt(receipt,request,writer_uid,peer_uid,*,document_manifest=None):
     c=local('contract');body=request['body']
     if type(receipt) is not dict:raise ValueError('import receipt must be an object')
     if (not isinstance(receipt.get('receipt_id'),str) or not re.fullmatch('rcp_[0-9a-f]{32}',receipt['receipt_id']) or
-            type(receipt.get('sequence')) is not int or receipt['sequence']<1 or receipt.get('document_manifest') is not None):
+            type(receipt.get('sequence')) is not int or receipt['sequence']<1 or c.encoded(receipt.get('document_manifest'))!=c.encoded(document_manifest)):
         raise ValueError('import receipt identity differs')
     stamp=receipt.get('recorded_at')
     if not isinstance(stamp,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z',stamp):
