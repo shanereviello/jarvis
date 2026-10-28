@@ -75,3 +75,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Document approval host acceptance](engineering-history-document-host-acceptance.md): pinned model-free v2 custody/launch and real UID denial fixture; actual sudo result required.
 
 - [Exact review-document intake](engineering-history-review-document-intake.md): passive packet and receipt/readback-verified private receiver; protected handoff and production intake remain separate.
+
+- [Protected review-document handoff](engineering-history-review-document-handoff.md): historical root custody reader, private operator transfer and pinned isolated cross-UID rehearsal; actual sudo acceptance required.
