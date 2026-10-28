@@ -15,6 +15,8 @@ def stage(candidate,expected):
     if os.getuid()!=0 or os.geteuid()!=0:raise ValueError('explicit sudo acceptance required')
     release=Path('/opt/rras-engineering/releases/history-review-handoff-host-'+expected[:12])
     protected(release.parent);protected(STATE.parent)
+    native=Path('/opt/rras-engineering/releases/native-10/venv/bin/python')
+    protected(native.parent);protected(native.resolve(strict=True))
     for path in (release,STATE):
         if path.exists() or path.is_symlink():raise ValueError('preserve existing fixture; no automatic retry')
     manifest,files=verify(candidate,expected);os.umask(0o022);release.mkdir(mode=0o755)
@@ -28,7 +30,7 @@ def stage(candidate,expected):
         fd=os.open(directory,os.O_RDONLY|os.O_DIRECTORY)
         try:os.fsync(fd)
         finally:os.close(fd)
-    process=subprocess.Popen(['/opt/rras-engineering/releases/native-10/venv/bin/python','-I','-B',str(release/'engineering/tools/rras_history/review_handoff_driver.py')],
+    process=subprocess.Popen([str(native),'-I','-B',str(release/'engineering/tools/rras_history/review_handoff_driver.py')],
                              stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                              env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'})
     try:out,err=process.communicate(timeout=240)
