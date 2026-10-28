@@ -73,3 +73,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Protected document approval](engineering-history-document-approval.md): private Markdown custody and opt-in v2 approval/launch verification; source-only, isolated host acceptance and installation remain separate.
 
 - [Document approval host acceptance](engineering-history-document-host-acceptance.md): pinned model-free v2 custody/launch and real UID denial fixture; actual sudo result required.
+
+- [Exact review-document intake](engineering-history-review-document-intake.md): passive packet and receipt/readback-verified private receiver; protected handoff and production intake remain separate.
