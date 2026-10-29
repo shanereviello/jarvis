@@ -81,3 +81,4 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Review-document intake commands](engineering-history-review-document-commands.md): explicit private packet inspection, frozen preparation, hash-bound intake and durable resume into an existing engineering work revision; source tooling, separate installation.
 - [Review export commands and package](engineering-history-review-export-commands.md): exact historical root inspection/export and offline pinned passive tool assembly; separate staging and installation.
 - [Inactive review tools staging](engineering-history-review-tools-staging.md): verified protected payload staging and isolated host command/permission checks; no wrappers or service changes.
+- [Review tools first installation](engineering-history-review-tools-installation.md): explicit, exclusive publication of pinned export/intake wrappers over a host-verified release; separate production decision.
