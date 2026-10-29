@@ -100,3 +100,11 @@ def build(source,vendor,destination,commit):
     sha=hashlib.sha256(raw).hexdigest();verify(destination,sha)
     return {'candidate':str(destination),'manifest_sha256':sha,'files':len(files),'source_commit':commit,
             'root_mutations':False,'installed':False}
+
+
+def emit_stage_helper(destination):
+    """Emit a reviewable stdlib verifier/bootstrap; never evaluate candidate code."""
+    prefix=Path(__file__).read_text().split('\ndef build(',1)[0]
+    suffix=Path(__file__).with_name('stage_review_tools.py').read_text()
+    with Path(destination).open('x') as stream:stream.write(prefix+'\n'+suffix)
+    return hashlib.sha256(Path(destination).read_bytes()).hexdigest()
