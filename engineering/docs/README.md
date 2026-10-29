@@ -77,3 +77,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Exact review-document intake](engineering-history-review-document-intake.md): passive packet and receipt/readback-verified private receiver; protected handoff and production intake remain separate.
 
 - [Protected review-document handoff](engineering-history-review-document-handoff.md): historical root custody reader, private operator transfer and pinned isolated cross-UID rehearsal; actual sudo acceptance required.
+
+- [Review-document intake commands](engineering-history-review-document-commands.md): explicit private packet inspection, frozen preparation, hash-bound intake and durable resume into an existing engineering work revision; source tooling, separate installation.
