@@ -108,3 +108,11 @@ def emit_stage_helper(destination):
     suffix=Path(__file__).with_name('stage_review_tools.py').read_text()
     with Path(destination).open('x') as stream:stream.write(prefix+'\n'+suffix)
     return hashlib.sha256(Path(destination).read_bytes()).hexdigest()
+
+
+def emit_install_helper(destination):
+    """Emit a pinned first-install bootstrap over an already staged release."""
+    prefix=Path(__file__).read_text().split('\ndef build(',1)[0]
+    suffix=Path(__file__).with_name('install_review_tools.py').read_text()
+    with Path(destination).open('x') as stream:stream.write(prefix+'\n'+suffix)
+    return hashlib.sha256(Path(destination).read_bytes()).hexdigest()
