@@ -52,3 +52,7 @@ Building/verifying a package is not installation. A protected staging procedure,
 wrapper selection and any production deployment require separate review. This
 source change neither installs commands nor modifies existing services. The
 existing history service and operational workflow releases remain independent.
+
+The next source bundle additionally supports `events` for the managed-event receiver;
+see [managed sync](engineering-history-managed-sync.md). Previously installed immutable
+releases retain only the modes included when they were staged.

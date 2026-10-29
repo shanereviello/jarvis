@@ -1,5 +1,9 @@
 # Ordered implementation backlog and acceptance specification
 
+For current deployed capabilities and remaining sections, see the
+[implementation status matrix](../engineering-history-implementation-status.md).
+This document retains the original ordered design and historical slice notes.
+
 Current rollout: the operator deferred the encrypted-backup/restore gate on
 2026-10-23. See [the superseding decision](engineering-history-backup-deferral.md).
 Other isolation and merge/install/activation requirements remain in effect.

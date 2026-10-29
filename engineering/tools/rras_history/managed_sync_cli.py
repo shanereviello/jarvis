@@ -16,7 +16,9 @@ def main(argv=None):
     for name in ('init','inspect','apply','resume','status'):
         p=sub.add_parser(name);p.add_argument('--state',required=True)
         if name=='init':
-            p.add_argument('--work-request',required=True);p.add_argument('--packet',required=True)
+            p.add_argument('--work-request',required=True)
+            source=p.add_mutually_exclusive_group(required=True)
+            source.add_argument('--packet');source.add_argument('--handoff')
             p.add_argument('--socket',required=True);p.add_argument('--service-uid',type=int,required=True)
         if name in ('inspect','apply'):p.add_argument('--handoff',required=True)
         if name in ('apply','resume'):p.add_argument('--capture-sha256',required=True)
@@ -25,7 +27,9 @@ def main(argv=None):
         sync=local('managed_sync');d=local('link_delivery');transport=local('unix')
         if args.operation=='init':
             call=lambda message:transport.call(args.socket,args.service_uid,message)
-            result=sync.initialize(Path(args.state),d.read(Path(args.work_request)),d.read(Path(args.packet)),args.socket,args.service_uid,call)
+            work=d.read(Path(args.work_request))
+            if args.handoff:result=sync.initialize_handoff(Path(args.state),work,Path(args.handoff),args.socket,args.service_uid,call)
+            else:result=sync.initialize(Path(args.state),work,d.read(Path(args.packet)),args.socket,args.service_uid,call)
         elif args.operation=='inspect':result=sync.inspect(Path(args.state),Path(args.handoff))
         elif args.operation=='status':result=sync.status(Path(args.state))
         else:

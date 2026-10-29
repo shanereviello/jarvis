@@ -68,7 +68,7 @@ def child(uid,args,journal,name,expected_return=0):
 def acceptance(release,expected,journal):
     entry=str(release/'engineering/tools/rras_history/review_tools_entry.py')
     for uid in (0,1000):
-        for mode in ('export','intake'):
+        for mode in ('export','intake','events'):
             result=child(uid,[entry,'--manifest-sha256',expected,mode,'--help'],journal,f'help-{uid}-{mode}')
             if b'usage:' not in result.stdout:raise ValueError('command dispatch absent')
     for uid in (1000,996):

@@ -30,7 +30,7 @@ def read(root,name):
 def run(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest-sha256',required=True)
-    parser.add_argument('mode',choices=('export','intake'))
+    parser.add_argument('mode',choices=('export','intake','events'))
     parser.add_argument('arguments',nargs=argparse.REMAINDER)
     args=parser.parse_args(argv)
     root=Path(__file__).resolve().parents[3]
@@ -47,7 +47,8 @@ def run(argv=None):
                 name.endswith(('.pyc','.pth')) or '__pycache__' in p.parts):raise ValueError('unsafe package member')
         value=read(root,name);total+=len(value)
         if total>12*1024*1024 or hashlib.sha256(value).hexdigest()!=digest:raise ValueError('pinned package payload changed')
-    name='engineering/tools/rras_history/review_'+('export_cli' if args.mode=='export' else 'document_cli')+'.py'
+    command={'export':'review_export_cli','intake':'review_document_cli','events':'managed_sync_cli'}[args.mode]
+    name='engineering/tools/rras_history/'+command+'.py'
     if name not in manifest['files'] or 'engineering/tools/rras_history/review_tools_entry.py' not in manifest['files']:
         raise ValueError('packaged entrypoint absent')
     sys.path.insert(0,str(root/'vendor'))

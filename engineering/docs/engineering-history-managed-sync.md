@@ -68,3 +68,34 @@ unprivileged replay of an already approved capture left the history record count
 unchanged. This does not test a new coding run or automatic root-to-history wiring.
 Protected review-document binding, curated Jarvis publication, automatic lifecycle
 integration and GUI/web controls remain subsequent work.
+
+
+## Complete-handoff setup and pending visibility
+
+The source CLI also accepts `init --handoff HANDOFF` instead of `--packet`.
+Every page, digest, scope, work binding and cursor is validated before contacting
+history or creating the receiver state. The existing engineering work head must
+still match; setup never creates or revises work and writes no history records.
+Its returned capture hash is the exact digest to inspect and review before apply.
+
+The offline review-tools entrypoint adds an `events` mode forwarding this CLI:
+
+```text
+review_tools_entry.py --manifest-sha256 PACKAGE_SHA events init --state STATE --work-request WORK_JSON --handoff HANDOFF --socket SOCKET --service-uid SERVICE_UID
+review_tools_entry.py --manifest-sha256 PACKAGE_SHA events inspect --state STATE --handoff HANDOFF
+review_tools_entry.py --manifest-sha256 PACKAGE_SHA events apply --state STATE --handoff HANDOFF --capture-sha256 REVIEWED_SHA256
+review_tools_entry.py --manifest-sha256 PACKAGE_SHA events status --state STATE
+review_tools_entry.py --manifest-sha256 PACKAGE_SHA events resume --state STATE --capture-sha256 REVIEWED_SHA256
+```
+
+This mode requires a newly built and reviewed package. It is not added to an
+existing immutable release or installed by the two previously deployed review
+wrappers. Trusted root fact export remains separately selected and approved; there
+is no new root permission or automatic trigger in this client change.
+
+Status includes `pending_captures`: frozen capture identity, source cursor, event
+count and verified locally saved receipt count. It also identifies incomplete local
+setup without claiming delivery. A response lost after commit can leave server
+records present with zero saved receipts; explicit resume reconciles the original
+receipt. Pending input/receipt tampering refuses rather than reporting success.
+Source freshness remains `not_polled` even when no captures are pending.

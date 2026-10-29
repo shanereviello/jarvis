@@ -1,5 +1,7 @@
 # Engineering documentation
 
+- [Engineering-history implementation status](engineering-history-implementation-status.md): current deployed boundaries and exact position in the accepted backlog.
+
 - [Current phase closeout](workflow-phase-closeout.md): installed release, first managed acceptance, criterion-level evidence and remaining gaps.
 - [Reusable operator runbook](workflow-operator-runbook.md): proposal through explicit decisions/history using supported commands.
 
