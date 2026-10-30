@@ -7,10 +7,10 @@ verifies all package bytes before copying them to a new protected release and
 executing the root controller. Existing fixture state is refused; failures retain
 private evidence and are not automatically retried.
 
-The root is `/var/lib/rras-curated-writer-acceptance-attempt02-20261029`, the unit is
-`rras-curated-writer-acceptance-attempt02-20261029.service`, and the service numeric UID/GID
-is 61142. The controller refuses existing NSS allocations or active processes
-using that identity. A temporary locked, no-login account `rras-curated-writer-fixture-02` is created for that UID/GID. After successful host stop, fixture evidence is transferred to root custody and the exact temporary account/group is removed. On failure, preserve evidence and diagnose any retained identity; do not blindly delete or adopt it. No production unit is started,
+The root is `/var/lib/rras-curated-writer-acceptance-attempt03-20261029`, the unit is
+`rras-curated-writer-acceptance-attempt03-20261029.service`, and the service numeric UID/GID
+is 61143. The controller refuses existing NSS allocations or active processes
+using that identity. A temporary locked, no-login account `rras-curated-writer-fixture-03` is created for that UID/GID. After successful host stop, fixture evidence is transferred to root custody and the exact temporary account/group is removed. On failure, preserve evidence and diagnose any retained identity; do not blindly delete or adopt it. No production unit is started,
 stopped or changed.
 
 The writer unit is derived from the production launcher property builder, with
@@ -41,3 +41,11 @@ The probe permits supplementary membership only in its own primary group, and
 refuses every other group. No sandbox or capability restriction is removed.
 Failed unit journal, process return code and seed output are retained privately
 to make any further failure diagnosable without rerunning it.
+
+Attempt 02 successfully started Python, then stopped at a probe that enumerated
+`/sys/class/net`. A sysfs mount may reflect host interfaces despite process
+network namespace isolation. Attempt 03 checks a distinct `/proc/self/ns/net`
+against a root-owned fixture reference, then requires only loopback interfaces
+and no IPv4 routes in `/proc/self/net`. The `PrivateNetwork=yes` sandbox property
+is unchanged. The failed attempt-02 fixture and locked temporary identity remain
+preserved for explicit cleanup after diagnosis; attempt 03 does not adopt them.

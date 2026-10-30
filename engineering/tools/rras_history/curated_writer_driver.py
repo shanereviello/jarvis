@@ -13,10 +13,10 @@ import time
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
-STATE=Path('/var/lib/rras-curated-writer-acceptance-attempt02-20261029')
-UID=61142
-ACCOUNT='rras-curated-writer-fixture-02'
-UNIT='rras-curated-writer-acceptance-attempt02-20261029.service'
+STATE=Path('/var/lib/rras-curated-writer-acceptance-attempt03-20261029')
+UID=61143
+ACCOUNT='rras-curated-writer-fixture-03'
+UNIT='rras-curated-writer-acceptance-attempt03-20261029.service'
 PYTHON='/opt/rras-engineering/releases/native-10/venv/bin/python'
 ENV={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'}
 
@@ -138,6 +138,8 @@ def run():
     if STATE.exists() or STATE.is_symlink():raise ValueError('fixture exists; no retry')
     os.umask(0o077);mkdir(STATE,mode=0o711);mkdir(STATE/'private',UID);mkdir(STATE/'outside',UID)
     (STATE/'root-private').write_bytes(b'SYNTHETIC ROOT PRIVATE\n')
+    (STATE/'host-network.txt').write_text(os.readlink('/proc/self/ns/net')+'\n')
+    os.chmod(STATE/'host-network.txt',0o644)
     probe=str(ROOT/'engineering/tools/rras_history/curated_writer_probe.py')
     try:
         create_identity()
