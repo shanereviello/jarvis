@@ -90,3 +90,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Curated read-only endpoint](engineering-history-curated-reader.md): strict repository-scoped search/read using kernel-peer Unix transport; distinct-UID host acceptance and deployment remain separate.
 - [Curated reader host acceptance](engineering-history-curated-host-acceptance.md): fixed synthetic distinct-UID/ACL/search/withdrawal/revocation fixture; actual sudo result and deployment decisions remain separate.
 - [Curated production read entry/client](engineering-history-curated-production-entry.md): approved topology's hardened unit blueprint and read-only stdio MCP source; host/container acceptance and deployment remain separate.
+
+- [Curated publication request entry](engineering-history-curated-publication-entry.md) — exact packet binding; production sandbox and installation remain separate.
