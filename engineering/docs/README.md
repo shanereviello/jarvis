@@ -88,3 +88,4 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Curated retrieval preview](engineering-history-curated-preview.md): private explicit curation and bounded pinned search foundation; no publication or Jarvis access grant.
 - [Curated publication catalog](engineering-history-curated-publication.md): private local generation/receipt/withdrawal semantics and stale-cursor refusal; sharing transport remains separate.
 - [Curated read-only endpoint](engineering-history-curated-reader.md): strict repository-scoped search/read using kernel-peer Unix transport; distinct-UID host acceptance and deployment remain separate.
+- [Curated reader host acceptance](engineering-history-curated-host-acceptance.md): fixed synthetic distinct-UID/ACL/search/withdrawal/revocation fixture; actual sudo result and deployment decisions remain separate.
