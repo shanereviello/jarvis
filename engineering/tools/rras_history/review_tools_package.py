@@ -13,7 +13,7 @@ import subprocess
 LIMIT=12*1024*1024
 MANIFEST='release-manifest.json'
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in (
-    'contract','documents','unix','link_delivery','managed_sync','managed_link','review_document_link',
+    'contract','documents','unix','link_delivery','managed_sync','managed_sync_cli','managed_link','review_document_link',
     'review_document_export','review_document_cli','review_export_cli','review_tools_package','review_tools_entry'))|set(
     'engineering/contracts/'+name for name in ('engineering-history-v1.schema.json','engineering-managed-export-v1.schema.json'))|set(
     'engineering/docs/engineering-history-phase1/templates/'+name+'.md' for name in ('review','checkpoint','completion'))

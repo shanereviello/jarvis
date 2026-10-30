@@ -71,7 +71,7 @@ def locked(root):
     finally:os.close(fd)
 
 
-def capture(config,handoff):
+def handoff_inputs(handoff):
     d=local('link_delivery');handoff=d.guard(handoff);meta=d.read(handoff/'export-result.json')
     members=meta.get('packets') if type(meta) is dict else None
     if type(members) is not list or not 1<=len(members)<=101:raise ValueError('bounded export packet list required')
@@ -79,7 +79,21 @@ def capture(config,handoff):
     for index,member in enumerate(members):
         if type(member) is not dict or member.get('file')!=f'packet-{index:03d}.json':raise ValueError('fixed export packet name required')
         packets.append(d.read(handoff/member['file']))
-    return captured(config,meta,packets)
+    return meta,packets
+
+
+def capture(config,handoff):
+    return captured(config,*handoff_inputs(handoff))
+
+
+def initialize_handoff(root,work,handoff,socket,service_uid,call):
+    # Validate every page before contacting history or creating receiver state.
+    work=local('contract').validate(work);meta,packets=handoff_inputs(handoff)
+    binding=local('managed_link').plan(work,packets[0])['binding']
+    bundle=captured({'work_request':work,'binding':binding},meta,packets)
+    result=initialize(root,work,packets[0],socket,service_uid,call)
+    return dict(result,capture_sha256=bundle['sha256'],pages=len(packets),
+                source_events=sum(len(p['facts']) for p in packets),history_records_written=False)
 
 
 def captured(config,meta,values):
@@ -197,8 +211,34 @@ def run_capture(root,config,bundle,expected_capture_sha256,call):
 
 def status(root):
     root=Path(root);config=configuration(root);known,high,count=completed(root,config)
+    pending=[];d=local('link_delivery')
+    for directory in sorted((root/'captures').iterdir()):
+        if (directory/'complete.json').exists():continue
+        saved_path=directory/'input.json'
+        if not saved_path.exists():
+            pending.append({'capture_sha256':directory.name.removeprefix('capture-'),'state':'incomplete_local_setup'})
+            continue
+        saved=d.read(saved_path)
+        if set(saved)!={'manifest','packets'}:raise ValueError('pending capture input differs')
+        bundle=captured(config,saved['manifest'],saved['packets'])
+        if directory.name!='capture-'+bundle['sha256']:raise ValueError('pending capture identity differs')
+        receipts=0;total=sum(len(plan['requests']) for plan in bundle['plans'])
+        for index,plan in enumerate(bundle['plans']):
+            page=directory/f'page-{index:03d}'
+            if not page.exists():continue
+            d.guard(page);plan_path=page/'plan.json'
+            if not plan_path.exists():continue
+            if d.read(plan_path)!={'work_request':config['work_request'],'packet':bundle['packets'][index],'plan':plan}:
+                raise ValueError('pending page differs')
+            for number,request in enumerate(plan['requests']):
+                receipt=page/f'receipt-{number:03d}.json'
+                if receipt.exists():
+                    d.check_receipt(d.read(receipt),request,config['service_uid'],config['writer_uid']);receipts+=1
+        pending.append({'capture_sha256':bundle['sha256'],'state':'pending','pages':len(bundle['plans']),
+                        'source_cursor':bundle['manifest']['next_after'],'source_events':total,'saved_receipts':receipts})
     return {'work_item_id':config['binding']['work_item_id'],'completed_captures':count,'unique_linked_source_events':len(known),
-            'completed_source_cursor':high,'source_freshness':'not_polled','automatic_capture':False,'authority_granted':False}
+            'completed_source_cursor':high,'pending_captures':pending,'source_freshness':'not_polled',
+            'automatic_capture':False,'authority_granted':False}
 
 
 def completion(bundle,config):

@@ -76,15 +76,16 @@ def test_build_reads_committed_bytes_and_offline_vendor(tmp_path):
     assert not (tmp_path/'wrong').exists()
 
 
-def test_entry_verifies_before_dispatch_and_forwards_help(candidate,monkeypatch,capsys):
+@pytest.mark.parametrize('mode,target',[('intake','review_document_cli'),('events','managed_sync_cli')])
+def test_entry_verifies_before_dispatch_and_forwards_help(candidate,monkeypatch,capsys,mode,target):
     root,_,manifest=candidate;entry=module('review_tools_entry')
-    path=root/'engineering/tools/rras_history/review_document_cli.py'
+    path=root/('engineering/tools/rras_history/'+target+'.py')
     path.write_text('def main(argv):\n print("dispatched", argv)\n')
     manifest['files'][path.relative_to(root).as_posix()]=hashlib.sha256(path.read_bytes()).hexdigest()
     sha=rewrite(root,manifest)
     monkeypatch.setattr(entry,'__file__',str(root/'engineering/tools/rras_history/review_tools_entry.py'))
-    entry.run(['--manifest-sha256',sha,'intake','--help'])
+    entry.run(['--manifest-sha256',sha,mode,'--help'])
     assert "dispatched ['--help']" in capsys.readouterr().out
     path.write_text('raise AssertionError("changed code executed")')
-    with pytest.raises(ValueError,match='payload changed'):entry.run(['--manifest-sha256',sha,'intake'])
+    with pytest.raises(ValueError,match='payload changed'):entry.run(['--manifest-sha256',sha,mode])
     with pytest.raises(ValueError,match='manifest changed'):entry.run(['--manifest-sha256','f'*64,'export'])
