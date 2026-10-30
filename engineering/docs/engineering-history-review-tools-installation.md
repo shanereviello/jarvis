@@ -43,3 +43,26 @@ run preflight and the explicit install command using sudo. Verify installed byte
 and both help paths afterward. This operation creates no service, account, socket,
 scheduler, provider call or history record. Existing history and workflow services
 are not restarted and the existing `rras-history-client` is untouched.
+
+## Managed-event sync installation profile
+
+`review_tools_package.emit_events_install_helper(destination)` reuses the same
+first-install implementation with a fixed, separately reviewed profile:
+
+- Only `/usr/local/bin/rras-history-managed-sync`, pinned to `events` mode.
+- Separate private journal under `/var/lib/rras-history-managed-sync-installations`.
+
+The profile is embedded in the emitted helper, not selected through arbitrary
+caller-supplied target paths. It neither replaces nor requires removal of the
+installed review-export/document wrappers. Their original release pins remain.
+It verifies the separately staged event-capable release and that release's exact
+host acceptance before publishing the new command. Existing target, pending file
+or installation evidence refuses adoption. Production installation still requires
+its own decision and sudo; a source merge or previously approved review-wrapper
+installation does not authorize this new command.
+
+Once installed, the event-sync command exposes init/inspect/apply/resume/status.
+It imports only explicitly selected operational facts into an existing exact
+engineering work revision. It does not poll the root source, create history work,
+start a task, approve execution or enable a scheduler. Individual export/intake
+selections and provenance rules remain in force.
