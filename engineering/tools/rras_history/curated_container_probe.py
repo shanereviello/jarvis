@@ -27,8 +27,14 @@ def boundary(uid):
     if set(os.environ)-{'PATH','HOME','LANG'}:raise ValueError('container provider environment retained')
 
 
+def is_error(result):
+    # SDK 2 client models expose snake_case; SDK 1 uses the wire spelling.
+    if hasattr(result,'is_error'):return result.is_error is True
+    return result.isError is True
+
+
 def value(result):
-    if result.isError:raise ValueError('expected successful MCP result')
+    if is_error(result):raise ValueError('expected successful MCP result')
     return json.loads(result.content[0].text)
 
 
@@ -44,7 +50,7 @@ async def client(role,context):
             if {tool.name for tool in tools.tools}!={'engineering_history_search','engineering_history_read'}:raise ValueError('MCP authority expanded')
             async def search(**extra):return await session.call_tool('engineering_history_search',{'repository_id':'example_library',**extra})
             if role=='revoked':
-                if not (await search()).isError:raise ValueError('revoked client retrieved content')
+                if not is_error(await search()):raise ValueError('revoked client retrieved content')
                 return {'revoked':True}
             page=value(await search())
             if role=='read':
@@ -52,8 +58,8 @@ async def client(role,context):
                 entry=page['entries'][0];context={'entry_id':entry['entry_id'],'generation_sha256':page['generation_sha256']}
                 exact=value(await session.call_tool('engineering_history_read',{'repository_id':'example_library',**context}))
                 if exact['entry']!=entry or exact['authority_granted'] is not False or exact['human_authenticated'] is not False:raise ValueError('MCP read evidence differs')
-                if not (await session.call_tool('engineering_history_search',{'repository_id':'other_repo'})).isError:raise ValueError('other repository accessible')
-                if not (await session.call_tool('publish',{})).isError:raise ValueError('publication tool accessible')
+                if not is_error(await session.call_tool('engineering_history_search',{'repository_id':'other_repo'})):raise ValueError('other repository accessible')
+                if not is_error(await session.call_tool('publish',{})):raise ValueError('publication tool accessible')
                 if b'SYNTHETIC PRIVATE' in json.dumps(page).encode():raise ValueError('private prose disclosed')
                 for method in ('history','document','publish','withdraw','approve','launch','merge','deploy'):
                     try:local('curated_read_unix').call(SOCKET,SERVICE,{'method':method,'repository_id':'example_library'})
@@ -61,8 +67,8 @@ async def client(role,context):
                     else:raise ValueError('private/action socket route accessible')
                 return {'exact_mcp_read':True,'context':context}
             if role!='withdrawn' or page['entries']:raise ValueError('withdrawal differs')
-            if not (await search(generation_sha256=context['generation_sha256'])).isError:raise ValueError('stale search accessible')
-            if not (await session.call_tool('engineering_history_read',{'repository_id':'example_library',**context})).isError:raise ValueError('stale entry accessible')
+            if not is_error(await search(generation_sha256=context['generation_sha256'])):raise ValueError('stale search accessible')
+            if not is_error(await session.call_tool('engineering_history_read',{'repository_id':'example_library',**context})):raise ValueError('stale entry accessible')
             return {'withdrawn_and_stale_refused':True}
 
 

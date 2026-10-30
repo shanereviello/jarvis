@@ -48,3 +48,12 @@ def test_pinned_package_and_stdlib_bootstrap(tmp_path):
     assert 'curated_container_driver.py' in helper.read_text()
     (root/'vendor/dependency.py').write_text('changed')
     with pytest.raises(ValueError):p.verify(root,sha)
+
+
+def test_mcp_client_error_flag_across_sdk_models():
+    from types import SimpleNamespace
+    probe=module('curated_container_probe')
+    assert probe.is_error(SimpleNamespace(is_error=True))
+    assert probe.is_error(SimpleNamespace(isError=True))
+    assert not probe.is_error(SimpleNamespace(is_error=False))
+    with pytest.raises(AttributeError):probe.is_error(SimpleNamespace())
