@@ -92,3 +92,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Curated production read entry/client](engineering-history-curated-production-entry.md): approved topology's hardened unit blueprint and read-only stdio MCP source; host/container acceptance and deployment remain separate.
 
 - [Curated publication request entry](engineering-history-curated-publication-entry.md) — exact packet binding; production sandbox and installation remain separate.
+
+- [Protected curated publication launch](engineering-history-curated-publication-launch.md) — fixed catalog writer sandbox and attempt fence; actual host acceptance pending.
