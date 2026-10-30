@@ -85,3 +85,4 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Inactive review tools staging](engineering-history-review-tools-staging.md): verified protected payload staging and isolated host command/permission checks; no wrappers or service changes.
 - [Review tools first installation](engineering-history-review-tools-installation.md): explicit, exclusive publication of pinned export/intake wrappers over a host-verified release; separate production decision.
 - [Managed history refresh](engineering-history-managed-refresh.md): passive exact-revision export proposals, protected snapshot review and installed receiver refresh/recovery; no automatic trigger.
+- [Curated retrieval preview](engineering-history-curated-preview.md): private explicit curation and bounded pinned search foundation; no publication or Jarvis access grant.
