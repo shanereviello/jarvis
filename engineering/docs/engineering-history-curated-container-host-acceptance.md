@@ -3,7 +3,7 @@
 This isolated acceptance connects the actual curated read service entry and stdio
 MCP client through a real host Unix socket. It uses a new protected synthetic
 state root, a dedicated fixture systemd unit and temporary locked service account
-UID/GID 61151. The reader is UID 61152, with a repository-only grant; there is no
+UID/GID 61154. The reader is UID 61155, with a repository-only grant; there is no
 service-owner, operator or root grant on the container-reachable socket.
 
 The service command derives the production unit blueprint with explicit fixture
@@ -44,3 +44,12 @@ tests do not establish host success. Actual operator sudo acceptance is required
 This rehearsal does not install or activate the production curated reader, edit
 Hermes configuration, publish real history, invoke the root production writer
 launcher/UID-995 CLI or grant execution authority. Those gates remain separate.
+
+The effective catalog filesystem is checked through `/proc/PID/root` using the
+kernel `statvfs` read-only flag. A separate mountinfo row exactly at the catalog
+path is not required: systemd may enforce read-only access through an ancestor
+mount. A writable effective filesystem is still refused. `ReadOnlyPaths` and
+`ProtectSystem=strict` are unchanged. The earlier attempt stopped at the overly
+specific mountinfo assertion; its evidence and temporary locked identity remain
+preserved pending separate cleanup. The current fresh fixture uses its own paths,
+service account and numeric IDs.

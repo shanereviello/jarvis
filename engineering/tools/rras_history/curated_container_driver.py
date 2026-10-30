@@ -13,13 +13,13 @@ import traceback
 import stat
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
-STATE=Path('/var/lib/rras-curated-container-acceptance-20261029')
-RUNTIME=Path('/run/rras-curated-container-acceptance-20261029')
-UNIT='rras-curated-container-acceptance-20261029.service'
-ACCOUNT='rras-curated-reader-fixture-01'
-SERVICE=61151
-CLIENT=61152
-CONTAINER='rras-curated-container-acceptance-20261029-client'
+STATE=Path('/var/lib/rras-curated-container-acceptance-attempt03-20261030')
+RUNTIME=Path('/run/rras-curated-container-acceptance-attempt03-20261030')
+UNIT='rras-curated-container-acceptance-attempt03-20261030.service'
+ACCOUNT='rras-curated-reader-fixture-02'
+SERVICE=61154
+CLIENT=61155
+CONTAINER='rras-curated-container-acceptance-attempt03-20261030-client'
 LABEL='rras.fixture=curated-container-acceptance-20261029'
 IMAGE='sha256:b99f4564d5e17ec0183314c0d2f6f633657cff4916fad0f05f6e7667722da432'
 PYTHON='/opt/rras-engineering/releases/native-10/venv/bin/python'
@@ -56,7 +56,7 @@ def reader_command():
 
 
 def container_command(role,uid=CLIENT):
-    if role not in ('read','withdrawn','revoked','denied') or uid not in (CLIENT,61153,996,1000,SERVICE,0):raise ValueError('fixed container role required')
+    if role not in ('read','withdrawn','revoked','denied') or uid not in (CLIENT,61156,996,1000,SERVICE,0):raise ValueError('fixed container role required')
     if role!='denied' and uid!=CLIENT:raise ValueError('fixed MCP reader required')
     return ['/usr/bin/docker','run','--rm','--name',CONTAINER,'--label',LABEL,'--stop-timeout','5','-i','--pull=never','--network','none','--read-only',
         '--cap-drop','ALL','--cap-add','SETUID','--cap-add','SETGID','--cap-add','SETPCAP','--security-opt','no-new-privileges:true',
@@ -97,6 +97,13 @@ def start():
     raise ValueError('reader did not become active with socket')
 
 
+def verify_catalog_read_only(proc,catalog):
+    # /proc/PID/root traverses the target mount namespace, including an inherited
+    # read-only ancestor; a separate bind mount at this exact path is optional.
+    target=proc/'root'/str(catalog).lstrip('/')
+    if not os.statvfs(target).f_flag & os.ST_RDONLY:raise ValueError('reader catalog filesystem not read-only')
+
+
 def verify_reader(pid):
     proc=Path('/proc')/str(pid)
     info=dict(line.split(':',1) for line in (proc/'status').read_text().splitlines() if ':' in line)
@@ -105,9 +112,7 @@ def verify_reader(pid):
     if info['NoNewPrivs'].strip()!='1' or any(int(info[key].strip(),16) for key in ('CapEff','CapPrm','CapInh','CapBnd','CapAmb')):
         raise ValueError('actual reader privileges retained')
     if os.readlink(proc/'ns/net')==os.readlink('/proc/self/ns/net'):raise ValueError('reader uses host network namespace')
-    mounts=[line.split() for line in (proc/'mountinfo').read_text().splitlines()]
-    catalog=str(STATE/'private/catalog')
-    if not any(row[4]==catalog and 'ro' in row[5].split(',') for row in mounts):raise ValueError('reader catalog mount not read-only')
+    verify_catalog_read_only(proc,STATE/'private/catalog')
     for path in (STATE/'private/history',STATE/'source',Path('/var/lib/rras-engineering-history')):
         masked=proc/'root'/str(path).lstrip('/')
         if stat.S_IMODE(masked.stat().st_mode)!=0:raise ValueError('reader private path not masked')
@@ -156,7 +161,7 @@ def run():
     for path in (STATE,RUNTIME):
         if path.exists() or path.is_symlink():raise ValueError('preserve prior fixture state')
     if status().get('LoadState')!='not-found':raise ValueError('fixture unit exists')
-    for uid in (SERVICE,CLIENT,61153):
+    for uid in (SERVICE,CLIENT,61156):
         for lookup in (pwd.getpwuid,grp.getgrgid):
             try:lookup(uid)
             except KeyError:continue
@@ -168,7 +173,7 @@ def run():
     for path in Path('/proc').glob('[0-9]*/status'):
         try:lines=path.read_text().splitlines()
         except (FileNotFoundError,ProcessLookupError):continue
-        if any(line.startswith(('Uid:','Gid:')) and set(line.split()[1:])&{str(SERVICE),str(CLIENT),'61153'} for line in lines):raise ValueError('fixture identity active')
+        if any(line.startswith(('Uid:','Gid:')) and set(line.split()[1:])&{str(SERVICE),str(CLIENT),'61156'} for line in lines):raise ValueError('fixture identity active')
     image=command(['/usr/bin/docker','image','inspect','--format','{{.Id}}',IMAGE])
     if image.returncode or image.stdout.decode().strip()!=IMAGE:raise ValueError('pinned image unavailable')
     container=command(['/usr/bin/docker','inspect',CONTAINER])
@@ -193,7 +198,7 @@ def run():
         write_policy(True);start()
         first=checked(container_command('read'),b'{}')
         if first.get('exact_mcp_read') is not True:raise ValueError('actual MCP read differs')
-        for uid in (61153,996,1000,SERVICE,0):
+        for uid in (61156,996,1000,SERVICE,0):
             if checked(container_command('denied',uid),b'{}').get('ungranted_peer_denied') is not True:raise ValueError('ungranted peer accessed catalog')
         stop()
         if checked(owner_command('withdraw')).get('withdrawn') is not True:raise ValueError('withdrawal differs')

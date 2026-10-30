@@ -6,8 +6,8 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
-STATE=Path('/var/lib/rras-curated-container-acceptance-20261029')
-SERVICE=61151
+STATE=Path('/var/lib/rras-curated-container-acceptance-attempt03-20261030')
+SERVICE=61154
 
 
 def run(role):

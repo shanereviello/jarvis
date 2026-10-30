@@ -8,8 +8,8 @@ import sys
 
 ROOT=Path('/opt/curated-fixture')
 sys.path.insert(0,str(ROOT/'vendor'))
-SERVICE=61151
-CLIENT=61152
+SERVICE=61154
+CLIENT=61155
 SOCKET='/run/curated-fixture/read.sock'
 
 

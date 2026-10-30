@@ -12,9 +12,9 @@ def test_reader_blueprint_has_only_fixture_reader_and_paths():
     assert '--unit='+d.UNIT in argv and 'rras-curated-history-read.service' not in argv
     for value in ('User='+d.ACCOUNT,'ProtectSystem=strict','PrivateNetwork=yes','NoNewPrivileges=yes','CapabilityBoundingSet=',
                   'ReadOnlyPaths='+str(d.STATE/'private/catalog'),'ReadWritePaths='+str(d.RUNTIME)):assert value in props
-    assert d.policy()['principals']==[{'uid':61152,'repositories':['example_library']}]
+    assert d.policy()['principals']==[{'uid':61155,'repositories':['example_library']}]
     assert d.policy(False)['principals']==[]
-    assert all(item['uid'] not in (0,1000,61151) for item in d.policy()['principals'])
+    assert all(item['uid'] not in (0,1000,61154) for item in d.policy()['principals'])
 
 
 def test_pinned_container_mounts_only_code_and_socket_with_root_drop():
@@ -24,7 +24,7 @@ def test_pinned_container_mounts_only_code_and_socket_with_root_drop():
     assert d.IMAGE in argv and '--pull=never' in argv
     assert argv[argv.index('--network')+1]=='none'
     for flag in ('--read-only','--clear-groups','--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all','--no-new-privs'):assert flag in argv
-    assert argv[argv.index('--reuid')+1]=='61152'
+    assert argv[argv.index('--reuid')+1]=='61155'
     with pytest.raises(ValueError):d.container_command('read',0)
     with pytest.raises(ValueError):d.container_command('denied',42)
 
@@ -69,3 +69,15 @@ def test_docker_missing_case_variants(message):
 def test_docker_other_errors_do_not_count_as_absent(code,message):
     from types import SimpleNamespace
     assert not d.container_absent(SimpleNamespace(returncode=code,stderr=message))
+
+
+def test_effective_catalog_read_only_even_without_exact_mount_entry(monkeypatch):
+    from types import SimpleNamespace
+    import os
+    seen=[]
+    def readonly(path):seen.append(path);return SimpleNamespace(f_flag=os.ST_RDONLY)
+    monkeypatch.setattr(d.os,'statvfs',readonly)
+    d.verify_catalog_read_only(Path('/proc/123'),Path('/var/lib/synthetic/catalog'))
+    assert seen==[Path('/proc/123/root/var/lib/synthetic/catalog')]
+    monkeypatch.setattr(d.os,'statvfs',lambda _:SimpleNamespace(f_flag=0))
+    with pytest.raises(ValueError,match='not read-only'):d.verify_catalog_read_only(Path('/proc/123'),Path('/var/lib/synthetic/catalog'))
