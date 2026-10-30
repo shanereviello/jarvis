@@ -7,8 +7,8 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
-STATE=Path('/var/lib/rras-curated-writer-acceptance-20261029')
-UID=61141
+STATE=Path('/var/lib/rras-curated-writer-acceptance-attempt02-20261029')
+UID=61142
 
 
 def local(name):
@@ -24,7 +24,7 @@ def denied(path,write=False):
 
 
 def run(role):
-    if os.getuid()!=UID or os.geteuid()!=UID or os.getgid()!=UID or os.getgroups():raise ValueError('numeric fixture identity differs')
+    if os.getuid()!=UID or os.geteuid()!=UID or os.getgid()!=UID or not set(os.getgroups())<={UID}:raise ValueError('numeric fixture identity differs')
     catalog=STATE/'private/catalog';pub=local('curated_publication');c=local('contract')
     if role=='seed':
         pub.initialize(catalog,['example_library'])

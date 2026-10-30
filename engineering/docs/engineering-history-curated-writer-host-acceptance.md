@@ -7,10 +7,10 @@ verifies all package bytes before copying them to a new protected release and
 executing the root controller. Existing fixture state is refused; failures retain
 private evidence and are not automatically retried.
 
-The root is `/var/lib/rras-curated-writer-acceptance-20261029`, the unit is
-`rras-curated-writer-acceptance-20261029.service`, and the service numeric UID/GID
-is 61141. The controller refuses existing NSS allocations or active processes
-using that identity. No account is created. No production unit is started,
+The root is `/var/lib/rras-curated-writer-acceptance-attempt02-20261029`, the unit is
+`rras-curated-writer-acceptance-attempt02-20261029.service`, and the service numeric UID/GID
+is 61142. The controller refuses existing NSS allocations or active processes
+using that identity. A temporary locked, no-login account `rras-curated-writer-fixture-02` is created for that UID/GID. After successful host stop, fixture evidence is transferred to root custody and the exact temporary account/group is removed. On failure, preserve evidence and diagnose any retained identity; do not blindly delete or adopt it. No production unit is started,
 stopped or changed.
 
 The writer unit is derived from the production launcher property builder, with
@@ -32,3 +32,12 @@ not invoke the root production launcher, test its real UID-995 CLI, install the
 production catalog, test the reader unit, or connect Hermes to a host socket.
 Those gates remain explicit. Unit property/syntax and package tests alone are not
 host acceptance; only an operator sudo run can establish actual host results.
+
+The first fixture attempt (UID 61141, original dated paths) stopped at systemd
+`217/USER` before Python produced output. The original evidence is retained.
+Attempt 02 adds the temporary NSS identity required by this host, using the locked
+account command pattern already exercised by the earlier history unit fixture.
+The probe permits supplementary membership only in its own primary group, and
+refuses every other group. No sandbox or capability restriction is removed.
+Failed unit journal, process return code and seed output are retained privately
+to make any further failure diagnosable without rerunning it.

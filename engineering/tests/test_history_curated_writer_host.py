@@ -23,8 +23,8 @@ def candidate(tmp_path):
 def test_pinned_fixture_and_production_scope_refusal(candidate):
     root,sha=candidate
     assert p.verify(root,sha)[0]['scope']=='isolated-synthetic-only'
-    assert p.STATE==d.STATE==Path('/var/lib/rras-curated-writer-acceptance-20261029')
-    assert d.UID==61141 and d.UNIT!='rras-curated-publication.service'
+    assert p.STATE==d.STATE==Path('/var/lib/rras-curated-writer-acceptance-attempt02-20261029')
+    assert d.UID==61142 and d.UNIT!='rras-curated-publication.service'
     with pytest.raises(ValueError):p.verify(root,'0'*64)
     (root/'vendor/dependency.py').write_text('changed')
     with pytest.raises(ValueError):p.verify(root,sha)
@@ -34,7 +34,7 @@ def test_real_blueprint_retained_except_explicit_fixture_substitutions():
     argv=d.unit_command('publish')
     assert '--unit='+d.UNIT in argv and '--unit=rras-curated-publication.service' not in argv
     props=[argv[i+1] for i,value in enumerate(argv) if value=='--property']
-    assert 'User=61141' in props and 'Group=61141' in props
+    assert 'User=61142' in props and 'Group=61142' in props
     assert [value for value in props if value.startswith('ReadWritePaths=')]==['ReadWritePaths='+str(d.STATE/'private/catalog')]
     for value in ('ProtectSystem=strict','PrivateNetwork=yes','NoNewPrivileges=yes','CapabilityBoundingSet=','KillMode=control-group'):assert value in props
     assert argv[-1]=='publish' and 'curated_writer_probe.py' in argv[-2]
@@ -53,3 +53,17 @@ def test_bootstrap_exact_bytes_before_root_import(candidate,tmp_path):
     root,expected=candidate;assert boot.verify(root,expected)[0]['scope']=='isolated-synthetic-only'
     assert 'curated_writer_driver.py' in helper.read_text()
     assert 'history-curated-writer-host-' in helper.read_text()
+
+
+def test_temporary_identity_is_locked_without_home_or_mail_override(monkeypatch):
+    calls=[]
+    monkeypatch.setattr(d,'identity_command',lambda argv,tag:calls.append((argv,tag)))
+    monkeypatch.setattr(d,'verify_identity',lambda:None)
+    d.create_identity()
+    assert calls[0][0]==['/usr/sbin/groupadd','--gid','61142',d.ACCOUNT]
+    user=calls[1][0]
+    assert user[0]=='/usr/sbin/useradd' and user[-1]==d.ACCOUNT
+    for flag in ('--no-create-home','--no-log-init','--no-user-group'):assert flag in user
+    assert user[user.index('--shell')+1]=='/usr/sbin/nologin'
+    assert user[user.index('--password')+1]=='!'
+    assert '-K' not in user

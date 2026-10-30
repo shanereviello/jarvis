@@ -12,7 +12,7 @@ import subprocess
 
 LIMIT=12*1024*1024
 MANIFEST='release-manifest.json'
-STATE=Path('/var/lib/rras-curated-writer-acceptance-20261029')
+STATE=Path('/var/lib/rras-curated-writer-acceptance-attempt02-20261029')
 SERVICE=61121
 CLIENT=61122
 UNKNOWN=61123
