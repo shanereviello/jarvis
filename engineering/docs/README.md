@@ -86,3 +86,4 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Review tools first installation](engineering-history-review-tools-installation.md): explicit, exclusive publication of pinned export/intake wrappers over a host-verified release; separate production decision.
 - [Managed history refresh](engineering-history-managed-refresh.md): passive exact-revision export proposals, protected snapshot review and installed receiver refresh/recovery; no automatic trigger.
 - [Curated retrieval preview](engineering-history-curated-preview.md): private explicit curation and bounded pinned search foundation; no publication or Jarvis access grant.
+- [Curated publication catalog](engineering-history-curated-publication.md): private local generation/receipt/withdrawal semantics and stale-cursor refusal; sharing transport remains separate.
