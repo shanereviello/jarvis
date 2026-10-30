@@ -137,7 +137,13 @@ def search(root,repository_id,query,*,generation_sha256=None,offset=0,limit=20):
     if type(repository_id) is not str or repository_id not in config['repositories']:raise ValueError('repository access refused')
     if offset!=0 and generation_sha256 is None:raise ValueError('generation-bound page cursor required')
     rows=chain(root,config)
-    if not rows:raise ValueError('no published generation')
+    if not rows:
+        if generation_sha256 is not None:raise ValueError('stale catalog cursor; discard cached results')
+        c=local('contract')
+        empty={'contract':'engineering-curated-preview.v1','audience':'jarvis_candidate','visibility':'operator_private',
+               'publication_authorized':False,'authority_granted':False,'source_freshness':'not_polled','entries':[]}
+        answer=local('curated_preview').search(empty,c.digest(c.encoded(empty)),repository_id,query,offset=offset,limit=limit)
+        return dict(answer,generation_sha256=None,publication_recorded=False,human_authenticated=False,catalog_state='empty')
     current,value=rows[0]
     if generation_sha256 is not None and generation_sha256!=current:raise ValueError('stale catalog cursor; discard cached results')
     c=local('contract');answer=local('curated_preview').search(value['preview'],c.digest(c.encoded(value['preview'])),repository_id,query,offset=offset,limit=limit)
