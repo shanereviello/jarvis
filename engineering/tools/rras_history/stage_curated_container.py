@@ -43,7 +43,7 @@ def stage(candidate,expected):
         for line in err.splitlines():
             try:record=decode(line)
             except (ValueError,UnicodeError):continue
-            if type(record) is dict and record.get('phase')=='curated_read_host_stopped':print(json.dumps(record),file=sys.stderr)
+            if type(record) is dict and record.get('phase')=='curated_container_host_stopped':print(json.dumps(record),file=sys.stderr)
         raise ValueError('managed host fixture stopped; preserve evidence')
     result=decode(out)
     if result.get('phase')!='isolated_curated_reader_container_verified' or result.get('api_calls')!=0:raise ValueError('fixture result differs')

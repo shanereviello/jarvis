@@ -125,10 +125,15 @@ def stop():
     raise ValueError('reader host stop not established')
 
 
+def container_absent(result):
+    message=result.stderr.lower()
+    return result.returncode!=0 and (b'no such object:' in message or b'no such container:' in message)
+
+
 def cleanup_container():
     info=command(['/usr/bin/docker','inspect',CONTAINER])
     if info.returncode:
-        if b'No such object' in info.stderr or b'No such container' in info.stderr:return
+        if container_absent(info):return
         raise ValueError('cannot establish fixture container state')
     rows=json.loads(info.stdout)
     if len(rows)!=1:raise ValueError('unexpected fixture container identity')
@@ -138,7 +143,7 @@ def cleanup_container():
     stopped=command(['/usr/bin/docker','stop','--time','5',CONTAINER])
     if stopped.returncode:raise ValueError('fixture container stop failed')
     info=command(['/usr/bin/docker','inspect',CONTAINER])
-    if info.returncode==0 or not (b'No such object' in info.stderr or b'No such container' in info.stderr):
+    if not container_absent(info):
         raise ValueError('fixture container removal not established')
 
 
@@ -167,7 +172,7 @@ def run():
     image=command(['/usr/bin/docker','image','inspect','--format','{{.Id}}',IMAGE])
     if image.returncode or image.stdout.decode().strip()!=IMAGE:raise ValueError('pinned image unavailable')
     container=command(['/usr/bin/docker','inspect',CONTAINER])
-    if container.returncode==0 or not (b'No such object' in container.stderr or b'No such container' in container.stderr):raise ValueError('fixture container name not absent')
+    if not container_absent(container):raise ValueError('fixture container name not absent')
     os.umask(0o077);STATE.mkdir(mode=0o711);os.chmod(STATE,0o711)
     engine=local('curated_writer_driver');engine.STATE=STATE;engine.UID=SERVICE;engine.ACCOUNT=ACCOUNT
     counter=[0]
@@ -223,5 +228,8 @@ def run():
 
 if __name__=='__main__':
     try:print(json.dumps(run()))
-    except Exception:
+    except Exception as error:
+        frames=[{'file':Path(frame.filename).name,'function':frame.name,'line':frame.lineno} for frame in traceback.extract_tb(error.__traceback__)]
+        print(json.dumps({'phase':'curated_container_host_stopped','exception_type':type(error).__name__,'frames':frames,
+                          'protected_evidence':str(STATE),'automatic_retry':False}),file=sys.stderr)
         sys.stderr.write('Curated reader/container acceptance stopped; preserve protected evidence. No automatic retry.\n');raise SystemExit(1)

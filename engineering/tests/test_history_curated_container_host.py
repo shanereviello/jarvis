@@ -57,3 +57,15 @@ def test_mcp_client_error_flag_across_sdk_models():
     assert probe.is_error(SimpleNamespace(isError=True))
     assert not probe.is_error(SimpleNamespace(is_error=False))
     with pytest.raises(AttributeError):probe.is_error(SimpleNamespace())
+
+
+@pytest.mark.parametrize('message',[b'Error: No such object: fixture',b'error: no such object: fixture',b'Error: No such container: fixture'])
+def test_docker_missing_case_variants(message):
+    from types import SimpleNamespace
+    assert d.container_absent(SimpleNamespace(returncode=1,stderr=message))
+
+
+@pytest.mark.parametrize('code,message',[(0,b''),(1,b'permission denied'),(1,b'Cannot connect to Docker daemon'),(1,b'no such file or directory')])
+def test_docker_other_errors_do_not_count_as_absent(code,message):
+    from types import SimpleNamespace
+    assert not d.container_absent(SimpleNamespace(returncode=code,stderr=message))
