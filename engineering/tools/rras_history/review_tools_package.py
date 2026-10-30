@@ -116,3 +116,17 @@ def emit_install_helper(destination):
     suffix=Path(__file__).with_name('install_review_tools.py').read_text()
     with Path(destination).open('x') as stream:stream.write(prefix+'\n'+suffix)
     return hashlib.sha256(Path(destination).read_bytes()).hexdigest()
+
+
+def emit_events_install_helper(destination):
+    """Reuse the exclusive installer for one new fixed events command only.
+
+    Existing export/intake wrappers are deliberately outside this profile.
+    """
+    prefix=Path(__file__).read_text().split('\ndef build(',1)[0]
+    source=Path(__file__).with_name('install_review_tools.py').read_text()
+    body,separator,main=source.partition("\nif __name__=='__main__':")
+    if not separator:raise ValueError('known installer entrypoint required')
+    profile="\nTARGETS={'events':Path('/usr/local/bin/rras-history-managed-sync')}\nINSTALLATIONS=Path('/var/lib/rras-history-managed-sync-installations')\n"
+    with Path(destination).open('x') as stream:stream.write(prefix+'\n'+body+profile+separator+main)
+    return hashlib.sha256(Path(destination).read_bytes()).hexdigest()

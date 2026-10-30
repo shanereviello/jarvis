@@ -11,8 +11,10 @@ package=module('review_tools_package')
 
 
 @pytest.fixture
-def ready(tmp_path,monkeypatch,candidate):
-    helper=tmp_path/'install.py';sha=package.emit_install_helper(helper)
+def ready(tmp_path,monkeypatch,candidate,request):
+    helper=tmp_path/'install.py'
+    emitter=package.emit_events_install_helper if getattr(request,'param',None)=='events' else package.emit_install_helper
+    sha=emitter(helper)
     assert hashlib.sha256(helper.read_bytes()).hexdigest()==sha
     spec=importlib.util.spec_from_file_location('install_adapter',helper);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
     root,digest,manifest=candidate;releases=tmp_path/'releases';releases.mkdir()
@@ -26,7 +28,7 @@ def ready(tmp_path,monkeypatch,candidate):
     (evidence/'complete.json').write_bytes(m.encoded(result));(evidence/'complete.json').chmod(0o600)
     target=tmp_path/'bin';target.mkdir()
     monkeypatch.setattr(m,'RELEASES',releases);monkeypatch.setattr(m,'STAGING',staging);monkeypatch.setattr(m,'INSTALLATIONS',tmp_path/'installations')
-    monkeypatch.setattr(m,'TARGETS',{mode:target/('review-'+mode) for mode in ('export','intake')})
+    monkeypatch.setattr(m,'TARGETS',{mode:target/('review-'+mode) for mode in m.TARGETS})
     monkeypatch.setattr(m,'protected',lambda p:None)
     monkeypatch.setattr(m.os,'getuid',lambda:0);monkeypatch.setattr(m.os,'geteuid',lambda:0)
     return m,digest,release,result
@@ -106,3 +108,22 @@ def test_changed_or_writable_release_refused(ready):
     with pytest.raises(ValueError,match='readonly'):m.install(sha,check_only=True)
     path.write_text('changed');path.chmod(0o444)
     with pytest.raises(ValueError):m.install(sha,check_only=True)
+
+
+@pytest.mark.parametrize('ready',['events'],indirect=True)
+def test_events_profile_installs_only_new_command(ready):
+    m,sha,release,_=ready
+    assert set(m.TARGETS)=={'events'}
+    result=m.install(sha,approve_installation=True)
+    assert set(result['wrappers'])=={'events'}
+    text=m.TARGETS['events'].read_text()
+    assert ' events "$@"' in text and sha in text
+    assert not (m.TARGETS['events'].parent/'review-export').exists()
+    assert not (m.TARGETS['events'].parent/'review-intake').exists()
+
+
+def test_emitted_events_profile_has_fixed_target_and_separate_journal(tmp_path):
+    path=tmp_path/'events.py';package.emit_events_install_helper(path)
+    spec=importlib.util.spec_from_file_location('events_profile',path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+    assert m.TARGETS=={'events':Path('/usr/local/bin/rras-history-managed-sync')}
+    assert m.INSTALLATIONS==Path('/var/lib/rras-history-managed-sync-installations')
