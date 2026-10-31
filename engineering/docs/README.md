@@ -96,3 +96,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Protected curated publication launch](engineering-history-curated-publication-launch.md) — fixed catalog writer sandbox and attempt fence; actual host acceptance pending.
 
 - [Isolated curated writer host acceptance](engineering-history-curated-writer-host-acceptance.md) — synthetic numeric-UID systemd rehearsal; actual sudo result remains pending.
+
+- [Hardened reader and pinned-image host-socket rehearsal](engineering-history-curated-container-host-acceptance.md) — synthetic actual MCP/Docker/systemd acceptance; production activation remains separate.
