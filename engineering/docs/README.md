@@ -98,3 +98,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Isolated curated writer host acceptance](engineering-history-curated-writer-host-acceptance.md) — synthetic numeric-UID systemd rehearsal; actual sudo result remains pending.
 
 - [Hardened reader and pinned-image host-socket rehearsal](engineering-history-curated-container-host-acceptance.md) — synthetic actual MCP/Docker/systemd acceptance; production activation remains separate.
+
+- [Inactive curated production package](engineering-history-curated-inactive-install.md) — protected first installation with empty catalog; no activation or content publication.
