@@ -3,7 +3,7 @@
 This isolated acceptance connects the actual curated read service entry and stdio
 MCP client through a real host Unix socket. It uses a new protected synthetic
 state root, a dedicated fixture systemd unit and temporary locked service account
-UID/GID 61154. The reader is UID 61155, with a repository-only grant; there is no
+UID/GID 61157. The reader is UID 61158, with a repository-only grant; there is no
 service-owner, operator or root grant on the container-reachable socket.
 
 The service command derives the production unit blueprint with explicit fixture
@@ -53,3 +53,15 @@ mount. A writable effective filesystem is still refused. `ReadOnlyPaths` and
 specific mountinfo assertion; its evidence and temporary locked identity remain
 preserved pending separate cleanup. The current fresh fixture uses its own paths,
 service account and numeric IDs.
+
+The curated client authenticates the exact configured kernel UID from
+`SO_PEERCRED` without treating PID zero as a dead peer. A container can legitimately
+observe PID zero for a host process outside its PID namespace while retaining the
+correct UID. Negative PIDs and every mismatching UID are refused before sending a
+request. The curated-only client retains trusted socket/ancestor ownership,
+permissions, deadlines, frame bounds and strict response validation; it makes no
+process-liveness claim. The private-history transport and host server's positive
+PID check remain unchanged. A separate disposable pinned-image diagnostic
+confirmed PID zero plus correct host UID, and an actual bounded curated-client
+roundtrip then passed over a synthetic ordinary-user socket. This does not replace
+the hardened-unit actual host acceptance.
