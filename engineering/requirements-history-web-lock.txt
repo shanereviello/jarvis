@@ -1,0 +1,18 @@
+# Exact offline dashboard dependency inventory; root installation never runs pip.
+# Payload bytes are additionally bound by the package manifest.
+anyio==4.16.0
+attrs==26.1.0
+cffi==2.1.1
+click==8.5.0
+cryptography==50.0.2
+h11==0.16.0
+idna==3.20
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+PyJWT==2.15.1
+pycparser==3.12
+referencing==0.37.0
+rpds-py==2026.9.1
+starlette==1.10.0
+typing_extensions==4.16.0
+uvicorn==0.54.0

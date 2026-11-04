@@ -9,7 +9,7 @@ Type=simple
 User=@UID@
 Group=@GID@
 SupplementaryGroups=
-ExecStart=@RELEASE@/venv/bin/python -I -B @RELEASE@/engineering/tools/rras_history_web/entry.py --config /etc/rras-engineering-history-web/config.json
+ExecStart=@PYTHON@ -I -B @RELEASE@/engineering/tools/rras_history_web/runtime_entry.py --config /etc/rras-engineering-history-web/config.json
 WorkingDirectory=/
 Environment=HOME=/nonexistent LANG=C.UTF-8
 UMask=0077

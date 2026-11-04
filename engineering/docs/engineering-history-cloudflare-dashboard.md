@@ -230,3 +230,34 @@ No production service/history/journal or Cloudflare change was made, and no real
 credentials or model API calls were used. Live Cloudflare keys, connector routing
 and the final production package remain pending. This source documentation update
 does not alter the host-tested runtime bytes.
+
+## Production package source
+
+`production_package.py` builds an inactive, exact-commit runtime under a payload-derived
+`/opt/rras-engineering/releases/history-web-...` path. Its source allowlist excludes
+fixture probes, the history store, service daemon and installers. It includes only
+the dashboard, passive contract/Unix client, assets, schema, unit template and locked
+runtime dependencies. Every member is bound by a reviewed manifest, with bounds,
+canonical paths, regular-file checks and refusal of `.pth`, bytecode, symlinks or
+executable search-path directories. Dependency metadata must exactly match
+`engineering/requirements-history-web-lock.txt`.
+
+The runtime bootstrap adds only that immutable release's vendor directory and
+requires the existing protected CPython 3.13.16 interpreter used by host acceptance.
+The rendered unit invokes it directly with `-I -B`; no writable development virtual
+environment or root-time pip/network installation is required. Updating interpreter
+or dependencies requires a newly reviewed package and compatible host evidence.
+
+The generated unit, inactive install plan and disable-only rollback document are
+re-derived during verification. No real Access identifiers, configuration file,
+private history or credential is included. UID/GID 993 remain tentative and must
+be rechecked at installation. The proposed grant is private-read `jarvis` with no
+write repositories; it is a plan only, preserving existing principals. No package
+build allocates an account, grants access, creates a listener or changes Cloudflare.
+
+Remaining rollout gates are the final package's host/import checks, explicit inactive
+installation, protected operator-selected configuration, live key retrieval,
+connector route rehearsal, explicit history-grant/restart and activation decisions,
+and an authenticated browser check. The earlier fixture does not establish the
+new bootstrap's production installation or the external route. Source merge alone
+authorizes none of those deployment mutations.
