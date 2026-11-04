@@ -101,8 +101,8 @@ existing service policy. Preserve operator, worker and Jarvis roles. The dashboa
 must use the existing authenticated Unix transport, not a copied database or UID1000.
 Jarvis stays on its separate curated-only reader.
 
-A following slice must supply the protected startup/configuration contract,
-immutable offline package, bounded server settings/log filtering, hardened unit,
+Protected startup/configuration and bounded server settings now have source below.
+A following slice must supply the immutable offline package, tested hardened unit,
 read-grant/ACL installation and isolated host/connector acceptance. That includes
 actual UID/proc/filesystem/network and read/write denial, real Access verification,
 service outage/revocation and browser tests. Production grant loading/restart,
@@ -127,3 +127,50 @@ horizontal overflow. The preview used labelled synthetic data and an injected
 fixture token; it does not establish production Cloudflare connectivity. The
 loopback fixture was stopped after testing. Browser/runtime libraries were local
 workspace QA dependencies, not host or production installations.
+
+## Protected startup source (following PR80)
+
+`rras_history_web/entry.py` now supplies the startup contract. The file passed as
+`--config` must be canonical, root-owned, mode 0640, in non-writable root-owned
+ancestors, with the dedicated process primary group. It accepts only this exact
+field set (example values are synthetic and must not be installed unchanged):
+
+```json
+{
+  "contract": "engineering-history-web.v1",
+  "uid": 993,
+  "gid": 993,
+  "history_uid": 995,
+  "history_socket": "/run/rras-engineering-history/service.sock",
+  "repositories": ["jarvis"],
+  "issuer": "https://fixture.cloudflareaccess.com",
+  "audience": "fixture-audience",
+  "email": "owner@example.test",
+  "origin": "https://history.example.test",
+  "bind": "127.0.0.1",
+  "port": 18764
+}
+```
+
+The startup rejects root, operator, history, curated-reader and worker identities;
+requires matching effective/real UID/GID, no extra groups, no capabilities and
+`NoNewPrivs`; clears inherited environment and suppresses request/exception logging.
+It uses the existing authenticated Unix transport and permits only history/document
+calls. Policy grants remain enforced by the history service, not this configuration.
+
+The origin bind is explicit IPv4 loopback or RFC1918, never wildcard/DNS/public.
+Accepting an explicit private address does not create routing or authorize exposure.
+The connector route, firewall boundary and actual bind still require host rehearsal
+and a deployment decision. Uvicorn runs one bounded worker without proxy-header
+trust, WebSockets, reload, request logs or environment configuration.
+
+`engineering/config/history-web/rras-engineering-history-web.service.in` is an
+uninstalled template. Protected packaging must replace every release/identity token,
+verify the immutable dependency payload, and test the actual unit boundaries before
+installation. Its Unix socket needs an explicit server-side read grant/ACL; no grant
+is created by startup. There is no automatic restart or database recovery path.
+
+The expanded suite passes 92 tests. These verify the startup contract and refusal
+cases with synthetic fixtures; they do not prove actual root ownership, cross-UID
+transport, the hardened unit, live Cloudflare keys or connector routing. Those remain
+required isolated host acceptance. No account, unit or production file is installed.

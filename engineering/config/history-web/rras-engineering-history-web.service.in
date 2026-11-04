@@ -1,0 +1,49 @@
+# Source template only. Protected packaging must replace all @...@ tokens.
+[Unit]
+Description=Read-only private engineering history dashboard
+After=rras-engineering-history.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@UID@
+Group=@GID@
+SupplementaryGroups=
+ExecStart=@RELEASE@/venv/bin/python -I -B @RELEASE@/engineering/tools/rras_history_web/entry.py --config /etc/rras-engineering-history-web/config.json
+WorkingDirectory=/
+Environment=HOME=/nonexistent LANG=C.UTF-8
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+InaccessiblePaths=-/var/lib/rras-engineering-history -/var/lib/rras-workflow -/var/lib/rras-coding-tasks -/opt/rras-coding-jobs -/srv/hermes -/etc/rras-engineering-history
+ReadOnlyPaths=@RELEASE@ /etc/rras-engineering-history-web /run/rras-engineering-history
+TasksMax=32
+MemoryMax=256M
+LimitNOFILE=128
+TimeoutStopSec=15
+Restart=no
+StandardInput=null
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
