@@ -314,3 +314,35 @@ release is still uninstalled. Production services/history/grants and Cloudflare
 remain unchanged. Live configuration, key retrieval, connector routing, inactive
 installation and activation still require their respective reviews and decisions.
 This documentation update does not change the checked runtime or probe bytes.
+
+## Connector route rehearsal
+
+The host-side key loader was exercised against the operator-supplied team's public
+HTTPS certs endpoint. It verified two 2048-bit RSA keys using the actual protected
+runtime code, normal certificate validation, no redirects and no inherited proxy.
+This proves key retrieval/parsing, not an authenticated application token or the
+Access policy. Actual account identifiers/results remain in private operational
+notes; no login URL metadata, cookie or token is retained in source.
+
+`connector_check.py` prepares a separate bounded routing fixture. It verifies the
+existing connector still uses `jarvis-net` and the expected Docker gateway, then
+briefly binds a synthetic-only HTTP handler on the proposed bridge address/port.
+The child uses unused numeric UID/GID 61166, empty groups/capabilities, no-new-privileges,
+a clean environment, parent-death handling and a 45-second hard lifetime. It serves
+only an exact synthetic nonce response, not files or engineering data.
+
+A pinned, read-only, unprivileged disposable client container on the connector's
+network checks the exact Host/nonce response and wrong-Host refusal. It has no mounts
+or credentials and cannot pull an image. Cleanup stops the fixture child and removes
+only the exact labelled client; no existing container, connector configuration or
+Cloudflare route is edited. Existing evidence/container names and an occupied port
+refuse a new run. No automatic retry is permitted.
+
+This tests same-network reachability and the intended Host header, not the running
+connector's application route or a Cloudflare-authenticated browser. A later
+reviewed route must set the origin Host header consistently with the application
+origin; Cloudflare documents the `httpHostHeader` setting under
+[origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
+Do not add that route until the production configuration/grant/service and explicit
+activation decision are ready. Production private reads remain protected by origin
+JWT checks as well as the edge policy.
