@@ -174,3 +174,59 @@ The expanded suite passes 92 tests. These verify the startup contract and refusa
 cases with synthetic fixtures; they do not prove actual root ownership, cross-UID
 transport, the hardened unit, live Cloudflare keys or connector routing. Those remain
 required isolated host acceptance. No account, unit or production file is installed.
+
+## Isolated host acceptance package
+
+`host_package.py` builds an exact-commit, hash-verified offline fixture including
+separate dashboard dependencies. `stage_host.py` is combined with that same stdlib
+verifier into a hash-pinned sudo bootstrap. It refuses existing evidence/release
+paths. Staging copies only verified regular payload bytes to a root-owned release;
+it never executes the operator-owned candidate in place.
+
+The fixture uses unallocated numeric IDs 61162 (synthetic history) and 61163
+(dashboard), refusing occupied NSS IDs, account names or active processes. It creates
+two temporary locked no-login/no-home accounts because this host requires NSS
+entries for systemd credentials. After units stop and bytes move to root custody,
+successful acceptance removes both accounts. Failures preserve evidence and may
+retain temporary identities for explicit diagnosis.
+Two bounded transient units use a synthetic store under
+`/var/lib/rras-history-web-acceptance-attempt02-20261104` and an isolated runtime socket.
+The dashboard unit derives its restrictions from the source template, adds a private
+network and fixture-private masks, and runs the actual startup and HTTP application.
+Generated signing keys replace only the JWKS loader; actual issuer/audience/email,
+signature, Host and time validation still execute. Root makes HTTP checks inside
+the unit's network namespace. Tokens travel on stdin, not command arguments/logs.
+
+Checks cover process capabilities/groups/environment, protected configuration,
+read-only payload/masked private paths, invalid authentication, actual cross-UID
+history and document reads, digest verification, repository and write refusal,
+source-database preservation, outage and restart revocation without stale reads.
+Transient units are stopped on completion/failure; all have a runtime bound. Private
+failure evidence is retained and no retry is automatic. No production unit, database,
+policy, credential, Cloudflare route or Hermes container is changed.
+
+This fixture does **not** verify live Cloudflare key retrieval, the Docker connector
+route, a production service identity or the final packaged production interpreter.
+The acceptance release is synthetic test tooling, not a deployment candidate.
+
+
+The first host attempt passed offline verification but stopped before child execution:
+systemd reported `217/USER` for the unallocated numeric identity. Its empty launch
+stderr was insufficient; the fixed unit's journal established the cause. Attempt 2
+uses new paths/IDs and the temporary account pattern from prior host acceptance.
+Original evidence remains retained, and production account design is unchanged.
+
+On November 4, the operator-run attempt 2 returned
+`isolated_dashboard_host_verified` for source
+`330b7127d68957c5ec5211052cd182add4b3b5a3`, with the 564-file manifest
+`fe81ca10d323cbc9aa553f5b87bd8638450249a65e2e09596416c1340cc8efbb`.
+It verified all eight listed host cases, unchanged synthetic database bytes,
+stopped fixture units and removal of both temporary accounts. A subsequent
+read-only check found both units inactive/not-found with PID 0 and no NSS users
+for the fixture UIDs. Protected evidence remains under
+`/var/lib/rras-history-web-acceptance-attempt02-20261104`.
+
+No production service/history/journal or Cloudflare change was made, and no real
+credentials or model API calls were used. Live Cloudflare keys, connector routing
+and the final production package remain pending. This source documentation update
+does not alter the host-tested runtime bytes.
