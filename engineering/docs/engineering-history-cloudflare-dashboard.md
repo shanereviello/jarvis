@@ -295,3 +295,22 @@ only the exact procfs header, while refusing route rows, unexpected text, non-lo
 interfaces and the original host namespace. Attempt 2 uses a new acceptance-copy path,
 evidence path and probe UID; the original failed check is preserved. Production
 runtime bytes and its approved manifest are unchanged.
+
+On November 4, operator-run protected-copy attempt 2 returned
+`protected_dashboard_package_host_verified` for the unchanged 558-file runtime
+manifest `1b9f387b5e9dfb9436d4e5144fcfab372b5622c67e8bc5daa22032fb72d19da0`
+and runtime source `33036ed333ded8bab0992e2e8ba046304dfc41a5`.
+The embedded probe digest was
+`420431d9109471c7ef1d573075067c6dd09cb561159b3390bd9b0717dd39da6d`.
+All seven protected-copy cases passed, with no listener, account, history-service
+contact, live Cloudflare contact or model calls. Subsequent read-only verification
+confirmed all 558 payload digests, root ownership/modes and the embedded probe digest.
+
+The acceptance copy remains under
+`/opt/rras-engineering/releases/history-web-package-check-attempt02-1b9f387b5e9d`;
+private evidence remains under
+`/var/lib/rras-history-web-package-check-attempt02-20261104`. The planned production
+release is still uninstalled. Production services/history/grants and Cloudflare
+remain unchanged. Live configuration, key retrieval, connector routing, inactive
+installation and activation still require their respective reviews and decisions.
+This documentation update does not change the checked runtime or probe bytes.
