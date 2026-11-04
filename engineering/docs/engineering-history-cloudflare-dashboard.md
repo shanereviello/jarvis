@@ -174,3 +174,33 @@ The expanded suite passes 92 tests. These verify the startup contract and refusa
 cases with synthetic fixtures; they do not prove actual root ownership, cross-UID
 transport, the hardened unit, live Cloudflare keys or connector routing. Those remain
 required isolated host acceptance. No account, unit or production file is installed.
+
+## Isolated host acceptance package
+
+`host_package.py` builds an exact-commit, hash-verified offline fixture including
+separate dashboard dependencies. `stage_host.py` is combined with that same stdlib
+verifier into a hash-pinned sudo bootstrap. It refuses existing evidence/release
+paths. Staging copies only verified regular payload bytes to a root-owned release;
+it never executes the operator-owned candidate in place.
+
+The fixture uses unallocated numeric IDs 61160 (synthetic history) and 61161
+(dashboard), refusing occupied NSS IDs or active processes. It creates no accounts.
+Two bounded transient units use a synthetic store under
+`/var/lib/rras-history-web-acceptance-20261104` and an isolated runtime socket.
+The dashboard unit derives its restrictions from the source template, adds a private
+network and fixture-private masks, and runs the actual startup and HTTP application.
+Generated signing keys replace only the JWKS loader; actual issuer/audience/email,
+signature, Host and time validation still execute. Root makes HTTP checks inside
+the unit's network namespace. Tokens travel on stdin, not command arguments/logs.
+
+Checks cover process capabilities/groups/environment, protected configuration,
+read-only payload/masked private paths, invalid authentication, actual cross-UID
+history and document reads, digest verification, repository and write refusal,
+source-database preservation, outage and restart revocation without stale reads.
+Transient units are stopped on completion/failure; all have a runtime bound. Private
+failure evidence is retained and no retry is automatic. No production unit, database,
+policy, credential, Cloudflare route or Hermes container is changed.
+
+This fixture does **not** verify live Cloudflare key retrieval, the Docker connector
+route, a production service identity or the final packaged production interpreter.
+The acceptance release is synthetic test tooling, not a deployment candidate.
