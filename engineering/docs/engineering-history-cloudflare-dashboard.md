@@ -268,7 +268,7 @@ The final payload has a separate acceptance-only copy under
 `/opt/rras-engineering/releases/history-web-package-check-...`, never at the planned
 production release path. The root helper reuses the production verifier and an
 exact committed embedded probe; changed working-tree probe bytes cannot replace it.
-It refuses existing check paths and occupied probe UID/GID 61164, then copies only
+It refuses existing check paths and occupied probe UID/GID 61165, then copies only
 verified bytes to root ownership and runs a bounded child using `unshare --net` and
 `setpriv`. No NSS account, unit or listener is created by this check.
 
@@ -278,10 +278,20 @@ root evidence; exact packaged dependency imports; generated-key authenticated AS
 asset/repository dispatch and missing-assertion refusal; and the exact bootstrap's
 CLI entry with the protected interpreter. Only generated fixture authentication is
 used. The production package is reverified afterward and root-only results retained
-under `/var/lib/rras-history-web-package-check-20261104`.
+under `/var/lib/rras-history-web-package-check-attempt02-20261104`.
 
 This confirms protected package custody/import/bootstrap boundaries, not live
 Cloudflare key retrieval, the connector route, the production unit's configured
 listener, a private-read grant or authenticated browser access. Those remain the
 following explicit configuration and deployment gates. The check installs nothing
 at the production path and makes no history or Cloudflare changes.
+
+
+The first protected-copy attempt stopped at its network parser before imports or
+application dispatch: this host exposes an entirely empty route file in an empty
+network namespace. An unprivileged `unshare --user --map-root-user --net` reproduction
+confirmed that representation. The corrected probe accepts either no route bytes or
+only the exact procfs header, while refusing route rows, unexpected text, non-loopback
+interfaces and the original host namespace. Attempt 2 uses a new acceptance-copy path,
+evidence path and probe UID; the original failed check is preserved. Production
+runtime bytes and its approved manifest are unchanged.

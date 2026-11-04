@@ -43,3 +43,20 @@ def test_wrong_tooling_head_refused_before_output(tmp_path):
 def test_probe_refuses_operator_before_file_or_network_reads():
     probe=web('protected_package_probe')
     with pytest.raises(ValueError,match='fixed isolated probe'):probe.run('/not-opened','/not-opened')
+
+
+@pytest.mark.parametrize('routes',['','\n','Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n'])
+def test_empty_private_namespace_route_representations_pass(routes):
+    probe=web('protected_package_probe')
+    probe.network_boundary('net:[1]','net:[2]','Inter-| Receive\n face | bytes\n lo: 0 0\n',routes)
+
+
+@pytest.mark.parametrize('current,devices,routes',[
+    ('net:[1]','lo: 0\n',''),
+    ('net:[2]','lo: 0\neth0: 0\n',''),
+    ('net:[2]','lo: 0\n','Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\neth0 00000000 0100000A 0003 0 0 0 00000000 0 0 0\n'),
+    ('net:[2]','lo: 0\n','unexpected\n'),
+])
+def test_host_namespace_interfaces_and_routes_still_refused(current,devices,routes):
+    probe=web('protected_package_probe')
+    with pytest.raises(ValueError):probe.network_boundary('net:[1]',current,devices,routes)

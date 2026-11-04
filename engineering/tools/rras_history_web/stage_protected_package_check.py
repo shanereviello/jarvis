@@ -4,7 +4,7 @@ import grp
 import pwd
 import sys
 
-STATE=Path('/var/lib/rras-history-web-package-check-20261104')
+STATE=Path('/var/lib/rras-history-web-package-check-attempt02-20261104')
 
 
 def protected(path):
@@ -15,18 +15,18 @@ def protected(path):
 
 def check(candidate,expected):
     if os.getuid()!=0 or os.geteuid()!=0:raise ValueError('explicit sudo package check required')
-    release=Path('/opt/rras-engineering/releases/history-web-package-check-'+expected[:12])
+    release=Path('/opt/rras-engineering/releases/history-web-package-check-attempt02-'+expected[:12])
     protected(release.parent);protected(STATE.parent);protected(Path(PYTHON))
     for path in (release,STATE):
         if path.exists() or path.is_symlink():raise ValueError('preserve existing check; no automatic retry')
     for lookup in (pwd.getpwuid,grp.getgrgid):
-        try:lookup(61164)
+        try:lookup(61165)
         except KeyError:pass
         else:raise ValueError('probe numeric identity occupied')
     for path in Path('/proc').glob('[0-9]*/status'):
         try:lines=path.read_text().splitlines()
         except (FileNotFoundError,ProcessLookupError):continue
-        if any(line.startswith(('Uid:','Gid:')) and '61164' in line.split()[1:] for line in lines):raise ValueError('probe identity active')
+        if any(line.startswith(('Uid:','Gid:')) and '61165' in line.split()[1:] for line in lines):raise ValueError('probe identity active')
     manifest,files=verify(candidate,expected)
     os.umask(0o077);STATE.mkdir(mode=0o700)
     os.umask(0o022);release.mkdir(mode=0o755)
@@ -41,9 +41,9 @@ def check(candidate,expected):
         try:os.fsync(fd)
         finally:os.close(fd)
     verify(release,expected)
-    result=subprocess.run(['/usr/bin/unshare','--net','--','/usr/bin/setpriv','--reuid','61164','--regid','61164',
+    result=subprocess.run(['/usr/bin/unshare','--net','--','/usr/bin/setpriv','--reuid','61165','--regid','61165',
         '--clear-groups','--no-new-privs','--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all',PYTHON,'-I','-S','-B',
-        str(tools/'probe.py'),str(release),str(STATE)],stdin=subprocess.DEVNULL,capture_output=True,timeout=60,cwd='/',
+        str(tools/'probe.py'),str(release),str(STATE),os.readlink('/proc/self/ns/net')],stdin=subprocess.DEVNULL,capture_output=True,timeout=60,cwd='/',
         env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'})
     for name,raw in (('probe-stdout.json',result.stdout),('probe-stderr.txt',result.stderr)):
         with (STATE/name).open('xb') as stream:os.fchmod(stream.fileno(),0o600);stream.write(raw)

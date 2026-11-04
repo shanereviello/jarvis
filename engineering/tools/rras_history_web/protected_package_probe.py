@@ -10,13 +10,21 @@ import sys
 import time
 
 
-def run(root,evidence):
+def network_boundary(host_namespace,current_namespace,devices,routes):
+    if type(host_namespace) is not str or not host_namespace.startswith('net:[') or not host_namespace.endswith(']') or current_namespace==host_namespace:
+        raise ValueError('probe network namespace not distinct')
+    interfaces={line.split(':',1)[0].strip() for line in devices.splitlines() if ':' in line}
+    lines=[line.split() for line in routes.splitlines() if line.strip()]
+    header='Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT'.split()
+    if interfaces!={'lo'} or lines not in ([],[header]):raise ValueError('probe network not isolated')
+
+
+def run(root,evidence,host_namespace=None):
     root=Path(root);evidence=Path(evidence)
-    if os.getuid()!=61164 or os.geteuid()!=61164 or os.getgid()!=61164 or os.getegid()!=61164 or os.getgroups():raise ValueError('fixed isolated probe identity required')
+    if os.getuid()!=61165 or os.geteuid()!=61165 or os.getgid()!=61165 or os.getegid()!=61165 or os.getgroups():raise ValueError('fixed isolated probe identity required')
     status=dict(line.split(':',1) for line in Path('/proc/self/status').read_text().splitlines() if ':' in line)
     if status['NoNewPrivs'].strip()!='1' or any(int(status[k].strip(),16) for k in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb')):raise ValueError('probe privileges retained')
-    interfaces={line.split(':')[0].strip() for line in Path('/proc/net/dev').read_text().splitlines()[2:]}
-    if interfaces!={'lo'} or len(Path('/proc/net/route').read_text().splitlines())!=1:raise ValueError('probe network not isolated')
+    network_boundary(host_namespace,os.readlink('/proc/self/ns/net'),Path('/proc/self/net/dev').read_text(),Path('/proc/self/net/route').read_text())
     if set(os.environ)-{'PATH','HOME','LANG'}:raise ValueError('unexpected inherited environment')
     if not root.is_absolute() or root.resolve(strict=True)!=root:raise ValueError('protected copy required')
     for path in (root,*root.parents):
@@ -60,7 +68,7 @@ def run(root,evidence):
     asyncio.run(asyncio.wait_for(check(),15))
     boot=subprocess.run([sys.executable,'-I','-S','-B',str(root/'engineering/tools/rras_history_web/runtime_entry.py'),'--help'],capture_output=True,timeout=10,env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'},cwd='/')
     if boot.returncode or b'--config' not in boot.stdout:raise ValueError('exact bootstrap failed')
-    return dict(phase='protected_dashboard_package_probe_verified',probe_uid=61164,
+    return dict(phase='protected_dashboard_package_probe_verified',probe_uid=61165,
         cases=['root_owned_payload_unwritable','root_evidence_denied','isolated_network_no_groups_capabilities_provider_environment',
             'exact_offline_dependency_imports','generated_signature_and_asset_read_dispatch','missing_assertion_denied','exact_runtime_bootstrap'],
         history_service_contacted=False,cloudflare_contacted=False,listener_started=False,real_credentials_used=False,api_calls=0)
