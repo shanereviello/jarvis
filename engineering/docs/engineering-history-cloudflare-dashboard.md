@@ -215,3 +215,18 @@ systemd reported `217/USER` for the unallocated numeric identity. Its empty laun
 stderr was insufficient; the fixed unit's journal established the cause. Attempt 2
 uses new paths/IDs and the temporary account pattern from prior host acceptance.
 Original evidence remains retained, and production account design is unchanged.
+
+On November 4, the operator-run attempt 2 returned
+`isolated_dashboard_host_verified` for source
+`330b7127d68957c5ec5211052cd182add4b3b5a3`, with the 564-file manifest
+`fe81ca10d323cbc9aa553f5b87bd8638450249a65e2e09596416c1340cc8efbb`.
+It verified all eight listed host cases, unchanged synthetic database bytes,
+stopped fixture units and removal of both temporary accounts. A subsequent
+read-only check found both units inactive/not-found with PID 0 and no NSS users
+for the fixture UIDs. Protected evidence remains under
+`/var/lib/rras-history-web-acceptance-attempt02-20261104`.
+
+No production service/history/journal or Cloudflare change was made, and no real
+credentials or model API calls were used. Live Cloudflare keys, connector routing
+and the final production package remain pending. This source documentation update
+does not alter the host-tested runtime bytes.
