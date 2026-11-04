@@ -1,5 +1,7 @@
 # Engineering documentation
 
+- [Cloudflare Access read-only history dashboard](engineering-history-cloudflare-dashboard.md): accepted D2 direction, source UI/API/authentication, isolated evidence and remaining deployment gates.
+
 - [Installed engineering-history operator runbook](engineering-history-operator-runbook.md): explicit recording, resume, sync, curated sharing and real-session acceptance.
 
 - [Engineering-history implementation status](engineering-history-implementation-status.md): current deployed boundaries and exact position in the accepted backlog.

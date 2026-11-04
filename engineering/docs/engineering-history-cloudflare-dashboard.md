@@ -1,0 +1,129 @@
+# Cloudflare Access engineering-history dashboard
+
+D2 direction accepted by the operator on November 3, 2026: a server-hosted,
+single-operator read-only dashboard, opened from the development machine through
+the existing Cloudflare Tunnel + Access pattern used for other web applications.
+WARP/VPN remains a separate way to reach SSH. This supersedes the earlier provisional
+standalone LAN HTTPS/local-password proposal. It does not authorize deployment.
+
+## User experience
+
+The source interface provides repository-scoped work search/listing, work intent
+and scope, acceptance criteria, timelines, exact retained documents and recorded
+GitHub evidence links. Reported outcomes remain labelled reported; imported facts
+remain imported. Recording/occurrence time and unknown session identity stay distinct.
+Criteria are shown as requested outcomes without inferred pass states. Document
+Markdown is displayed as text with server and browser digest verification, preserving
+source rather than executing embedded HTML or repository code.
+
+The UI uses bundled HTML/CSS/JavaScript only. No external fonts/CDNs, analytics,
+embeddings, model calls, edit/approval/execution controls or browser persistence of
+history are introduced. Responses are private/no-store. Refusal or service failure
+clears private views; leaving/signing out clears them before back/forward restoration.
+This cannot revoke material a person already read or deliberately downloaded.
+
+## Source boundaries
+
+`engineering/tools/rras_history_web` contains:
+
+- `access.py`: strict single-operator Access configuration, RS256 signature,
+  issuer/audience/email/subject and required time-claim validation. Require exactly
+  one assertion header and the configured Host; reject foreign/duplicate Origin,
+  alternate key-source headers, duplicate JSON keys, missing/expired/future claims,
+  other users, unsigned and symmetric tokens. No cookie/header-only fallback.
+- `history.py`: bounded uncached repository-scoped history and exact-document reads
+  through an injected existing Unix client. It never opens SQLite or submits notes.
+  Receipt associations and exact document manifest/content digests are checked.
+- `app.py`: authenticated GET/HEAD-only ASGI routes and security headers. All pages,
+  assets and API routes require authentication. Only named assets are served; there
+  is no arbitrary file, URL, SQL, shell, export or action endpoint.
+- `assets/`: responsive interface using text nodes for history content, same-origin
+  requests and safe explicit GitHub links. No automatic server-side evidence fetch.
+
+The factory accepts an explicit `Reader` and `Access` instance; source tests provide
+synthetic signing keys and an actual temporary history store/access dispatcher.
+There is no production server bootstrap, configuration reader, systemd unit,
+packaged release, public preview, service identity or read grant installed by this
+source change. Those are the next implementation/host rollout gate. A test callback
+is not a production authentication configuration or a native-session observer.
+
+## Token keys and identity
+
+Only a configured `https://TEAM.cloudflareaccess.com/cdn-cgi/access/certs` endpoint
+supplies public signing keys. Browser tokens cannot choose its URL. HTTPS uses
+certificate verification, no redirects and no inherited proxy configuration. Fetches
+are bounded to three seconds/128 KiB; at most 16 distinct RSA public keys of bounded
+size are admitted. The key cache expires after five minutes and refresh attempts
+are limited to one per 30 seconds. Expiry/rotation/fetch failure refuses access;
+there is no indefinite stale-key fallback. No real Cloudflare token or account was
+used for source tests.
+
+JWT validation establishes a permitted reader identity. It is not a live recheck of
+the Access policy, nor an approval to execute engineering actions. The Cloudflare
+Access policy must itself allow only the operator, and origin requests must not
+have a bypass route. No future control gateway is implemented here.
+
+Primary references: [Cloudflare private web applications](https://developers.cloudflare.com/cloudflare-one/setup/secure-private-apps/private-web-app/),
+[origin token validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).
+Dashboard dependencies are separate from existing runtime requirements; see
+`engineering/requirements-history-web.txt` and its development companion.
+
+## API and scope
+
+| Read route | Result |
+| --- | --- |
+| `/api/repositories` | Configured repository IDs and verified operator email |
+| `/api/works?repository_id=...` | Bounded title/purpose search, pagination and reported outcome labels |
+| `/api/works/WORK?repository_id=...` | Work definition, timeline, retained document versions and supported evidence links |
+| `/api/documents/DOC?repository_id=...&work_id=...&version=...` | Exact authorized association, Markdown and verified manifest |
+
+Engineering records remain append-only service data. Reads build bounded snapshots
+without a persistent private index or cached fallback. A snapshot can lag later
+records; it does not revalidate Git, a deployment, native session transitions or
+imported claims. Unknown/unauthorized work/documents and service faults return
+bounded generic errors without private payloads or paths.
+
+## Production integration still pending
+
+Read-only host discovery found the existing connector as Docker container
+`cloudflared` on `jarvis-net`. Its command arguments, environment and credential
+files were not read. A host loopback-only listener cannot simply be assumed reachable
+from that container; the exact origin route/bind must be rehearsed and selected
+before the tunnel changes. The proposal does not silently expose a LAN-wide port,
+change Docker networking or recreate the connector.
+
+Deployment must supply the operator-selected public hostname, Cloudflare team
+issuer, application audience and permitted email through protected configuration.
+No real account identifiers belong in source examples or logs. Use the dedicated
+unprivileged dashboard identity (tentative UID 993, availability rechecked), with an
+explicit private-read grant for selected repositories and empty write grant in the
+existing service policy. Preserve operator, worker and Jarvis roles. The dashboard
+must use the existing authenticated Unix transport, not a copied database or UID1000.
+Jarvis stays on its separate curated-only reader.
+
+A following slice must supply the protected startup/configuration contract,
+immutable offline package, bounded server settings/log filtering, hardened unit,
+read-grant/ACL installation and isolated host/connector acceptance. That includes
+actual UID/proc/filesystem/network and read/write denial, real Access verification,
+service outage/revocation and browser tests. Production grant loading/restart,
+listener/tunnel/Access application changes and rollback require a separate explicit
+operator deployment decision. Preserve databases, spools, old releases and evidence.
+
+No service, account, credential, Access policy, tunnel or real history permission
+has been changed by this source implementation. Backup/restore remains separately
+operator-deferred. Lifecycle hooks/scheduling, web writes, remote shell, additional
+users and autopilot remain later work.
+
+## Source validation
+
+The focused suite passed 60 tests, using generated signing keys and temporary
+history stores. It covers JWT/Host/Origin failures, key refresh boundaries,
+repository/document association, receipt integrity, read-only dispatch and generic
+service failures. No live Cloudflare account or production history was contacted.
+
+Chromium checks passed for overview, text-only timeline, exact document digest,
+search, clearing private views after a service error, and mobile layout without
+horizontal overflow. The preview used labelled synthetic data and an injected
+fixture token; it does not establish production Cloudflare connectivity. The
+loopback fixture was stopped after testing. Browser/runtime libraries were local
+workspace QA dependencies, not host or production installations.

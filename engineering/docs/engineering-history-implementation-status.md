@@ -1,6 +1,6 @@
 # Engineering history implementation status
 
-As-built checkpoint: November 2, 2026. This supplements the accepted
+As-built checkpoint: November 4, 2026. This supplements the accepted
 [architecture](engineering-history-phase1/architecture.md) and
 [ordered backlog](engineering-history-phase1/backlog-and-acceptance.md). Their
 original proposal language records the design baseline. Source merge,
@@ -12,14 +12,14 @@ page does not reproduce private configurations, source history or credentials.
 
 | Backlog slice | Current position | Remaining work |
 | --- | --- | --- |
-| 0. Design baseline | Accepted separate unprivileged service/store, preserving root operational authority. | Browser decision D2 remains open. |
+| 0. Design baseline | Accepted separate unprivileged service/store, preserving root operational authority. | D2 direction accepted: existing Cloudflare Tunnel + Access, one operator; production route/configuration remain pending. |
 | 1. Contracts | Structured work/session/checkpoint/document envelopes, deterministic encoding and provenance rules implemented. | Extend additively for reviewed needs. |
 | 2. Durable intake/storage | Dedicated private SQLite service deployed with authenticated Unix peers, scoped policy, receipts/outbox and host boundary tests. | Backup/restore verification remains explicitly operator-deferred. |
 | 3. Templates/protected binding | Immutable rendering and protected managed review binding deployed. A real review document was exported/imported with exact-byte readback. | Continued workflow coverage; document creation is not mandatory for every legacy capture. |
-| 4. Explicit interactive client | Explicit recording client and durable spool implemented; private history service deployed with real explicitly recorded work. | Convenient session integration and real multi-session acceptance; no universal chat observation. |
+| 4. Explicit interactive client | Explicit recording client and durable spool implemented; private history service deployed with real explicitly recorded work. | Operator-designated A/B/C continuity verified without replacing the work; native session authentication remains unverified. Convenient integration remains; no universal chat observation. |
 | 5. Operational export/retrieval | Event exporter, review-document handoff and repeatable managed-event sync command deployed. Curated reader, restricted writer and Hermes read-only MCP integration deployed; first three selected entries published and read back. | Routine managed lifecycle orchestration and continuing explicit selection/sync coverage. Existing snapshots do not imply automatic freshness. |
 | 6. Optional hooks | Not deployed. | Actual client/event acceptance and minimal trusted metadata design after explicit-client integration. |
-| 7. Read-only web | Not deployed. | Resolve D2 network/authentication before any listener, then authorized timeline/document/evidence UI. |
+| 7. Read-only web | First source slice prepared: Cloudflare JWT validation and private work/timeline/document/evidence UI. Not deployed. | Protected startup/configuration, dedicated read-only identity, host acceptance and separately approved Cloudflare/origin installation. |
 | 8. Web decisions | Not deployed. | Separate authenticated action bindings after read-only web. |
 | 9. Closeout | Individual source/host/deployment checks and operational evidence retained. | Consolidated two-mode acceptance, maintained operator runbook, upgrade/restore coverage and deferred backup work. |
 
@@ -31,8 +31,8 @@ rendering remain explicit; there is no automatic collection of this conversation
 
 `rras-history-review-export` and `rras-history-review-document` use the protected
 passive release `history-review-tools-6e024a608121`. `rras-history-managed-sync`
-is separately installed from `history-review-tools-1416432336b9`, providing explicit
-init/inspect/apply/resume/status dispatch for managed-event handoffs. The allowlisted
+is separately installed from `history-review-tools-0f9e5e2f3048`, providing explicit
+init/inspect/review/apply/resume/status dispatch for managed-event handoffs. The allowlisted
 root exporter reads operational source records without writing them. A real managed
 task's events and a real protected review document have been imported.
 
@@ -89,10 +89,13 @@ private records. A failed or ambiguous attempt needs diagnosis before any new
 launch, withdrawal or recovery; never restore workflow/history databases merely
 to repair a deployment or publication receipt.
 
-The next unfinished work crosses Sections 4, 5 and 9: make explicit interactive
-recording and managed sync routine, prove a work item can resume across real
-sessions without duplicate or invented events, and consolidate the operator
-runbook and acceptance evidence. Lifecycle hooks remain optional Section 6 work.
-Browser read access is Section 7 and requires D2 first; protected browser actions
-are Section 8. No network listener, automatic capture, paid task or autopilot is
-authorized by the completed curated retrieval rollout.
+Sections 4, 5 and 9 now include the installed operator runbook, explicit managed
+refresh review and operator-designated three-session continuity acceptance. The
+latter preserves the original work and records; native session authentication is
+still unverified. Managed refresh remains explicit rather than automatic.
+
+Current implementation work is Section 7, following the accepted D2 Cloudflare
+direction. See the [dashboard source scope](engineering-history-cloudflare-dashboard.md)
+for its source checks and remaining host/deployment gates. Lifecycle hooks remain
+optional Section 6 work; protected browser actions are Section 8. No production
+listener, automatic capture, paid task or autopilot is authorized by this source slice.
