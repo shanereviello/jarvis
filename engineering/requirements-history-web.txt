@@ -1,0 +1,5 @@
+# Separate dashboard runtime; never install into existing workflow/history releases.
+-r requirements-contracts.txt
+starlette==1.10.0
+PyJWT[crypto]==2.15.1
+uvicorn==0.54.0
