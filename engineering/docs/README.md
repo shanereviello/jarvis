@@ -1,5 +1,7 @@
 # Engineering documentation
 
+- [Installed engineering-history operator runbook](engineering-history-operator-runbook.md): explicit recording, resume, sync, curated sharing and real-session acceptance.
+
 - [Engineering-history implementation status](engineering-history-implementation-status.md): current deployed boundaries and exact position in the accepted backlog.
 
 - [Current phase closeout](workflow-phase-closeout.md): installed release, first managed acceptance, criterion-level evidence and remaining gaps.
@@ -45,7 +47,7 @@ Historical bring-up reports, canary launchers and container experiments are reta
 
 - [Local engineering-history foundation](engineering-history-local-foundation.md): new passive engineering contract, caller-owned SQLite/CLI and deterministic private document drafts; no installed service or automatic capture.
 
-- [Explicit interactive history client](engineering-history-interactive-client.md): start/attach/checkpoint/handoff/finish with private transactional spool, pending delivery and stable receipts; local transport only.
+- [Explicit interactive history client](engineering-history-interactive-client.md): start/attach/checkpoint/handoff/finish with private transactional spool, pending delivery and stable receipts; explicit local or Unix transport; installed usage is in the operator runbook.
 
 - [Engineering-history service access boundary](engineering-history-service-access.md): explicit repository grants, service peer receipt attribution and scoped passive dispatcher; no installed socket/service.
 

@@ -1,5 +1,11 @@
 # Authenticated local engineering-history transport
 
+> Historical source-slice guide: the explicit client and private service are now
+> deployed. For current installed commands and acceptance limits, use the
+> [operator runbook](engineering-history-operator-runbook.md) and
+> [implementation status](engineering-history-implementation-status.md). The
+> source-only statements below describe the original change boundary.
+
 This source adds a Linux Unix-stream service around the
 [repository access dispatcher](engineering-history-service-access.md). The service
 is passive: private engineering intake and scoped reads only. No persistent service,
