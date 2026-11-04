@@ -8,8 +8,8 @@ import stat
 import subprocess
 
 MANIFEST='release-manifest.json'
-STATE=Path('/var/lib/rras-history-web-acceptance-20261104')
-RUNTIME=Path('/run/rras-history-web-acceptance-20261104')
+STATE=Path('/var/lib/rras-history-web-acceptance-attempt02-20261104')
+RUNTIME=Path('/run/rras-history-web-acceptance-attempt02-20261104')
 PYTHON=Path('/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13')
 SOURCE_FILES={f'engineering/tools/rras_history_web/{name}.py' for name in ('access','app','history','entry','host_package','host_driver','host_probe','stage_host')}|{
     f'engineering/tools/rras_history_web/assets/{name}' for name in ('index.html','app.css','app.js')}|{

@@ -16,13 +16,13 @@ sys.path.insert(0,str(ROOT/'vendor'))
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-STATE=Path('/var/lib/rras-history-web-acceptance-20261104')
-RUNTIME=Path('/run/rras-history-web-acceptance-20261104')
+STATE=Path('/var/lib/rras-history-web-acceptance-attempt02-20261104')
+RUNTIME=Path('/run/rras-history-web-acceptance-attempt02-20261104')
 PYTHON='/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13'
-HISTORY='rras-history-web-fixture-store-20261104.service'
-WEB='rras-history-web-fixture-http-20261104.service'
+HISTORY='rras-history-web-fixture-store-attempt02-20261104.service'
+WEB='rras-history-web-fixture-http-attempt02-20261104.service'
 ENV={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'}
-OWNER=61160;READER=61161
+OWNER=61162;READER=61163
 WORK='wrk_'+'6'*32;DOC='doc_'+'7'*32
 
 
@@ -33,6 +33,59 @@ def checked(argv,raw=None,timeout=30):
     result=command(argv,raw,timeout)
     if result.returncode:raise ValueError('fixture command failed')
     return result.stdout
+
+
+ACCOUNTS={OWNER:'rras-web-store-fixture2',READER:'rras-web-reader-fixture2'}
+
+
+def verify_identity(uid):
+    name=ACCOUNTS[uid];user=pwd.getpwnam(name);group=grp.getgrnam(name)
+    if (user.pw_uid!=uid or user.pw_gid!=uid or group.gr_gid!=uid or group.gr_mem or
+            user.pw_dir!='/nonexistent' or user.pw_shell!='/usr/sbin/nologin' or
+            set(os.getgrouplist(name,uid))!={uid} or pwd.getpwuid(uid).pw_name!=name):raise ValueError('temporary identity differs')
+    if any(user.pw_gid==uid and user.pw_name!=name for user in pwd.getpwall()):raise ValueError('unrelated fixture group member')
+
+
+def identity_command(argv):
+    result=command(argv)
+    tag='identity-'+str(time.time_ns())
+    write(STATE/'private'/(tag+'.stdout'),result.stdout)
+    write(STATE/'private'/(tag+'.stderr'),result.stderr)
+    if result.returncode:raise ValueError('temporary identity command failed; preserve evidence')
+
+
+def create_identities():
+    for uid,name in ACCOUNTS.items():
+        identity_command(['/usr/sbin/groupadd','--gid',str(uid),name])
+        identity_command(['/usr/sbin/useradd','--system','--uid',str(uid),'--gid',name,'--no-user-group',
+            '--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin','--no-log-init','--password','!',name])
+        verify_identity(uid)
+
+
+def remove_identities():
+    for uid in ACCOUNTS:verify_identity(uid)
+    for path in Path('/proc').glob('[0-9]*/status'):
+        try:lines=path.read_text().splitlines()
+        except (FileNotFoundError,ProcessLookupError):continue
+        if any(line.startswith(('Uid:','Gid:')) and set(line.split()[1:])&{str(OWNER),str(READER)} for line in lines):raise ValueError('temporary identity still active')
+    # Keep all retained bytes under root custody before releasing fixture IDs.
+    paths=[STATE,*STATE.rglob('*'),RUNTIME,*RUNTIME.rglob('*')]
+    for path in paths:
+        info=path.lstat()
+        if path.is_symlink() or not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)) or stat.S_ISREG(info.st_mode) and info.st_nlink!=1:
+            raise ValueError('unsafe fixture custody object')
+    for path in reversed(paths):os.chown(path,0,0);os.chmod(path,0o700 if path.is_dir() else 0o600)
+    for uid,name in ACCOUNTS.items():
+        identity_command(['/usr/sbin/userdel',name])
+        try:group=grp.getgrnam(name)
+        except KeyError:pass
+        else:
+            if group.gr_gid!=uid or group.gr_mem or any(user.pw_gid==uid for user in pwd.getpwall()):raise ValueError('fixture group changed')
+            identity_command(['/usr/sbin/groupdel',name])
+        for lookup,key in ((pwd.getpwnam,name),(pwd.getpwuid,uid),(grp.getgrnam,name),(grp.getgrgid,uid)):
+            try:lookup(key)
+            except KeyError:continue
+            raise ValueError('temporary identity retained')
 
 
 def write(path,raw,gid=0,mode=0o600):
@@ -59,7 +112,10 @@ def stop(unit):
 def start(unit,properties,argv):
     result=command(['/usr/bin/systemd-run','--quiet','--collect','--unit='+unit,'--service-type=exec',
         *[part for item in properties for part in ('--property',item)],'--',*argv])
-    write(STATE/'private'/('start-'+str(time.time_ns())+'.stderr'),result.stderr)
+    tag='start-'+str(time.time_ns())
+    write(STATE/'private'/(tag+'.stderr'),result.stderr)
+    write(STATE/'private'/(tag+'.stdout'),result.stdout)
+    record(tag+'.status.json',{'returncode':result.returncode})
     if result.returncode:raise ValueError('fixture unit start refused')
     for _ in range(100):
         value=status(unit)
@@ -141,10 +197,16 @@ def run():
             try:
                 if proc.stat().st_uid==uid:raise ValueError('fixture UID active')
             except FileNotFoundError:pass
+    for name in ACCOUNTS.values():
+        for lookup in (pwd.getpwnam,grp.getgrnam):
+            try:lookup(name)
+            except KeyError:continue
+            raise ValueError('fixture account name occupied')
     for unit in (HISTORY,WEB):
         if status(unit).get('LoadState')!='not-found':raise ValueError('existing fixture unit; preserve evidence')
     if STATE.exists() or RUNTIME.exists():raise ValueError('fixture already exists; no retry')
     os.umask(0o077);STATE.mkdir(mode=0o755);STATE.chmod(0o755);(STATE/'private').mkdir(mode=0o700)
+    create_identities()
     (STATE/'history').mkdir(mode=0o700);os.chown(STATE/'history',OWNER,OWNER)
     RUNTIME.mkdir(mode=0o700);os.chown(RUNTIME,OWNER,OWNER)
     write(STATE/'policy.json',json.dumps(policy(True)).encode(),OWNER,0o640)
@@ -231,6 +293,9 @@ raise SystemExit(1)
     if (RUNTIME/'service.sock').exists():raise ValueError('fixture socket retained')
     if hashlib.sha256((STATE/'history/history.sqlite3').read_bytes()).hexdigest()!=original_db:raise ValueError('fixture source database changed')
     result['fixture_source_database_unchanged']=True
+    remove_identities()
+    result['temporary_accounts_created']=2
+    result['temporary_accounts_removed']=True
     record('result.json',result)
     return result
 
@@ -242,5 +307,5 @@ if __name__=='__main__':
             path=STATE/'private'/('failure-'+str(time.time_ns())+'.txt');path.write_text(traceback.format_exc());path.chmod(0o600)
         print(json.dumps({'phase':'dashboard_host_acceptance_stopped','exception_type':type(error).__name__,
             'frames':[{'file':Path(frame.filename).name,'function':frame.name,'line':frame.lineno} for frame in traceback.extract_tb(error.__traceback__)],
-            'protected_evidence':str(STATE),'automatic_retry':False}),file=sys.stderr)
+            'protected_evidence':str(STATE),'temporary_identities_may_be_retained':True,'automatic_retry':False}),file=sys.stderr)
         raise SystemExit(1)

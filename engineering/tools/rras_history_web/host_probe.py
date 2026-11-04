@@ -7,7 +7,7 @@ import re
 import sys
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
-STATE=Path('/var/lib/rras-history-web-acceptance-20261104')
+STATE=Path('/var/lib/rras-history-web-acceptance-attempt02-20261104')
 WORK='wrk_'+'6'*32
 DOC='doc_'+'7'*32
 
@@ -18,7 +18,7 @@ def load(directory,name):
 
 
 def seed():
-    if os.getuid()!=61160:raise ValueError('fixed fixture owner required')
+    if os.getuid()!=61162:raise ValueError('fixed fixture owner required')
     store=load('rras_history','store').Store(STATE/'history',create=True)
     def request(operation,key,head,body):return dict(contract='engineering-history.v1',operation=operation,client_event_key=key,
         expected_head=head,source={'kind':'agent_reported','namespace':'host_fixture','id':None},occurred_at=None,body=body)
@@ -37,7 +37,7 @@ def seed():
 
 
 def serve():
-    if os.getuid()!=61161:raise ValueError('fixed fixture dashboard required')
+    if os.getuid()!=61163:raise ValueError('fixed fixture dashboard required')
     entry=load('rras_history_web','entry');auth=entry.local('access')
     public=auth.strict_json((STATE/'public-keys.json').read_bytes());original=auth.Keys
     def keys(config):

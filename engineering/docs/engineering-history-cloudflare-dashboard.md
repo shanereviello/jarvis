@@ -183,10 +183,14 @@ verifier into a hash-pinned sudo bootstrap. It refuses existing evidence/release
 paths. Staging copies only verified regular payload bytes to a root-owned release;
 it never executes the operator-owned candidate in place.
 
-The fixture uses unallocated numeric IDs 61160 (synthetic history) and 61161
-(dashboard), refusing occupied NSS IDs or active processes. It creates no accounts.
+The fixture uses unallocated numeric IDs 61162 (synthetic history) and 61163
+(dashboard), refusing occupied NSS IDs, account names or active processes. It creates
+two temporary locked no-login/no-home accounts because this host requires NSS
+entries for systemd credentials. After units stop and bytes move to root custody,
+successful acceptance removes both accounts. Failures preserve evidence and may
+retain temporary identities for explicit diagnosis.
 Two bounded transient units use a synthetic store under
-`/var/lib/rras-history-web-acceptance-20261104` and an isolated runtime socket.
+`/var/lib/rras-history-web-acceptance-attempt02-20261104` and an isolated runtime socket.
 The dashboard unit derives its restrictions from the source template, adds a private
 network and fixture-private masks, and runs the actual startup and HTTP application.
 Generated signing keys replace only the JWKS loader; actual issuer/audience/email,
@@ -204,3 +208,10 @@ policy, credential, Cloudflare route or Hermes container is changed.
 This fixture does **not** verify live Cloudflare key retrieval, the Docker connector
 route, a production service identity or the final packaged production interpreter.
 The acceptance release is synthetic test tooling, not a deployment candidate.
+
+
+The first host attempt passed offline verification but stopped before child execution:
+systemd reported `217/USER` for the unallocated numeric identity. Its empty launch
+stderr was insufficient; the fixed unit's journal established the cause. Attempt 2
+uses new paths/IDs and the temporary account pattern from prior host acceptance.
+Original evidence remains retained, and production account design is unchanged.

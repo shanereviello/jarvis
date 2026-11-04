@@ -67,7 +67,7 @@ def test_helper_is_pinned_stdlib_bootstrap(tmp_path):
 
 def test_host_driver_preserves_unit_guards_and_isolation():
     driver=web('host_driver');properties=driver.web_properties()
-    assert 'User=61161' in properties and 'Group=61161' in properties
+    assert 'User=61163' in properties and 'Group=61163' in properties
     assert 'CapabilityBoundingSet=' in properties and 'NoNewPrivileges=yes' in properties
     assert 'PrivateNetwork=yes' in properties and 'RuntimeMaxSec=180' in properties
     assert any(p.startswith('InaccessiblePaths=') and str(driver.STATE/'history') in p for p in properties)
@@ -78,3 +78,31 @@ def test_fixture_probe_is_not_a_production_role():
     probe=web('host_probe')
     with pytest.raises(ValueError):probe.seed()
     with pytest.raises(ValueError):probe.serve()
+
+
+def test_temporary_identities_are_locked_without_home_and_verified(monkeypatch):
+    driver=web('host_driver');calls=[];verified=[]
+    monkeypatch.setattr(driver,'identity_command',lambda argv:calls.append(argv))
+    monkeypatch.setattr(driver,'verify_identity',lambda uid:verified.append(uid))
+    driver.create_identities()
+    assert verified==[driver.OWNER,driver.READER]
+    users=[argv for argv in calls if argv[0]=='/usr/sbin/useradd']
+    assert len(users)==2
+    for argv in users:
+        assert '--no-create-home' in argv and '--no-user-group' in argv and '--no-log-init' in argv
+        assert argv[argv.index('--password')+1]=='!'
+        assert argv[argv.index('--shell')+1]=='/usr/sbin/nologin'
+        assert argv[argv.index('--home-dir')+1]=='/nonexistent'
+
+
+def test_identity_verification_refuses_extra_group(monkeypatch):
+    import types
+    driver=web('host_driver');uid=driver.OWNER;name=driver.ACCOUNTS[uid]
+    user=types.SimpleNamespace(pw_uid=uid,pw_gid=uid,pw_dir='/nonexistent',pw_shell='/usr/sbin/nologin',pw_name=name)
+    group=types.SimpleNamespace(gr_gid=uid,gr_mem=[])
+    monkeypatch.setattr(driver.pwd,'getpwnam',lambda value:user)
+    monkeypatch.setattr(driver.pwd,'getpwuid',lambda value:user)
+    monkeypatch.setattr(driver.pwd,'getpwall',lambda:[user])
+    monkeypatch.setattr(driver.grp,'getgrnam',lambda value:group)
+    monkeypatch.setattr(driver.os,'getgrouplist',lambda name,uid:[uid,995])
+    with pytest.raises(ValueError):driver.verify_identity(uid)
