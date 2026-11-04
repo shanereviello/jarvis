@@ -161,6 +161,79 @@ def inspect(root,handoff):
             'next_after':bundle['manifest']['next_after'],'history_records_written':False,'authority_granted':False}
 
 
+def incoming_claims(bundle,known,high):
+    c=local('contract')
+    incoming={request['client_event_key']:c.digest(c.encoded(request)) for plan in bundle['plans'] for request in plan['requests']}
+    if bundle['manifest']['next_after']<high or any(incoming.get(key)!=sha for key,sha in known.items()):
+        raise ValueError('export regresses or changes already completed source claims')
+    return incoming
+
+
+def refresh_review(root,handoff,destination):
+    """Write an explicit private review; no service call, intake or authority."""
+    import json
+    root=Path(root);handoff=Path(handoff);destination=Path(destination)
+    d=local('link_delivery');c=local('contract');config=configuration(root);bundle=capture(config,handoff)
+    known,high,_=completed(root,config);incoming=incoming_claims(bundle,known,high)
+    delivery=status(root)
+    if delivery['unique_linked_source_events']!=len(known) or delivery['completed_source_cursor']!=high:
+        raise ValueError('local completed captures changed during review')
+    events=[]
+    for packet,plan in zip(bundle['packets'],bundle['plans']):
+        for fact,request in zip(packet['facts'],plan['requests']):
+            if request['client_event_key'] not in known:
+                events.append({key:fact[key] for key in ('sequence','event_id','event_type','outcome','provenance','occurred_at','recorded_at')})
+    report={'contract':'engineering-managed-refresh-review.v1','capture_sha256':bundle['sha256'],
+        'binding':config['binding'],'pages':len(bundle['plans']),'source_events':len(incoming),
+        'previously_completed_events':len(known),'new_since_completed_events':len(events),
+        'completed_source_cursor':high,'capture_source_cursor':bundle['manifest']['next_after'],
+        'new_since_completed_event_claims':events,'pending_captures':delivery['pending_captures'],
+        'source_freshness':'not_polled','local_delivery_freshness':'snapshot_not_polled_after_review',
+        'source_authenticated':False,'history_records_written':False,'root_source_opened':False,
+        'apply_authorized':False,'authority_granted':False,'release_status':'not_inferred'}
+    # JSON escaping also prevents input text from closing the code fence or
+    # inserting active HTML when an operator views the Markdown in a browser.
+    shown=json.dumps(report,sort_keys=True,ensure_ascii=True,allow_nan=False,indent=2)
+    for char,escaped in (('`',r'\u0060'),('<',r'\u003c'),('>',r'\u003e'),('&',r'\u0026')):
+        shown=shown.replace(char,escaped)
+    markdown=("# Managed engineering-history refresh review\n\n"
+        "## Scope and exact capture\n\n"
+        "The structured review below binds one frozen handoff to its configured work revision.\n"
+        "Local receipts were validated; the root journal and live history service were not contacted.\n\n"
+        "## What would be imported\n\n"
+        "New means absent from fully completed local captures, not absent from the server.\n"
+        "A pending or lost-response import may already have committed those claims.\n\n"
+        "```json\n"+shown+"\n```\n\n"
+        "## Provenance and freshness\n\n"
+        "Every delivery remains imported. Source provenance in the event list is quoted, not promoted.\n"
+        "A recorded success or decision is not authenticated human approval, task success or deployment.\n"
+        "This is a local snapshot, not a live scope/freshness check or an immutable protected document.\n\n"
+        "## Operator decision and recovery\n\n"
+        "No import or approval was performed. Review the capture hash and pending delivery above.\n"
+        "Use explicit apply with that exact capture hash; it revalidates scope and completed history.\n"
+        "For an interrupted saved capture, inspect status and explicitly resume the original hash.\n"
+        "Keep original inputs, queues and receipts; do not rerun coding to repair telemetry.\n")
+    raw=markdown.encode()
+    if len(c.encoded(report))>2*1024*1024 or len(raw)>2*1024*1024:raise ValueError('refresh review exceeds bound')
+    if not destination.is_absolute() or destination.resolve(strict=False)!=destination:
+        raise ValueError('canonical absolute review destination required')
+    if destination.is_relative_to(root) or destination.is_relative_to(handoff):
+        raise ValueError('review destination must be separate from sync state and handoff')
+    d.guard(destination.parent)
+    if status(root)!=delivery:raise ValueError('local sync changed during review; inspect before preparing again')
+    destination.mkdir(mode=0o700);d.guard(destination)
+    d.write(destination/'review.json',report)
+    fd=os.open(destination/'review.md',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
+    for path in (destination,destination.parent):
+        fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
+    return {'prepared':True,'capture_sha256':bundle['sha256'],'review_json_sha256':c.digest(c.encoded(report)),
+        'markdown_sha256':c.digest(raw),'review_directory':str(destination),'history_records_written':False,
+        'root_source_opened':False,'apply_authorized':False,'authority_granted':False}
+
+
 def apply(root,handoff,expected_capture_sha256,call):
     root=Path(root);config=configuration(root)
     return run_capture(root,config,capture(config,handoff),expected_capture_sha256,call)
@@ -180,9 +253,7 @@ def run_capture(root,config,bundle,expected_capture_sha256,call):
         if bundle['sha256']!=expected_capture_sha256:raise ValueError('exact reviewed capture digest required')
         target(call,config['work_request'])
         known,high,_=completed(root,config)
-        incoming={request['client_event_key']:c.digest(c.encoded(request)) for plan in bundle['plans'] for request in plan['requests']}
-        if bundle['manifest']['next_after']<high or any(incoming.get(key)!=sha for key,sha in known.items()):
-            raise ValueError('export regresses or changes already completed source claims')
+        incoming_claims(bundle,known,high)
         directory=root/'captures'/('capture-'+bundle['sha256'])
         if not directory.exists():
             if len(list((root/'captures').iterdir()))>=128:raise ValueError('sync capture bound exceeded')

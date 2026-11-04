@@ -61,6 +61,40 @@ rras-history-managed-sync apply --state PRIVATE_SYNC_STATE --handoff PRIVATE_HAN
 rras-history-managed-sync status --state PRIVATE_SYNC_STATE
 ```
 
+### Private Markdown review (new source command; not yet installed)
+
+The next receiver release adds a passive review command before the explicit apply:
+
+```text
+managed_sync_cli.py review --state PRIVATE_SYNC_STATE --handoff PRIVATE_HANDOFF --destination PRIVATE_NEW_REVIEW_DIRECTORY
+```
+
+Run the source CLI with the validated interpreter/dependencies. The destination is
+fresh, absolute, private and separate from receiver state and source handoff. It
+contains deterministic `review.md` and `review.json`, with their digests returned
+by the command. Read the Markdown before using its exact capture hash with apply.
+This is a private operator convenience document, not a protected execution review
+or authenticated human approval. The currently installed receiver is immutable;
+`rras-history-managed-sync review` becomes available only after a separately
+reviewed package update. Existing installed inspect/apply/resume commands continue
+to work as above.
+
+The document records the exact revision binding, frozen capture hash, cursor,
+event counts, new-since-completed event claims and validated pending delivery.
+“New” means absent from fully completed local captures; a partial import or lost
+response may already have committed those events remotely. It never predicts new
+server rows. Source provenance remains quoted, every resulting intake remains
+imported, and source freshness is not polled. Local delivery status is a snapshot,
+not a subscription or live scope check.
+
+Preparation contacts no root journal or history service, performs no intake and
+changes neither the handoff nor sync state. It rejects regressions/changed completed
+claims using the same check as apply and validates saved receipts before reporting
+them. Input data is JSON-escaped in the Markdown; reviewed local files remain
+caller-owned and mutable. Apply still requires the capture hash, rechecks the live
+engineering work and local completed claims, and handles pending receipt recovery
+through the existing mechanism. A Markdown digest grants no action authority.
+
 Each later full export must retain previously completed event claims and cannot
 regress the cursor. Overlapping events reuse stable idempotency keys and original
 receipts. A new scope/work revision requires explicit re-binding, not silent adoption.
@@ -87,4 +121,5 @@ in an immutable release by this change. A real fresh export and import each reta
 explicit selection/review. The next acceptance should use an already recorded task
 without a new paid worker run, checking source unchanged, prior history preserved,
 new-event coverage, stable replay receipts and unchanged approval/worker state.
-Automatic lifecycle delivery and curated Jarvis historical retrieval remain later.
+Automatic lifecycle delivery remains later. Curated Jarvis retrieval is deployed;
+see the current implementation status for its explicitly selected content boundary.
