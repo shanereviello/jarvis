@@ -1,5 +1,11 @@
 # Explicit interactive engineering-history client
 
+> Historical source-slice guide: the explicit client and private service are now
+> deployed. For current installed commands and acceptance limits, use the
+> [operator runbook](engineering-history-operator-runbook.md) and
+> [implementation status](engineering-history-implementation-status.md). The
+> source-only statements below describe the original change boundary.
+
 Source-only local client for the accepted separate-service design. It records
 start/attach, checkpoints, pause/handoff and reported outcomes. There is no automatic
 Codex session discovery, transcript scanning, hook installation, network listener,
