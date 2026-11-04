@@ -261,3 +261,27 @@ connector route rehearsal, explicit history-grant/restart and activation decisio
 and an authenticated browser check. The earlier fixture does not establish the
 new bootstrap's production installation or the external route. Source merge alone
 authorizes none of those deployment mutations.
+
+## Protected final-package check
+
+The final payload has a separate acceptance-only copy under
+`/opt/rras-engineering/releases/history-web-package-check-...`, never at the planned
+production release path. The root helper reuses the production verifier and an
+exact committed embedded probe; changed working-tree probe bytes cannot replace it.
+It refuses existing check paths and occupied probe UID/GID 61164, then copies only
+verified bytes to root ownership and runs a bounded child using `unshare --net` and
+`setpriv`. No NSS account, unit or listener is created by this check.
+
+The child verifies its actual UID, empty groups/capabilities, no-new-privileges,
+loopback-only network and clean environment; denial of payload writes and private
+root evidence; exact packaged dependency imports; generated-key authenticated ASGI
+asset/repository dispatch and missing-assertion refusal; and the exact bootstrap's
+CLI entry with the protected interpreter. Only generated fixture authentication is
+used. The production package is reverified afterward and root-only results retained
+under `/var/lib/rras-history-web-package-check-20261104`.
+
+This confirms protected package custody/import/bootstrap boundaries, not live
+Cloudflare key retrieval, the connector route, the production unit's configured
+listener, a private-read grant or authenticated browser access. Those remain the
+following explicit configuration and deployment gates. The check installs nothing
+at the production path and makes no history or Cloudflare changes.
