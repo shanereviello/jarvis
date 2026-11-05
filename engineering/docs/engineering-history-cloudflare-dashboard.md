@@ -357,3 +357,19 @@ primary, root and history-group inputs. The exact corrected guard also passed in
 the pinned no-network client container with UID/GID 61167. Attempt 2 uses a new
 fixture evidence/container name and UID, preserving the first evidence. No actual
 bridge-route success is inferred from the identity-only diagnostic.
+
+The operator-run connector attempt 2 returned
+`synthetic_connector_bridge_route_verified` for tooling source
+`8da359dc7a1813401a3fdd4566545b88c0ad8c60`. All four route cases passed: pinned
+unprivileged/no-volume client on the connector network, synthetic host bridge
+reachability, exact Host/nonce matching and wrong-Host refusal. The receipt records
+stopped listener, removed fixture container and no existing-container, Cloudflare,
+account or private-history changes. A subsequent read-only check independently
+found no matching fixture container and no listener on port 18764.
+
+Private evidence remains under
+`/var/lib/rras-history-web-route-check-attempt02-20261104`. The proposed bridge
+origin has routing evidence, but no real dashboard service or tunnel route was
+started. Inactive installation, protected configuration/grant review, explicit
+activation and authenticated browser acceptance are still pending. This result
+documentation does not change the checked tooling or final production payload.
