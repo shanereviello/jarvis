@@ -327,7 +327,7 @@ notes; no login URL metadata, cookie or token is retained in source.
 `connector_check.py` prepares a separate bounded routing fixture. It verifies the
 existing connector still uses `jarvis-net` and the expected Docker gateway, then
 briefly binds a synthetic-only HTTP handler on the proposed bridge address/port.
-The child uses unused numeric UID/GID 61166, empty groups/capabilities, no-new-privileges,
+The child uses unused numeric UID/GID 61167, empty groups/capabilities, no-new-privileges,
 a clean environment, parent-death handling and a 45-second hard lifetime. It serves
 only an exact synthetic nonce response, not files or engineering data.
 
@@ -346,3 +346,14 @@ origin; Cloudflare documents the `httpHostHeader` setting under
 Do not add that route until the production configuration/grant/service and explicit
 activation decision are ready. Production private reads remain protected by origin
 JWT checks as well as the edge policy.
+
+
+The first connector rehearsal stopped at the Docker client's identity guard before
+HTTP requests. A disposable `--network none`, read-only/no-mount diagnostic showed
+correct UID/GID 61166 and supplementary groups `[61166]`: Docker included the same
+primary GID. The corrected client accepts only no groups or that exact primary GID,
+continuing to refuse every other group. Tests exercise the actual guard with empty,
+primary, root and history-group inputs. The exact corrected guard also passed in
+the pinned no-network client container with UID/GID 61167. Attempt 2 uses a new
+fixture evidence/container name and UID, preserving the first evidence. No actual
+bridge-route success is inferred from the identity-only diagnostic.

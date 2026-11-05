@@ -13,21 +13,21 @@ import subprocess
 import sys
 import time
 
-STATE=Path('/var/lib/rras-history-web-route-check-20261104')
+STATE=Path('/var/lib/rras-history-web-route-check-attempt02-20261104')
 PYTHON=Path('/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13')
 NETWORK='jarvis-net'
 BIND='172.19.0.1'
 PORT=18764
 HOST='jarvis-coding.reviellorobotics.com'
 IMAGE='sha256:b99f4564d5e17ec0183314c0d2f6f633657cff4916fad0f05f6e7667722da432'
-CONTAINER='rras-history-web-route-check-20261104'
-LABEL='rras.fixture=history-web-route-check-20261104'
-UID=61166
+CONTAINER='rras-history-web-route-check-attempt02-20261104'
+LABEL='rras.fixture=history-web-route-check-attempt02-20261104'
+UID=61167
 ENV={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'}
 
 SERVER=r'''
 import ctypes,http.server,json,os,signal,sys
-if os.getuid()!=61166 or os.geteuid()!=61166 or os.getgid()!=61166 or os.getegid()!=61166 or os.getgroups():raise ValueError('fixture identity differs')
+if os.getuid()!=61167 or os.geteuid()!=61167 or os.getgid()!=61167 or os.getegid()!=61167 or os.getgroups():raise ValueError('fixture identity differs')
 status=dict(line.split(':',1) for line in open('/proc/self/status').read().splitlines() if ':' in line)
 if status['NoNewPrivs'].strip()!='1' or any(int(status[k].strip(),16) for k in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb')):raise ValueError('fixture privileges retained')
 if set(os.environ)-{'PATH','HOME','LANG'}:raise ValueError('fixture environment differs')
@@ -48,7 +48,8 @@ http.server.HTTPServer(('172.19.0.1',18764),Handler).serve_forever(poll_interval
 CLIENT=r'''
 import http.client,json,os,sys
 value=json.load(sys.stdin)
-if os.getuid()!=61166 or os.geteuid()!=61166 or os.getgid()!=61166 or os.getegid()!=61166 or os.getgroups():raise ValueError('client identity differs')
+identity=dict(uid=os.getuid(),euid=os.geteuid(),gid=os.getgid(),egid=os.getegid(),groups=os.getgroups())
+if any(identity[name]!=61167 for name in ('uid','euid','gid','egid')) or set(identity['groups'])-{61167}:raise ValueError('client identity differs: '+json.dumps(identity))
 if set(os.environ)-{'PATH','HOME','LANG'}:raise ValueError('client environment differs')
 status=dict(line.split(':',1) for line in open('/proc/self/status').read().splitlines() if ':' in line)
 if status['NoNewPrivs'].strip()!='1' or any(int(status[k].strip(),16) for k in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb')):raise ValueError('client privileges retained')
@@ -82,7 +83,7 @@ def write(path,raw,mode=0o600):
 
 def client_command():
     return ['/usr/bin/docker','run','--rm','--pull=never','--name',CONTAINER,'--label',LABEL,'--network',NETWORK,
-        '--read-only','--cap-drop=ALL','--security-opt=no-new-privileges:true','--user','61166:61166','--stop-timeout','3','-i',
+        '--read-only','--cap-drop=ALL','--security-opt=no-new-privileges:true','--user','61167:61167','--stop-timeout','3','-i',
         '--entrypoint','/usr/bin/env',IMAGE,'-i','PATH=/usr/bin:/bin','HOME=/nonexistent','LANG=C.UTF-8',
         '/opt/hermes/.venv/bin/python','-I','-S','-B','-c',CLIENT]
 
