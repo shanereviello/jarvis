@@ -443,3 +443,24 @@ policy or restart history again, so partial grant/history state needs explicit
 operator diagnosis. Root operators must avoid concurrent policy editing during the
 reviewed change. An existing activation journal or changed baseline refuses replay.
 Authenticated browser and tunnel publication remain subsequent acceptance gates.
+
+
+## Deployed origin and operator browser confirmation
+
+After explicit PR87 merge and origin-activation approval, the operator-run receipt
+reported `dashboard_origin_activation_complete` for the reviewed release. UID993
+read-only Jarvis history access was loaded, history restarted, and dashboard
+started/enabled. The controller verified unsigned origin denial and live public
+signing keys, with zero production records written or model calls. Independent
+read-only status checks confirmed both services active and dashboard enabled.
+Activation evidence remains under
+`/var/lib/rras-history-web-activations/history-web-9e150671dcfa/activation-01`.
+
+The operator subsequently confirmed browser access to the work list (13 work sets
+at that time) and overview/timeline/documents/evidence tabs through the configured
+Cloudflare hostname. This is operator-reported browser evidence, not a count
+invariant or independent inspection of Cloudflare configuration. The origin also
+returned403 to unsigned host and disposable connector-network probes. The operator additionally confirms actual Markdown opening/download and working
+sign-out. Evidence-link navigation and refresh-after-sign-out denial remain
+unverified.
+See [milestone closeout](engineering-history-dashboard-closeout.md).

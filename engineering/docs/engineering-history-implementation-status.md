@@ -12,14 +12,14 @@ page does not reproduce private configurations, source history or credentials.
 
 | Backlog slice | Current position | Remaining work |
 | --- | --- | --- |
-| 0. Design baseline | Accepted separate unprivileged service/store, preserving root operational authority. | D2 direction accepted: existing Cloudflare Tunnel + Access, one operator; production route/configuration remain pending. |
+| 0. Design baseline | Accepted separate unprivileged service/store, preserving root operational authority. | D2 deployed: existing Cloudflare Tunnel + Access, one operator; browser access operator-confirmed. |
 | 1. Contracts | Structured work/session/checkpoint/document envelopes, deterministic encoding and provenance rules implemented. | Extend additively for reviewed needs. |
 | 2. Durable intake/storage | Dedicated private SQLite service deployed with authenticated Unix peers, scoped policy, receipts/outbox and host boundary tests. | Backup/restore verification remains explicitly operator-deferred. |
 | 3. Templates/protected binding | Immutable rendering and protected managed review binding deployed. A real review document was exported/imported with exact-byte readback. | Continued workflow coverage; document creation is not mandatory for every legacy capture. |
 | 4. Explicit interactive client | Explicit recording client and durable spool implemented; private history service deployed with real explicitly recorded work. | Operator-designated A/B/C continuity verified without replacing the work; native session authentication remains unverified. Convenient integration remains; no universal chat observation. |
-| 5. Operational export/retrieval | Event exporter, review-document handoff and repeatable managed-event sync command deployed. Curated reader, restricted writer and Hermes read-only MCP integration deployed; first three selected entries published and read back. | Routine managed lifecycle orchestration and continuing explicit selection/sync coverage. Existing snapshots do not imply automatic freshness. |
+| 5. Operational export/retrieval | Event exporter, review-document handoff and repeatable managed-event sync command deployed. Curated reader, restricted writer and Hermes read-only MCP integration deployed; first three selected entries published and read back. | Routine managed lifecycle orchestration and continuing explicit selection/sync coverage. Broader Jarvis history MCP access needs a separate scope/privacy decision; current catalog remains three selected entries. |
 | 6. Optional hooks | Not deployed. | Actual client/event acceptance and minimal trusted metadata design after explicit-client integration. |
-| 7. Read-only web | First source slice prepared: Cloudflare JWT validation and private work/timeline/document/evidence UI. Not deployed. | Protected startup/configuration, dedicated read-only identity, host acceptance and separately approved Cloudflare/origin installation. |
+| 7. Read-only web | Deployed protected runtime and read-only UID993; origin active/enabled; operator confirms browser work list and overview/timeline/documents/evidence tabs. | Markdown viewing/download and sign-out operator-confirmed; evidence-link and post-sign-out refresh checks unverified; see milestone closeout. |
 | 8. Web decisions | Not deployed. | Separate authenticated action bindings after read-only web. |
 | 9. Closeout | Individual source/host/deployment checks and operational evidence retained. | Consolidated two-mode acceptance, maintained operator runbook, upgrade/restore coverage and deferred backup work. |
 
@@ -94,8 +94,8 @@ refresh review and operator-designated three-session continuity acceptance. The
 latter preserves the original work and records; native session authentication is
 still unverified. Managed refresh remains explicit rather than automatic.
 
-Current implementation work is Section 7, following the accepted D2 Cloudflare
-direction. See the [dashboard source scope](engineering-history-cloudflare-dashboard.md)
-for its source checks and remaining host/deployment gates. Lifecycle hooks remain
-optional Section 6 work; protected browser actions are Section 8. No production
-listener, automatic capture, paid task or autopilot is authorized by this source slice.
+Section 7 is deployed and undergoing final browser closeout. See the
+[milestone closeout](engineering-history-dashboard-closeout.md) for evidence and
+pending checks, and its deferred backlog for the next separate work plan. Optional
+Section 6 hooks and Section 8 protected browser decisions remain unbuilt. This
+closeout changes no runtime permissions, listeners or execution authority.
