@@ -407,3 +407,39 @@ installation and activation remained unauthorized. The pinned installer/runtime
 bytes are unchanged by this documentation update. The next decision must explicitly
 cover both source merge and inactive installation; dashboard start/enable, history
 grant/restart and Cloudflare route publication are excluded.
+
+The operator's explicitly approved inactive installation returned
+`inactive_dashboard_install_complete` for release
+`/opt/rras-engineering/releases/history-web-9e150671dcfa`, UID/GID 993 and the
+previously reviewed runtime/configuration digests. The receipt records stopped,
+disabled dashboard, unchanged history grant/service and Cloudflare. Independent
+read-only checks verified all 558 installed payload digests/root modes, exact unit
+bytes, account metadata/groups, loaded inactive/disabled unit with PID 0 and no
+port-18764 listener. Root installation evidence is retained under
+`/var/lib/rras-history-web-installations/history-web-9e150671dcfa`.
+
+## Activation review and controller
+
+`activation_package.py` emits exact committed stdlib verifier/controller bytes.
+`activation.py preflight` makes no mutations. It validates installed runtime/config/
+unit/account state, inactive/disabled service and unoccupied port, existing connector
+network and running history service. It validates every existing policy principal,
+refuses an already-present UID993, and computes a proposal that preserves the old
+principals and appends only UID993/private-read `jarvis`/empty write scope. Output
+contains only policy digests/counts and service PID, not policy/configuration contents.
+
+A future explicitly approved `activate` must match both reviewed policy digests and
+the history PID. It retains exact before/after policy bytes privately, atomically
+adds the reader, restarts only the history service to load its exact UID/socket ACL,
+checks actual UID993 private read and other-repository denial, and fetches live public
+keys as UID993. No production write probe is submitted. It starts the dashboard,
+checks actual UID/groups/capabilities and no-new-privileges, verifies unsigned origin
+requests are refused, then enables it at boot. Cloudflare configuration is untouched.
+
+Failure retains policy/current database bytes and private command evidence; it does
+not restore history or automatically retry. If a dashboard start was attempted, its
+failure cleanup stops/disables the dashboard. It does not automatically restore a
+policy or restart history again, so partial grant/history state needs explicit
+operator diagnosis. Root operators must avoid concurrent policy editing during the
+reviewed change. An existing activation journal or changed baseline refuses replay.
+Authenticated browser and tunnel publication remain subsequent acceptance gates.
