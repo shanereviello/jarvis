@@ -184,8 +184,8 @@ The explicit client `status` shows delivery/context, not a searchable database U
 The authorized history/document Unix read API provides private records and exact
 Markdown/manifest retrieval. The service database remains private to its service
 identity; do not change ownership or connect a desktop database client directly to
-production SQLite. A read-only dashboard remains future work, not a dependency for
-explicit recording.
+production SQLite. The deployed read-only dashboard presents authorized history
+through the service socket; it is not a dependency for explicit recording.
 
 Jarvis can use `engineering_history_search` and `engineering_history_read` through
 its installed `rras-curated-history` MCP entry. Ask for the curated history relevant
@@ -236,3 +236,50 @@ The acceptance record must distinguish installed-command checks, local fixtures,
 actual service writes and operator-confirmed real sessions. It must not claim
 success for future transitions. This runbook installs no hook, timer, listener,
 GUI, automatic transcript collector or paid task.
+
+
+## Read-only dashboard operations
+
+Use the configured HTTPS hostname through Cloudflare Access. The dashboard runs as
+UID993 and can read only the configured `jarvis` history repository; it cannot
+submit notes, approve work or execute actions. Overview uses the latest work
+revision, timeline uses recorded events/provenance, documents use stored immutable
+Markdown/manifests with digest checking, and evidence lists recorded GitHub links.
+Links are not live verification of remote facts. There is no separate web database.
+
+The canonical private store is `/var/lib/rras-engineering-history/history.sqlite3`;
+only history UID995 opens it. The web process uses
+`/run/rras-engineering-history/service.sock`. Access policy is
+`/etc/rras-engineering-history/access-policy.json`; dashboard configuration is
+`/etc/rras-engineering-history-web/config.json`. Keep configuration and private
+records out of Git. The dashboard release is
+`/opt/rras-engineering/releases/history-web-9e150671dcfa`.
+
+Read service state without changing it:
+
+```sh
+systemctl show rras-engineering-history-web.service \
+  --property=ActiveState,SubState,MainPID,UnitFileState
+systemctl show rras-engineering-history.service --property=ActiveState,MainPID
+```
+
+For browser failures, distinguish DNS resolution, Cloudflare/tunnel origin
+connectivity, Access login and application authorization. The reviewed route uses
+HTTP to the private host bridge on port18764; browser traffic uses HTTPS and the
+connector travels over the encrypted tunnel. An unsigned origin API request is
+expected to return403. It is not proof of authenticated document retrieval.
+Never disable Access or bypass signed-token checking to diagnose a502.
+
+History-service outage/revocation must show unavailable rather than cached private
+history. Inspect the original client spool/status for pending recording; flush the
+same passive requests rather than rerunning coding or deleting state. Preserve
+protected installation/activation journals before investigating partial upgrades.
+Changes to protected config/policy, service restarts, upgrades and recovery require
+their own reviewed procedure; do not replay a successful first-activation script.
+Do not restore the database to fix a deployment receipt. Backup/restore remains
+operator-deferred, so no tested recovery guarantee is claimed.
+
+The dashboard and Jarvis have distinct readers. Jarvis's MCP tools currently expose
+only the explicitly curated catalog, not the dashboard's private records. See the
+[closeout backlog](engineering-history-dashboard-closeout.md#deferred-backlog)
+before designing broader access or automatic publishing.

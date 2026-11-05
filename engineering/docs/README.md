@@ -104,3 +104,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Hardened reader and pinned-image host-socket rehearsal](engineering-history-curated-container-host-acceptance.md) — synthetic actual MCP/Docker/systemd acceptance; production activation remains separate.
 
 - [Inactive curated production package](engineering-history-curated-inactive-install.md) — protected first installation with empty catalog; no activation or content publication.
+
+- [History foundation and read-only dashboard closeout](engineering-history-dashboard-closeout.md): deployed evidence, remaining browser acceptance and deferred next-plan backlog.
