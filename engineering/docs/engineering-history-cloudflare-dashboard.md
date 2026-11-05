@@ -398,3 +398,12 @@ journal under `/var/lib/rras-history-web-installations`; existing paths are neve
 adopted or overwritten, and no retry or rollback is automatic. A successful inactive
 installation still needs an explicitly reviewed additive read grant, history-service
 restart, dashboard activation, tunnel route and authenticated browser acceptance.
+
+The operator-run inactive-install preflight returned
+`inactive_dashboard_install_preflight_passed` for release
+`/opt/rras-engineering/releases/history-web-9e150671dcfa` and the exact reviewed
+private configuration digest. It verified current server state with no mutations;
+installation and activation remained unauthorized. The pinned installer/runtime
+bytes are unchanged by this documentation update. The next decision must explicitly
+cover both source merge and inactive installation; dashboard start/enable, history
+grant/restart and Cloudflare route publication are excluded.
