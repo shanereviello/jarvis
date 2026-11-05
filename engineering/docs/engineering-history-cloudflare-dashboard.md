@@ -373,3 +373,37 @@ origin has routing evidence, but no real dashboard service or tunnel route was
 started. Inactive installation, protected configuration/grant review, explicit
 activation and authenticated browser acceptance are still pending. This result
 documentation does not change the checked tooling or final production payload.
+
+## Inactive installation tooling
+
+`install_package.py` emits a stdlib-only helper from exact committed verifier and
+`inactive_install.py` bytes. The `preflight` operation verifies the existing runtime
+manifest, exact separately reviewed configuration digest, absent destination paths
+and unused dedicated account/UID/GID 993. It checks the current history service PID
+and hashes its access policy without exporting policy contents or opening history.
+Preflight makes no mutations and is not installation authorization.
+
+After a separate explicit source/install decision, `install` creates only the locked
+no-login/no-home dedicated identity, root-owned immutable release, root:993 protected
+configuration directory/file and disabled/inactive unit. The installed configuration
+is parsed using actual application code as UID993, with no extra groups/capabilities
+and no-new-privileges, before registering the unit. Only a systemd daemon reload is
+performed: no start or enable. The history PID/policy digest must remain unchanged.
+The helper never grants socket access, contacts history, restarts the history service,
+adds a Cloudflare route or activates a listener. The config is private input data,
+not included in Git or in the public runtime package.
+
+Partial failure preserves the account, paths and root-only intent/command/error
+journal under `/var/lib/rras-history-web-installations`; existing paths are never
+adopted or overwritten, and no retry or rollback is automatic. A successful inactive
+installation still needs an explicitly reviewed additive read grant, history-service
+restart, dashboard activation, tunnel route and authenticated browser acceptance.
+
+The operator-run inactive-install preflight returned
+`inactive_dashboard_install_preflight_passed` for release
+`/opt/rras-engineering/releases/history-web-9e150671dcfa` and the exact reviewed
+private configuration digest. It verified current server state with no mutations;
+installation and activation remained unauthorized. The pinned installer/runtime
+bytes are unchanged by this documentation update. The next decision must explicitly
+cover both source merge and inactive installation; dashboard start/enable, history
+grant/restart and Cloudflare route publication are excluded.
