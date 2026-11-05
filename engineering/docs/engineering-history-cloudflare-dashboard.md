@@ -314,3 +314,62 @@ release is still uninstalled. Production services/history/grants and Cloudflare
 remain unchanged. Live configuration, key retrieval, connector routing, inactive
 installation and activation still require their respective reviews and decisions.
 This documentation update does not change the checked runtime or probe bytes.
+
+## Connector route rehearsal
+
+The host-side key loader was exercised against the operator-supplied team's public
+HTTPS certs endpoint. It verified two 2048-bit RSA keys using the actual protected
+runtime code, normal certificate validation, no redirects and no inherited proxy.
+This proves key retrieval/parsing, not an authenticated application token or the
+Access policy. Actual account identifiers/results remain in private operational
+notes; no login URL metadata, cookie or token is retained in source.
+
+`connector_check.py` prepares a separate bounded routing fixture. It verifies the
+existing connector still uses `jarvis-net` and the expected Docker gateway, then
+briefly binds a synthetic-only HTTP handler on the proposed bridge address/port.
+The child uses unused numeric UID/GID 61167, empty groups/capabilities, no-new-privileges,
+a clean environment, parent-death handling and a 45-second hard lifetime. It serves
+only an exact synthetic nonce response, not files or engineering data.
+
+A pinned, read-only, unprivileged disposable client container on the connector's
+network checks the exact Host/nonce response and wrong-Host refusal. It has no mounts
+or credentials and cannot pull an image. Cleanup stops the fixture child and removes
+only the exact labelled client; no existing container, connector configuration or
+Cloudflare route is edited. Existing evidence/container names and an occupied port
+refuse a new run. No automatic retry is permitted.
+
+This tests same-network reachability and the intended Host header, not the running
+connector's application route or a Cloudflare-authenticated browser. A later
+reviewed route must set the origin Host header consistently with the application
+origin; Cloudflare documents the `httpHostHeader` setting under
+[origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
+Do not add that route until the production configuration/grant/service and explicit
+activation decision are ready. Production private reads remain protected by origin
+JWT checks as well as the edge policy.
+
+
+The first connector rehearsal stopped at the Docker client's identity guard before
+HTTP requests. A disposable `--network none`, read-only/no-mount diagnostic showed
+correct UID/GID 61166 and supplementary groups `[61166]`: Docker included the same
+primary GID. The corrected client accepts only no groups or that exact primary GID,
+continuing to refuse every other group. Tests exercise the actual guard with empty,
+primary, root and history-group inputs. The exact corrected guard also passed in
+the pinned no-network client container with UID/GID 61167. Attempt 2 uses a new
+fixture evidence/container name and UID, preserving the first evidence. No actual
+bridge-route success is inferred from the identity-only diagnostic.
+
+The operator-run connector attempt 2 returned
+`synthetic_connector_bridge_route_verified` for tooling source
+`8da359dc7a1813401a3fdd4566545b88c0ad8c60`. All four route cases passed: pinned
+unprivileged/no-volume client on the connector network, synthetic host bridge
+reachability, exact Host/nonce matching and wrong-Host refusal. The receipt records
+stopped listener, removed fixture container and no existing-container, Cloudflare,
+account or private-history changes. A subsequent read-only check independently
+found no matching fixture container and no listener on port 18764.
+
+Private evidence remains under
+`/var/lib/rras-history-web-route-check-attempt02-20261104`. The proposed bridge
+origin has routing evidence, but no real dashboard service or tunnel route was
+started. Inactive installation, protected configuration/grant review, explicit
+activation and authenticated browser acceptance are still pending. This result
+documentation does not change the checked tooling or final production payload.
