@@ -17,13 +17,14 @@ def local(name):
 
 def configuration(value):
     fields={'contract','uid','gid','history_uid','history_socket','repositories','issuer','audience','email','origin','bind','port'}
-    if type(value) is not dict or set(value)!=fields or value['contract']!='engineering-history-web.v1':raise ValueError('configuration refused')
+    if type(value) is dict and value.get('contract')=='engineering-history-web.v2':fields|={'categories'}
+    if type(value) is not dict or set(value)!=fields or value['contract'] not in ('engineering-history-web.v1','engineering-history-web.v2'):raise ValueError('configuration refused')
     for field in ('uid','gid','history_uid'):
         if type(value[field]) is not int or not 1<=value[field]<2**32-1:raise ValueError('identity refused')
     if value['uid'] in (994,995,996,997,1000) or value['gid'] in (994,995,996,997,1000) or value['uid']==value['history_uid']:
         raise ValueError('separate dedicated identity required')
     transport=local('history').local('unix');transport.uid(value['history_uid']);transport.endpoint(value['history_socket'])
-    local('history').Reader(value['repositories'],None)
+    local('history').Reader(value['repositories'],None,value.get('categories',()))
     local('access').AccessConfig(value['issuer'],value['audience'],value['email'],value['origin'])
     # Never infer wildcard, DNS, LAN or connector routing from the environment.
     if type(value['bind']) is not str:raise ValueError('explicit IPv4 origin required')
@@ -63,9 +64,9 @@ def identity(value,status_path='/proc/self/status'):
 def application(value):
     history=local('history');transport=history.local('unix')
     def call(message):
-        if type(message) is not dict or message.get('method') not in ('history','document'):raise ValueError('reads only')
+        if type(message) is not dict or message.get('method') not in ('history','document','workspace_scopes','project_read'):raise ValueError('reads only')
         return transport.call(value['history_socket'],value['history_uid'],message)
-    reader=history.Reader(value['repositories'],call)
+    reader=history.Reader(value['repositories'],call,value.get('categories',()))
     config=local('access').AccessConfig(value['issuer'],value['audience'],value['email'],value['origin'])
     return local('app').create_app(reader,local('access').Access(config))
 

@@ -12,7 +12,7 @@ PYTHON=Path('/opt/rras-engineering/releases/native-10/venv/bin/python')
 LIMIT=8*1024*1024
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in ('contract','managed_link','managed_export_entry'))|set(
     'engineering/tools/rras_native/'+name+'.py' for name in ('workflow_records','workflow_journal','engineering_export'))|set(
-    'engineering/contracts/'+name for name in ('engineering-history-v1.schema.json','engineering-managed-export-v1.schema.json','workflow-v1.schema.json'))
+    'engineering/contracts/'+name for name in ('engineering-history-v1.schema.json','engineering-history-v2.schema.json','engineering-managed-export-v1.schema.json','workflow-v1.schema.json'))
 
 
 def encoded(value):return (json.dumps(value,sort_keys=True,separators=(',',':'))+'\n').encode()

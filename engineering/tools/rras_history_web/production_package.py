@@ -13,7 +13,7 @@ PYTHON='/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.
 SOURCE_FILES={f'engineering/tools/rras_history_web/{name}.py' for name in ('access','app','history','entry','runtime_entry')}|{
     f'engineering/tools/rras_history_web/assets/{name}' for name in ('index.html','app.css','app.js')}|{
     'engineering/tools/rras_history/contract.py','engineering/tools/rras_history/unix.py',
-    'engineering/contracts/engineering-history-v1.schema.json','engineering/config/history-web/rras-engineering-history-web.service.in',
+    'engineering/contracts/engineering-history-v1.schema.json','engineering/contracts/engineering-history-v2.schema.json','engineering/config/history-web/rras-engineering-history-web.service.in',
     'engineering/requirements-history-web-lock.txt'}
 ARTIFACTS={'deployment/rras-engineering-history-web.service','deployment/install-plan.json','deployment/ROLLBACK.md'}
 LIMIT=96*1024*1024

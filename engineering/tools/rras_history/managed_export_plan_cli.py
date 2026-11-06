@@ -18,7 +18,7 @@ def build(operational,engineering,journal_id,capture_id):
     if operational['kind']!='work_item' or engineering['operation'] not in ('work.create','work.revise'):
         raise ValueError('explicit operational and engineering work required')
     body=engineering['body']
-    if (operational['work_item_id']!=body['work_item_id'] or operational['repository_id']!=body['repository_id'] or
+    if (operational['work_item_id']!=body['work_item_id'] or operational['repository_id']!=c.repository(body) or
             operational['baseline']!=body['baseline'] or operational['requested_paths']!=body['allowed_paths']):
         raise ValueError('exact work repository baseline and ordered scope required')
     package=local('managed_export_package')

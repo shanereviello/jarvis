@@ -43,7 +43,7 @@ def validate(packet):
 def plan(work_request,packet):
     c=local('contract');work=c.validate(work_request);packet=validate(packet);source=packet['work'];body=work['body']
     if work['operation'] not in ('work.create','work.revise'):raise ValueError('explicit engineering work revision required')
-    if (body['work_item_id']!=source['work_item_id'] or body['repository_id']!=source['repository_id'] or
+    if (body['work_item_id']!=source['work_item_id'] or c.repository(body)!=source['repository_id'] or
             body['baseline']!=source['baseline'] or body['allowed_paths']!=source['requested_paths']):
         raise ValueError('exact work identity repository baseline and scope binding required')
     head=c.digest(c.encoded(body))

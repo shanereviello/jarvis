@@ -27,7 +27,7 @@ def history(call,repo):
 
 
 def target(call,work):
-    c=local('contract');body=work['body'];rows=history(call,body['repository_id'])
+    c=local('contract');body=work['body'];rows=history(call,c.repository(body))
     revisions=[row['submission']['body'] for row in rows if row['submission']['operation'].startswith('work.') and
                row['submission']['body']['work_item_id']==body['work_item_id']]
     if not revisions or c.digest(c.encoded(max(revisions,key=lambda r:r['revision'])))!=c.digest(c.encoded(body)):

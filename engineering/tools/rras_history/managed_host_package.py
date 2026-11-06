@@ -10,12 +10,12 @@ SERVICE=61101
 CLIENT=61102
 UNKNOWN=61103
 LIMIT=8*1024*1024
-HISTORY=('access','contract','documents','store','unix','interactive','production_entry','managed_link','link_delivery',
+HISTORY=('access','contract','documents','scoped_documents','store','unix','interactive','production_entry','managed_link','link_delivery',
          'managed_host_package','managed_host_driver','managed_host_probe')
 NATIVE=('workflow_records','workflow_journal','engineering_export')
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in HISTORY)|set(
     'engineering/tools/rras_native/'+name+'.py' for name in NATIVE)|set('engineering/contracts/'+name for name in (
-    'engineering-history-v1.schema.json','engineering-managed-export-v1.schema.json','workflow-v1.schema.json','examples/library-managed.json'))|set(
+    'engineering-history-v1.schema.json','engineering-history-v2.schema.json','engineering-managed-export-v1.schema.json','workflow-v1.schema.json','examples/library-managed.json'))|set(
     'engineering/docs/engineering-history-phase1/templates/'+name+'.md' for name in ('review','checkpoint','completion'))
 
 

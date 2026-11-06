@@ -6,11 +6,12 @@ from pathlib import Path,PurePosixPath
 import re
 import stat
 
-CORE=('access','contract','documents','store','unix','interactive','interactive_cli','production_entry','client_entry',
+CORE=('access','contract','documents','scoped_documents','projects','project_cli','project_entry','store','unix','interactive','interactive_cli','production_entry','client_entry',
       'production_package','history_acceptance_package','host_acceptance','unit_acceptance','unit_acceptance_probe')
 # Explicitly freeze names in the bootstrap; importing runtime code is unnecessary.
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in CORE)|{
-    'engineering/contracts/engineering-history-v1.schema.json','runtime-manifest.json'}|set(
+    'engineering/contracts/engineering-history-v1.schema.json','engineering/contracts/engineering-history-v2.schema.json',
+    'engineering/contracts/engineering-project-v1.schema.json','runtime-manifest.json'}|set(
     'engineering/docs/engineering-history-phase1/templates/'+name+'.md' for name in ('review','checkpoint','completion'))|set(
     'deployment/'+name for name in ('rras-engineering-history.service','access-policy.json','install-plan.json','rras-history-client','ROLLBACK.md'))
 LIMIT=8*1024*1024

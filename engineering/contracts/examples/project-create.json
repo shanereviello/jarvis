@@ -1,0 +1,27 @@
+{
+  "contract": "engineering-project.v1",
+  "operation": "project.create",
+  "client_event_key": "synthetic-project-create-1",
+  "expected_head": null,
+  "scope": {
+    "kind": "repository",
+    "id": "jarvis"
+  },
+  "project_id": "prj_11111111111111111111111111111111",
+  "source": {
+    "kind": "agent_reported",
+    "namespace": "synthetic_example",
+    "id": null
+  },
+  "occurred_at": null,
+  "body": {
+    "revision": 1,
+    "name": "Synthetic project example",
+    "overview": "Example only; not existing private work.",
+    "intended_outcome": "Demonstrate explicit grouping",
+    "in_scope": "Synthetic records",
+    "out_of_scope": "Production history and execution",
+    "owner": null,
+    "change_summary": "Initial synthetic example"
+  }
+}
