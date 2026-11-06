@@ -1,0 +1,11 @@
+{
+  "scope": {
+    "kind": "repository",
+    "id": "jarvis"
+  },
+  "query": {
+    "view": "projects",
+    "offset": 0,
+    "limit": 20
+  }
+}

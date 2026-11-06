@@ -62,7 +62,7 @@ def set_acl(path,principals, *, directory):
 def prepare_endpoint(path,grants):
     # Only nonempty private grants get filesystem connection access. The
     # dispatcher independently rechecks exact repository grants on every call.
-    principals=[uid for uid,grant in grants.items() if grant['private_read']]
+    principals=[uid for uid,grant in grants.items() if grant['private_read'] or grant.get('category_read')]
     set_acl(path.parent,principals,directory=True)
     set_acl(path,principals,directory=False)
 

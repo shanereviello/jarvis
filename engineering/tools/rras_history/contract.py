@@ -48,7 +48,8 @@ def validate(value):
     try: raw = encoded(value)
     except RecursionError: raise ValueError('bounded JSON nesting required') from None
     value = decode(raw)
-    Draft202012Validator(json.loads(SCHEMA.read_text()), format_checker=FormatChecker()).validate(value)
+    schema = SCHEMA.with_name('engineering-history-v2.schema.json') if isinstance(value, dict) and value.get('contract') == 'engineering-history.v2' else SCHEMA
+    Draft202012Validator(json.loads(schema.read_text()), format_checker=FormatChecker()).validate(value)
     stamp = value['occurred_at']
     if stamp is not None:
         if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z', stamp):
@@ -67,6 +68,8 @@ def validate(value):
     inspect(value)
     if value['operation'].startswith('work.'):
         body = value['body']
+        if scope(body)['kind'] == 'non_git' and (body['baseline'] is not None or body['allowed_paths']):
+            raise ValueError('non-Git work has no Git baseline or repository paths')
         if '\n' in body['title'] or '\r' in body['title']:
             raise ValueError('single-line title required')
         criteria = [row['id'] for row in body['acceptance_criteria']]
@@ -88,3 +91,15 @@ def validate(value):
             if item != item.strip(): raise ValueError('exact identifier required')
     identifiers(value)
     return value
+
+
+def scope(work):
+    """Interpret legacy repository identity without rewriting its canonical bytes."""
+    return work['scope'] if 'scope' in work else {'kind': 'repository', 'id': work['repository_id']}
+
+
+def repository(work):
+    selected = scope(work)
+    if selected['kind'] != 'repository':
+        raise ValueError('this adapter requires repository work')
+    return selected['id']

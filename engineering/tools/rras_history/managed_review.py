@@ -54,8 +54,8 @@ def build(review,review_id,work_request,narrative,document_id,*,document_version
     c=local('contract');docs=local('documents');review=checked_review(review,review_id)
     work_request=c.validate(work_request)
     if work_request['operation'] not in ('work.create','work.revise'):raise ValueError('explicit work revision required')
-    work=work_request['body'];request=review['request']
-    if (work['repository_id']!=request['repository_id'] or work['allowed_paths']!=request['allowed_paths'] or
+    work=work_request['body'];request=review['request'];docs=local('scoped_documents' if 'scope' in work else 'documents')
+    if (c.repository(work)!=request['repository_id'] or work['allowed_paths']!=request['allowed_paths'] or
             work['baseline']!={'ref':review['baseline_ref'],'commit':review['baseline_commit']}):
         raise ValueError('exact repository, ordered scope and baseline binding required')
     if not isinstance(narrative,dict) or set(narrative)!=NARRATIVE:raise ValueError('exact curated narrative field set required')

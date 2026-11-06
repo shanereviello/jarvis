@@ -63,11 +63,13 @@ def test_helper_is_pinned_stdlib_bootstrap(tmp_path):
     text=path.read_text();compile(text,str(path),'exec')
     assert 'explicit sudo acceptance required' in text and 'preserve existing fixture; no automatic retry' in text
     assert 'import jwt' not in text and 'import uvicorn' not in text
+    assert 'isolated_dashboard_project_host_verified' in text
+    assert 'rras-history-web-acceptance-projects-20261106' in text
 
 
 def test_host_driver_preserves_unit_guards_and_isolation():
     driver=web('host_driver');properties=driver.web_properties()
-    assert 'User=61163' in properties and 'Group=61163' in properties
+    assert 'User=61173' in properties and 'Group=61173' in properties
     assert 'CapabilityBoundingSet=' in properties and 'NoNewPrivileges=yes' in properties
     assert 'PrivateNetwork=yes' in properties and 'RuntimeMaxSec=180' in properties
     assert any(p.startswith('InaccessiblePaths=') and str(driver.STATE/'history') in p for p in properties)

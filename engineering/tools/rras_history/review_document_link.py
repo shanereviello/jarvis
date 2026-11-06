@@ -44,7 +44,7 @@ def validate(packet):
     if type(binding['task_id']) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',binding['task_id']):raise ValueError('bounded operational task identity required')
     if request['source']!={'kind':'imported','namespace':'managed-review','id':binding['review_id']}:
         raise ValueError('imported capture attribution required')
-    raw,manifest=local('documents').render(request,work['body'])
+    raw,manifest=local('scoped_documents' if 'scope' in work['body'] else 'documents').render(request,work['body'])
     if (type(packet['markdown']) is not str or packet['markdown'].encode()!=raw or c.encoded(packet['manifest'])!=c.encoded(manifest) or
             binding['work_item_id']!=work['body']['work_item_id'] or
             binding['work_revision_sha256']!=c.digest(c.encoded(work['body'])) or
@@ -57,7 +57,7 @@ def validate(packet):
 def inspect(packet):
     packet=validate(packet);c=local('contract');body=packet['document_request']['body']
     return {'packet_sha256':c.digest(c.encoded(packet)),'work_item_id':body['work_item_id'],
-            'repository_id':packet['work_request']['body']['repository_id'],'document_id':body['document_id'],
+            'repository_id':c.repository(packet['work_request']['body']),'document_id':body['document_id'],
             'document_version':body['document_version'],'markdown_sha256':packet['binding']['markdown_sha256'],
             'authority_granted':False,'history_records_written':False}
 

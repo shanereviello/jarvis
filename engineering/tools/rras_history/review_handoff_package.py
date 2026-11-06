@@ -13,12 +13,12 @@ UNKNOWN=61113
 LIMIT=12*1024*1024
 MANIFEST='release-manifest.json'
 NATIVE=('activity', 'approval', 'approved_launch', 'credentials', 'document_approval', 'draft_pr_connector', 'managed_events', 'manual_runner', 'native_observation', 'native_task_cli', 'operator_control', 'post_validation', 'publication', 'publication_capture', 'publication_custody', 'publication_handoff', 'publication_policy', 'publication_transport', 'publish_workflow_views', 'repository_admission', 'review_gate', 'task_contract', 'validation_execution', 'validation_workspace', 'wait_worker', 'workflow_finish', 'workflow_journal', 'workflow_publication', 'workflow_read_stdio', 'workflow_read_tools', 'workflow_records', 'probe_workflow_host', 'probe_approved_launch', 'document_host_cases', 'engineering_export')
-HISTORY=('access','contract','documents','store','unix','interactive','production_entry','managed_link','link_delivery','managed_sync',
+HISTORY=('access','contract','documents','scoped_documents','store','unix','interactive','production_entry','managed_link','link_delivery','managed_sync',
          'managed_host_package','managed_host_probe','managed_host_driver','managed_review','review_document_link','review_document_export',
          'review_handoff_package','review_handoff_probe','review_handoff_driver')
 SOURCE_FILES=set('engineering/tools/rras_native/'+name+'.py' for name in NATIVE)|set(
     'engineering/tools/rras_history/'+name+'.py' for name in HISTORY)|set('engineering/contracts/'+name for name in (
-    'engineering-history-v1.schema.json','engineering-managed-export-v1.schema.json','workflow-v1.schema.json','examples/library-managed.json'))|set(
+    'engineering-history-v1.schema.json','engineering-history-v2.schema.json','engineering-managed-export-v1.schema.json','workflow-v1.schema.json','examples/library-managed.json'))|set(
     'engineering/docs/engineering-history-phase1/templates/'+name+'.md' for name in ('review','checkpoint','completion'))
 GENERATED={'engineering/tools/rras_native/library-managed.json','engineering/tools/rras_native/profile.json','engineering/tools/rras_native/codex-config.toml'}
 

@@ -79,7 +79,7 @@ class Store:
         try:
             db.execute('PRAGMA trusted_schema=OFF')
             db.execute('PRAGMA foreign_keys=ON')
-            if not initializing and db.execute('PRAGMA user_version').fetchone()[0] != 1:
+            if not initializing and db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2):
                 raise ValueError('unsupported local store version')
             db.execute('PRAGMA journal_mode=DELETE')
             db.execute('PRAGMA synchronous=FULL')
@@ -117,6 +117,8 @@ class Store:
         principal = os.getuid() if peer_uid is None else -peer_uid
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            if request['contract'] == 'engineering-history.v2' and db.execute('PRAGMA user_version').fetchone()[0] != 2:
+                raise ValueError('explicit project migration required for scoped work')
             rows = self.rows(db)
             duplicate = db.execute('SELECT request,receipt FROM submissions WHERE principal=? AND operation=? AND client_key=?',
                                    (principal, operation, request['client_event_key'])).fetchone()
@@ -134,13 +136,17 @@ class Store:
                 head = c.digest(c.encoded(body))
             elif operation == 'work.revise':
                 if (latest is None or request['expected_head'] != head or
-                        body['revision'] != latest['revision'] + 1 or body['repository_id'] != latest['repository_id']):
+                        body['revision'] != latest['revision'] + 1 or c.scope(body) != c.scope(latest)):
                     raise ValueError('work revision conflict')
                 head = c.digest(c.encoded(body))
             else:
                 if (latest is None or request['expected_head'] != head or body['work_revision_sha256'] != head):
                     raise ValueError('exact current work revision required')
                 if operation == 'document.render':
+                    if db.execute('PRAGMA user_version').fetchone()[0] == 2:
+                        if any(r['operation'] == 'architecture.save' and r['body']['document_id'] == body['document_id']
+                               for r, _ in local('projects').Projects(self).events(db)):
+                            raise ValueError('document identity belongs to project architecture')
                     prior = [(r['body'], meta) for r, _, _, meta in rows
                              if r['operation'] == operation and r['body']['document_id'] == body['document_id']]
                     previous = prior[-1] if prior else None
@@ -152,7 +158,7 @@ class Store:
                             raise ValueError('document version conflict')
                     elif body['document_version'] != 1 or body['supersedes_document_sha256'] is not None:
                         raise ValueError('first document version required')
-                    document, manifest = local('documents').render(request, latest)
+                    document, manifest = local('scoped_documents' if 'scope' in latest else 'documents').render(request, latest)
             receipt = dict(contract='engineering-history-receipt.v1', receipt_id='rcp_' + uuid.uuid4().hex,
                 sequence=len(rows) + 1, request_sha256=sha, work_item_id=body['work_item_id'],
                 work_revision_sha256=head, recorded_at=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),

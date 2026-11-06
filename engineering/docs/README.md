@@ -1,5 +1,7 @@
 # Engineering documentation
 
+- [Project workspace architecture and operator handoff](engineering-project-workspace.md): accepted v0.2 project grouping, versioned architecture, Git baselines, non-Git category and read-only views; source implementation and explicit migration/host gate.
+
 - [Cloudflare Access read-only history dashboard](engineering-history-cloudflare-dashboard.md): accepted D2 direction, source UI/API/authentication, isolated evidence and remaining deployment gates.
 
 - [Installed engineering-history operator runbook](engineering-history-operator-runbook.md): explicit recording, resume, sync, curated sharing and real-session acceptance.

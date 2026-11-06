@@ -163,6 +163,29 @@ def test_no_new_intake_operation_or_store_schema_needed(setup):
     with history.connection() as db:assert db.execute('PRAGMA user_version').fetchone()==(1,)
 
 
+def test_scoped_repository_revision_retains_managed_and_curated_binding(setup):
+    _,_,packet,work,history=setup
+    projects=module('projects').Projects(history)
+    projects.migrate(projects.migration_plan()['expected_sha256'])
+    revised=copy.deepcopy(work)
+    revised.update(contract='engineering-history.v2',operation='work.revise',client_event_key='scoped-repository-revision',
+                   expected_head=c.digest(c.encoded(work['body'])))
+    repo=revised['body'].pop('repository_id')
+    revised['body'].update(revision=2,scope={'kind':'repository','id':repo})
+    history.submit(revised,peer_uid=1000)
+    plan=link.plan(revised,packet)
+    assert plan['binding']['engineering_revision']==2
+    for request in plan['requests']:history.submit(request,peer_uid=1000)
+    sync=module('managed_sync')
+    boundary=module('access').Access(history,{'contract':'engineering-history-access.v1','principals':[
+        {'uid':1000,'private_read':[repo],'write':[repo]}]})
+    rows=sync.target(lambda message:boundary.dispatch(1000,message),revised)
+    sha=c.digest(c.encoded(revised))
+    preview=module('curated_preview').build(rows,[{'source_request_sha256':sha,'summary':'Explicit scoped intent',
+        'rationale':'Selected source only','limitations':'Not completion or automatic publication'}])
+    assert preview['entries'][0]['repository_id']==repo
+
+
 def test_next_page_requires_completed_matching_prior_cursor(setup,tmp_path):
     journal,rows,packet,work,history=setup;journal.append([fixtures.next_event(rows)])
     first=exporter.export(journal.root,packet['journal_id'],packet['work']['record_sha256'],limit=1)

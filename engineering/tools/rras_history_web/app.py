@@ -79,6 +79,33 @@ def create_app(reader,access):
         try:q=query(request,{'repository_id','work_id','version'});version=number(q.get('version'),None)
         except ValueError:return Response('Unavailable.',status_code=400)
         return await read(reader.document,q.get('repository_id'),q.get('work_id'),request.path_params['document_id'],version)
+    async def scopes(request):
+        if request.query_params:return Response('Unavailable.',status_code=400)
+        try:
+            value=await run_in_threadpool(reader.workspace_scopes)
+            return response(dict(value,operator_email=request.scope['operator']['email']))
+        except Exception:return Response('History unavailable.',status_code=503)
+    async def workspace(request):
+        try:
+            allowed={'scope_kind','scope_id','project_id','work_id','version','left','right','offset','limit','q','state',
+                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version'}
+            q=query(request,allowed)
+            selected={'kind':q.pop('scope_kind'),'id':q.pop('scope_id')}
+            for name in ('version','left','right','offset','limit','closeout_sequence','architecture_version'):
+                if name in q:q[name]=number(q[name],None)
+            for name in ('archived','unassigned'):
+                if name in q:
+                    if q[name] not in ('true','false'):raise ValueError()
+                    q[name]=q[name]=='true'
+            if 'snapshot' in q:
+                # The token is two exact per-scope integer boundaries, not an
+                # arbitrary JSON query or caller-provided authorization scope.
+                if not re.fullmatch(r'\{"work_sequence":[0-9]+,"project_sequence":[0-9]+(?:,"sha256":"[0-9a-f]{64}")?\}',q['snapshot']):raise ValueError()
+                q['snapshot']=json.loads(q['snapshot'])
+            q['view']=request.path_params['view']
+        except (ValueError,KeyError):return Response('Unavailable.',status_code=400)
+        return await read(reader.workspace,selected,q)
     app=Starlette(debug=False,routes=[Route('/',index),Route('/assets/{name}',asset),Route('/api/repositories',repos),
+        Route('/api/workspace/scopes',scopes),Route('/api/workspace/{view}',workspace),
         Route('/api/works',works),Route('/api/works/{work_id}',work),Route('/api/documents/{document_id}',document)])
     return Boundary(app,access)

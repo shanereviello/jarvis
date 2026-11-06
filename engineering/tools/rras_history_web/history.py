@@ -40,11 +40,59 @@ def evidence(body):
 
 
 class Reader:
-    def __init__(self,repositories,call):
-        if (type(repositories) not in (list,tuple) or not 1<=len(repositories)<=128 or len(set(repositories))!=len(repositories) or
+    def __init__(self,repositories,call,categories=()):
+        if (type(repositories) not in (list,tuple) or not 0<=len(repositories)<=128 or (not repositories and not categories) or len(set(repositories))!=len(repositories) or
                 any(type(repo) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',repo) for repo in repositories)):
             raise ValueError('explicit repository read grants required')
-        self.repositories=tuple(repositories);self.call=call
+        if type(categories) not in (list,tuple) or len(categories)>1 or any(v!='jarvis-non-git' for v in categories):
+            raise ValueError('explicit initial category read grant required')
+        self.repositories=tuple(repositories);self.categories=tuple(categories);self.call=call
+
+    def workspace_scopes(self):
+        answer=self.call({'method':'workspace_scopes'})
+        if type(answer) is not dict or answer.get('authority_granted') is not False or type(answer.get('scopes')) is not list:
+            raise ValueError('unavailable')
+        configured=[{'kind':'repository','id':v} for v in self.repositories]+[{'kind':'non_git','id':v} for v in self.categories]
+        return {'scopes':[v for v in configured if v in answer['scopes']],'authority_granted':False}
+
+    def workspace(self,selected,query):
+        configured=[{'kind':'repository','id':v} for v in self.repositories]+[{'kind':'non_git','id':v} for v in self.categories]
+        if selected not in configured:raise ValueError('unavailable')
+        answer=self.call({'method':'project_read','scope':selected,'query':query})
+        if (type(answer) is not dict or answer.get('scope')!=selected or
+                answer.get('audience')!='authorized_scope_private' or answer.get('authority_granted') is not False):
+            raise ValueError('unavailable')
+        if query['view']=='architecture':
+            doc=answer.get('document',{})
+            if (type(doc.get('markdown')) is not str or len(doc['markdown'].encode())>128*1024 or
+                    doc.get('project_id')!=query.get('project_id') or doc.get('version')!=query.get('version') or
+                    doc.get('visibility')!='operator_private' or hashlib.sha256(doc['markdown'].encode()).hexdigest()!=doc.get('markdown_sha256')):
+                raise ValueError('unavailable')
+        if query['view']=='document':
+            manifest=answer.get('manifest',{})
+            if (type(answer.get('markdown')) is not str or len(answer['markdown'].encode())>256*1024 or
+                    manifest.get('document_id')!=query.get('document_id') or manifest.get('work_item_id')!=query.get('work_id') or
+                    manifest.get('document_version')!=query.get('version') or manifest.get('visibility')!='operator_private' or
+                    hashlib.sha256(answer['markdown'].encode()).hexdigest()!=manifest.get('markdown_sha256')):
+                raise ValueError('unavailable')
+        if query['view']=='work':
+            links=[];timeline=[];documents=[]
+            for row in answer.pop('records'):
+                request=local('contract').validate(row['submission']);body=request['body'];receipt=row['receipt']
+                if (receipt.get('request_sha256')!=local('contract').digest(local('contract').encoded(request)) or
+                        body['work_item_id']!=query.get('work_id') or receipt.get('authority_granted') is not False):
+                    raise ValueError('unavailable')
+                timeline.append({'operation':request['operation'],'summary':body.get('summary',body.get('objective',body.get('fields',{}).get('title','Work association recorded'))),
+                    'recorded_at':receipt['recorded_at'],'occurred_at':request['occurred_at'],'provenance':request['source']['kind'],
+                    'session_id':body.get('session_id'),'outcome':body.get('outcome'),'decisions':body.get('decisions',[]),
+                    'next_action':body.get('next_action'),'work_revision_sha256':receipt['work_revision_sha256']})
+                if request['operation']=='document.render':documents.append({'document_id':body['document_id'],'version':body['document_version'],
+                    'type':body['document_type'],'title':body['fields']['title'],'markdown_sha256':receipt['document_manifest']['markdown_sha256'],
+                    'manifest':receipt['document_manifest']})
+                links+=evidence(body)
+            answer.update(timeline=timeline,documents=documents,evidence=list({link['url']:link for link in links}.values()),
+                          repository_id=selected['id'],release_status='not_inferred')
+        return answer
 
     def records(self,repo):
         if repo not in self.repositories:raise ValueError('unavailable')
@@ -62,7 +110,7 @@ class Reader:
                         receipt.get('authority_granted') is not False or receipt.get('visibility')!='operator_private' or
                         receipt.get('work_item_id')!=request['body']['work_item_id'] or receipt.get('provenance')!=request['source']['kind'] or
                         type(receipt.get('sequence')) is not int or receipt['sequence']<=previous):raise ValueError('unavailable')
-                if request['operation'].startswith('work.') and request['body']['repository_id']!=repo:raise ValueError('unavailable')
+                if request['operation'].startswith('work.') and local('contract').scope(request['body'])!={'kind':'repository','id':repo}:raise ValueError('unavailable')
                 previous=receipt['sequence'];size+=len(local('contract').encoded(row));rows.append(row)
                 if size>8*1024*1024 or len(rows)>10000:raise ValueError('unavailable')
             if not page['has_more']:return rows

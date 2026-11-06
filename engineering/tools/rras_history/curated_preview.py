@@ -38,7 +38,7 @@ def build(rows,selections):
         if sha in source:raise ValueError('duplicate source request')
         source[sha]=(request,receipt)
         if request['operation'].startswith('work.'):
-            work_id=body['work_item_id'];repo=body['repository_id']
+            work_id=body['work_item_id'];repo=c.repository(body)
             if work_id in repos and repos[work_id]!=repo:raise ValueError('work cannot move repositories')
             repos[work_id]=repo
     entries=[];seen=set()

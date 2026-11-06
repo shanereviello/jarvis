@@ -92,6 +92,9 @@ def test_destination_cannot_overwrite_or_write_into_sources(linked,tmp_path,wher
     if where=='symlink':target.symlink_to(source,target_is_directory=True)
     if where=='public_parent':
         parent=tmp_path/'public';parent.mkdir(mode=0o755);target=parent/'review'
+        # This fixture must stay public even when an earlier CLI test or the
+        # caller has selected a restrictive process umask.
+        parent.chmod(0o755)
     before=snapshot(state),snapshot(source)
     with pytest.raises((ValueError,OSError)):sync.refresh_review(state,source,target)
     assert (snapshot(state),snapshot(source))==before
