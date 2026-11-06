@@ -160,7 +160,7 @@ Authentication/JWT validation, no-store headers, CSP and private-state clearing
 remain in force. Category names, doc text and diff content never become HTML.
 The user-facing design does not grant new browser action authority.
 
-## Validation and remaining host gate
+## Validation and production rollout gate
 
 The accompanying tests cover actual disposable SQLite migration/replay, scope
 denial, concurrent association conflicts, architecture history and digest checks,
@@ -180,10 +180,34 @@ Chromium acceptance requires a separately provisioned Playwright test runtime an
 browser; it adds no production dependency. The ordinary suite skips that test when
 not explicitly enabled. A browser fixture is not live authenticated acceptance.
 
+### Isolated host acceptance — November 6, 2026
+
+The operator ran the pinned helper and supplied a successful
+`isolated_dashboard_project_host_verified` result for source commit
+`a4dcb6a98811acef108cfc55ce027adbd73b18ba`, with fixture manifest SHA-256
+`496756c9b769a4853be7f2e284ebe9932304b3340755e47b4063092c0616dc3a`.
+This documentation follow-up does not change the tested implementation or packages.
+
+All 12 reported checks passed, covering hardened separate service/reader OS
+identities, protected configuration, signed fixture authentication, scope and write
+denials, explicit v1 migration, project reads, governing/draft architecture diffs,
+non-Git baselines, and service outage/restart/revocation without cached history.
+The result reports an unchanged fixture database, stopped units, removed temporary
+identities, zero API calls and no production or Cloudflare changes. Subsequent
+read-only host checks independently confirmed both fixture units inactive and
+both temporary users/groups absent. The protected result file was not independently
+read because noninteractive sudo still required a password; evidence attribution
+is the operator's supplied result, not an independent reread of that file.
+
+This synthetic rehearsal did not test real Cloudflare key fetching, the live
+connector route or a real authenticated browser session. It does not authorize
+production migration, policy changes, installation or activation.
+
 Source package allowlists include the new contracts/modules. Their manifests and
 disabled deployment flags remain enforced. No old protected fixture directory or
-activation receipt should be reused for a new release. Before production rollout,
-prepare a new exact-source package, rehearse the stopped-service upgrade and
-cross-UID/category policy on an isolated fixture, preserve receipts and obtain the
-required operator decision for migration/configuration/restart. The existing live
+activation receipt should be reused for a new release. Production rollout must
+select the exact reviewed runtime packages and target identities, preserve the
+accepted rehearsal receipts, and obtain the required operator decision for the
+stopped-service migration/configuration/restart procedure and forward recovery.
+After activation, live authenticated browser/connector acceptance remains. The existing live
 services, database, permissions and Cloudflare route remain unchanged by this PR.
