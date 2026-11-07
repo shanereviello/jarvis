@@ -1,4 +1,4 @@
-"""Render two private Linear app registrations. No credentials or network actions."""
+"""Render selected private Linear registrations. No credentials or network actions."""
 import argparse
 import ipaddress
 import json
@@ -9,7 +9,9 @@ NAMES = {'jarvis': ('Jarvis', 'Overall assistant and engineering-work coordinato
          'codex': ('Codex', 'Coder and engineer; direct operator conversations and architecture decisions.')}
 
 
-def setup(base):
+def setup(base, roles=('jarvis', 'codex')):
+    if not roles or len(set(roles)) != len(roles) or not set(roles) <= set(NAMES):
+        raise ValueError('explicit unique agent roles required')
     parsed = urlsplit(base)
     if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.port or
             parsed.query or parsed.fragment or parsed.path not in ('', '/') or parsed.hostname != parsed.netloc or
@@ -23,6 +25,7 @@ def setup(base):
     base = 'https://' + parsed.hostname
     agents = {}
     for role, (name, description) in NAMES.items():
+        if role not in roles: continue
         callback = base + '/oauth/' + role + '/callback'
         webhook = base + '/webhooks/' + role
         manifest = {'$schema': 'https://linear.app/.well-known/oauth-app-manifest.schema.json',
@@ -41,7 +44,7 @@ def setup(base):
             callback_url=callback, webhook_url=webhook, enabled_by_this_tool=False)
     return dict(contract='linear-agent-setup.v1', public_origin=base, agents=agents,
         required_before_installation=['Reviewed callback/event service deployed on this origin',
-            'Workspace-admin registration and OAuth installation of both apps',
+            'Workspace-admin registration and OAuth installation of selected apps; preserve existing integrations',
             'Distinct private client/token/webhook-secret files and pinned actor/workspace IDs',
             'Verified authorized Codex and Hermes message/session adapters'],
         paid_model_calls=0, configuration_changed=False)
@@ -51,8 +54,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--public-origin', required=True)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--agent', choices=sorted(NAMES), action='append', help='Render only selected app(s); omit for both')
     args = parser.parse_args()
-    result = setup(args.public_origin)
+    result = setup(args.public_origin, args.agent or ('jarvis', 'codex'))
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
     for role, value in result['agents'].items():
         (args.output / (role + '-manifest.json')).write_text(json.dumps(value['manifest'], indent=2) + '\n')

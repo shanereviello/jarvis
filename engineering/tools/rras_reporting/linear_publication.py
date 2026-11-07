@@ -5,6 +5,10 @@ or provider response bodies. Existing authorizations still govern actual use.
 """
 import json
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError
+
+
+class AuthenticationRefused(ValueError): pass
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -30,6 +34,10 @@ class Client:
                 if type(value) is not dict or value.get('errors') or type(value.get('data')) is not dict:
                     raise ValueError('provider refused')
                 return value['data']
+        except HTTPError as error:
+            if error.code == 401:
+                raise AuthenticationRefused('Linear app authorization refused') from None
+            raise ValueError('Linear unavailable or refused; preserve original activity and reconcile before retry') from None
         except Exception:
             raise ValueError('Linear unavailable or refused; preserve original activity and reconcile before retry') from None
 

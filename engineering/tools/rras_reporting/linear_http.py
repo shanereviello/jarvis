@@ -14,8 +14,33 @@ def local(name):
     value = importlib.util.module_from_spec(spec); spec.loader.exec_module(value); return value
 
 
-def create_app(inbox):
+def create_app(inbox=None, *, oauth_vaults=None):
     limits = local('linear_agents')
+    oauth_vaults = oauth_vaults or {}
+    if not set(oauth_vaults) <= limits.ROLE_NAMES: raise ValueError('unknown OAuth route')
+    for role, vault in oauth_vaults.items():
+        if vault.config['agent'] != role: raise ValueError('cross-agent OAuth route')
+
+    async def callback(request):
+        headers = {'cache-control': 'no-store', 'referrer-policy': 'no-referrer',
+                   'content-security-policy': "default-src 'none'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff'}
+        vault = oauth_vaults.get(request.path_params['agent'])
+        if vault is None: return Response('Unavailable.', status_code=404, headers=headers)
+        try:
+            if len(request.scope.get('query_string', b'')) > 8192:
+                raise ValueError('bounded callback required')
+            pairs = list(request.query_params.multi_items())
+            if len(pairs) != len(dict(pairs)): raise ValueError('duplicate callback parameter')
+            # Vault timeouts bound remote exchange and identity checks. Do not cancel
+            # the worker midway and report failure while it is still saving custody.
+            result = await run_in_threadpool(vault.callback, dict(pairs))
+            return Response('App connection verified.' if result['phase'] == 'active' else 'Installation declined.',
+                            headers=headers)
+        except (ValueError, KeyError, TypeError, UnicodeError, RecursionError):
+            return Response('Installation refused or pending reconciliation. Consult local app status.', status_code=403, headers=headers)
+        except (OSError, sqlite3.Error, TimeoutError):
+            return Response('Installation unavailable. Preserve the local installation state.', status_code=503, headers=headers)
+
     async def webhook(request):
         if request.path_params['agent'] not in limits.ROLE_NAMES:
             return Response('Unavailable.', status_code=404)
@@ -43,4 +68,7 @@ def create_app(inbox):
             return Response('Event refused.', status_code=403, headers={'cache-control': 'no-store'})
         except (OSError, sqlite3.Error, TimeoutError):
             return Response('Intake unavailable; retain delivery.', status_code=503, headers={'cache-control': 'no-store'})
-    return Starlette(routes=[Route('/webhooks/{agent}', webhook, methods=['POST'])])
+    routes = []
+    if inbox is not None: routes.append(Route('/webhooks/{agent}', webhook, methods=['POST']))
+    if oauth_vaults: routes.append(Route('/oauth/{agent}/callback', callback, methods=['GET']))
+    return Starlette(routes=routes)

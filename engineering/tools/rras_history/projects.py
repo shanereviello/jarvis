@@ -385,6 +385,8 @@ class Projects:
                     project_sequence=sum(r['scope'] == request['scope'] for r, _ in events) + 1)
                 if db.execute('PRAGMA user_version').fetchone()[0] >= 3:
                     boundary['scope_sequence'] = len(local('scopes').Scopes(self.store).events(db, request['scope']))
+                if db.execute('PRAGMA user_version').fetchone()[0] >= 4:
+                    boundary['reporting_sequence'] = len(local('reporting').Reporting(self.store).events(db, request['scope']))
                 effect['closeout']['snapshot'] = self.snapshot(db, request['scope'], boundary)
             stamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             if 'architecture' in effect:
@@ -412,7 +414,7 @@ class Projects:
                 'offset', 'limit', 'q', 'state', 'archived', 'unassigned', 'snapshot', 'closeout_sequence', 'document_id', 'architecture_version'}:
             raise ValueError('bounded project query required')
         view = query.get('view')
-        if view not in ('projects', 'project', 'works', 'work', 'architecture', 'compare', 'history', 'document', 'scope'):
+        if view not in ('projects', 'project', 'works', 'work', 'architecture', 'compare', 'history', 'document', 'scope', 'reporting'):
             raise ValueError('unsupported project view')
         offset = bounded(query.get('offset', 0))
         limit = bounded(query.get('limit', 20), 50)
@@ -435,14 +437,20 @@ class Projects:
             events = [(r, receipt) for r, receipt in events if r['scope'] == selected_scope]
             scopes = local('scopes').Scopes(self.store)
             scope_events = scopes.events(db, selected_scope)
+            reporting = local('reporting').Reporting(self.store)
+            reporting_events = reporting.events(db, selected_scope)
             current = dict(work_sequence=len(rows), project_sequence=len(events))
             schema_version = db.execute('PRAGMA user_version').fetchone()[0]
             if schema_version >= 3: current['scope_sequence'] = len(scope_events)
+            if schema_version >= 4: current['reporting_sequence'] = len(reporting_events)
             token = query.get('snapshot', self.snapshot(db, selected_scope, current))
             fields = set(self.snapshot(db, selected_scope, current))
             # Earlier signed snapshots keep their original two-stream MAC. They
             # precede the scope log, so their scope metadata remains unrecorded.
-            allowed = (fields, fields - {'scope_sequence'}) if schema_version >= 3 else (fields,)
+            if schema_version >= 4:
+                allowed = (fields, fields - {'reporting_sequence'}, fields - {'scope_sequence', 'reporting_sequence'})
+            else:
+                allowed = (fields, fields - {'scope_sequence'}) if schema_version >= 3 else (fields,)
             if type(token) is not dict or set(token) not in allowed:
                 raise ValueError('exact snapshot boundary required')
             for name in (name for name in current if name in token):
@@ -453,6 +461,7 @@ class Projects:
                 raise ValueError('snapshot boundary changed')
         rows, events = rows[:token['work_sequence']], events[:token['project_sequence']]
         scope_events = scope_events[:token.get('scope_sequence', 0)]
+        reporting_events = reporting_events[:token.get('reporting_sequence', 0)]
         # Scope filtering precedes projection, sorting, search, counts and output.
         projects, assignments = self.replay(events)
         all_works = self.work_index(rows)
@@ -465,7 +474,8 @@ class Projects:
                 revision=definition['revision'], work_revision_sha256=work['work_revision_sha256'],
                 last_recorded_at=work['last_recorded_at'], latest_outcome=work['latest_outcome'],
                 outcome_revision_sha256=work['outcome_revision_sha256'], outcome_revision=work.get('outcome_revision'), records=work['records'],
-                assignment=assignments.get(work_id))
+                assignment=assignments.get(work_id), reporting=reporting.summary(reporting_events,
+                    available='reporting_sequence' in token, work_id=work_id))
         def page(values):
             return dict(items=values[offset:offset + limit], total=len(values), next_offset=offset + len(values[offset:offset + limit]),
                         has_more=offset + limit < len(values))
@@ -492,7 +502,10 @@ class Projects:
             result.update(work_count=len(members), last_work_activity=max((w['last_recorded_at'] for w in members), default=None),
                           reported_outcome_counts=counts, earlier_revision_outcome_count=earlier,
                           baseline_applicability='not_applicable' if selected_scope['kind'] == 'non_git' else 'repository')
+            result['reporting'] = reporting.summary(reporting_events,
+                available='reporting_sequence' in result_snapshot, project_id=project['project_id'])
             return result
+        result_snapshot = token
         result = dict(scope=selected_scope, scope_metadata=scopes.metadata(selected_scope, scope_events),
                       snapshot=token, authority_granted=False, audience='authorized_scope_private')
         if view == 'scope':
@@ -513,6 +526,10 @@ class Projects:
             closeout = next((c for c in project['closeouts'] if c['sequence'] == number), None)
             if closeout is None:
                 raise ValueError('closeout unavailable')
+            result_snapshot = closeout['snapshot']
+            reporting_events = reporting_events[:result_snapshot.get('reporting_sequence', 0)]
+            result['snapshot'] = result_snapshot
+            result['scope_metadata'] = scopes.metadata(selected_scope, scope_events[:result_snapshot.get('scope_sequence', 0)])
             # Closeout stores exact work heads and membership; unrelated later
             # appends do not alter its immutable references or counts.
             if view == 'works':
@@ -531,7 +548,15 @@ class Projects:
                 works = {m['work_item_id']: m for m in closeout['members']}
             else:
                 raise ValueError('closeout query supports project and work views')
-        if view == 'projects':
+        if view == 'reporting':
+            work_id = query.get('work_id')
+            if work_id is not None and work_id not in works: raise ValueError('work unavailable')
+            selected = [(r, receipt) for r, receipt in reporting_events if
+                (project_id is None or (r['context'] or {}).get('project_id') == project_id) and
+                (work_id is None or ((r['context'] or {}).get('work') or {}).get('work_item_id') == work_id)]
+            result.update(page([dict(submission=r, receipt=receipt) for r, receipt in reversed(selected)]))
+            result['available'] = 'reporting_sequence' in token
+        elif view == 'projects':
             values = [project_public(p) for p in projects.values() if
                 (query.get('archived', False) or not p['archived']) and
                 (not query.get('state') or p['state'] == query['state']) and
@@ -562,7 +587,8 @@ class Projects:
                 result.update(markdown=raw.decode('utf-8'), manifest=manifest, digest_verified=True)
             else:
                 result.update(work=works[work_id]['work'], work_revision_sha256=works[work_id]['work_revision_sha256'],
-                    assignment=assignments.get(work_id), records=[{'submission': r, 'receipt': rcpt} for r, rcpt, _, _ in selected])
+                    assignment=assignments.get(work_id), records=[{'submission': r, 'receipt': rcpt} for r, rcpt, _, _ in selected],
+                    reporting=reporting.summary(reporting_events, available='reporting_sequence' in token, work_id=work_id))
         else:
             if project is None:
                 raise ValueError('exact project required')
