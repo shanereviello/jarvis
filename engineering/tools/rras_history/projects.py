@@ -168,7 +168,7 @@ class Projects:
         have only one stream and need no project-stream consistency signature.
         """
         value = dict(boundary)
-        if db.execute('PRAGMA user_version').fetchone()[0] == 2:
+        if db.execute('PRAGMA user_version').fetchone()[0] >= 2:
             key = db.execute('SELECT snapshot_key FROM project_metadata WHERE singleton=1').fetchone()[0]
             value['sha256'] = hmac.new(key, self.c.encoded({'scope': selected_scope, 'boundary': boundary}), hashlib.sha256).hexdigest()
         return value
@@ -190,7 +190,9 @@ class Projects:
             elif operation == 'project.state':
                 project['state'] = body['state']
                 if 'closeout' in effect:
-                    project['closeouts'].append(effect['closeout'])
+                    project['closeouts'].append(dict(effect['closeout'], recorded_at=receipt['recorded_at'],
+                        occurred_at=request['occurred_at'], source=request['source'],
+                        writer_uid=receipt['writer_uid'], peer_uid=receipt.get('peer_uid')))
             elif operation == 'project.archive':
                 project['archived'] = body['archived']
             elif operation == 'architecture.save':
@@ -209,25 +211,30 @@ class Projects:
                 assignments[body['work_item_id']] = dict(project_id=None if operation == 'membership.remove' else project_id,
                     architecture_version=None if operation == 'membership.remove' else body['architecture_version'],
                     assignment_sha256=receipt['request_sha256'], recorded_at=receipt['recorded_at'], reason=body['reason'])
-            project.update(head=receipt['request_sha256'], last_project_update=receipt['recorded_at'])
+            project.update(head=receipt['request_sha256'], last_project_update=receipt['recorded_at'],
+                last_source=request['source'], last_occurred_at=request['occurred_at'],
+                last_writer_uid=receipt['writer_uid'], last_peer_uid=receipt.get('peer_uid'))
         return projects, assignments
 
     def work_index(self, rows):
-        works = {}
+        works, revisions = {}, {}
         for request, receipt, _, _ in rows:
             body = request['body']
             work_id = body['work_item_id']
             if request['operation'].startswith('work.'):
+                revisions.setdefault(work_id, {})[receipt['work_revision_sha256']] = body['revision']
                 works[work_id] = dict(work=body, work_revision_sha256=receipt['work_revision_sha256'],
-                    scope=self.c.scope(body), latest_outcome=None, outcome_revision_sha256=None,
+                    scope=self.c.scope(body), latest_outcome=None, outcome_revision_sha256=None, outcome_revision=None,
                     records=0, last_recorded_at=receipt['recorded_at'])
         for request, receipt, _, _ in rows:
-            work = works[request['body']['work_item_id']]
+            work_id = request['body']['work_item_id']
+            work = works[work_id]
             work['records'] += 1
             work['last_recorded_at'] = receipt['recorded_at']
             if request['operation'] == 'outcome.record':
                 work['latest_outcome'] = request['body']['outcome']
                 work['outcome_revision_sha256'] = receipt['work_revision_sha256']
+                work['outcome_revision'] = revisions[work_id][receipt['work_revision_sha256']]
         return works
 
     def effect(self, request, project, projects, assignments, works, sequence):
@@ -353,7 +360,7 @@ class Projects:
         principal = os.getuid() if peer_uid is None else -peer_uid
         with self.store.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0] != 2:
+            if db.execute('PRAGMA user_version').fetchone()[0] < 2:
                 raise ValueError('explicit project migration required')
             duplicate = db.execute('SELECT request,receipt FROM project_submissions WHERE principal=? AND operation=? AND client_key=?',
                                    (principal, request['operation'], request['client_event_key'])).fetchone()
@@ -373,9 +380,12 @@ class Projects:
                 raise ValueError('document identity already belongs to work history')
             effect = self.effect(request, projects.get(request['project_id']), projects, assignments, works, len(events) + 1)
             if 'closeout' in effect:
-                effect['closeout']['snapshot'] = self.snapshot(db, request['scope'], dict(
+                boundary = dict(
                     work_sequence=sum(works[r['body']['work_item_id']]['scope'] == request['scope'] for r, _, _, _ in rows),
-                    project_sequence=sum(r['scope'] == request['scope'] for r, _ in events) + 1))
+                    project_sequence=sum(r['scope'] == request['scope'] for r, _ in events) + 1)
+                if db.execute('PRAGMA user_version').fetchone()[0] >= 3:
+                    boundary['scope_sequence'] = len(local('scopes').Scopes(self.store).events(db, request['scope']))
+                effect['closeout']['snapshot'] = self.snapshot(db, request['scope'], boundary)
             stamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             if 'architecture' in effect:
                 effect['architecture'].update(recorded_at=stamp, occurred_at=request['occurred_at'], source=request['source'],
@@ -402,7 +412,7 @@ class Projects:
                 'offset', 'limit', 'q', 'state', 'archived', 'unassigned', 'snapshot', 'closeout_sequence', 'document_id', 'architecture_version'}:
             raise ValueError('bounded project query required')
         view = query.get('view')
-        if view not in ('projects', 'project', 'works', 'work', 'architecture', 'compare', 'history', 'document'):
+        if view not in ('projects', 'project', 'works', 'work', 'architecture', 'compare', 'history', 'document', 'scope'):
             raise ValueError('unsupported project view')
         offset = bounded(query.get('offset', 0))
         limit = bounded(query.get('limit', 20), 50)
@@ -423,17 +433,26 @@ class Projects:
             scope_works = self.work_index(rows)
             rows = [row for row in rows if scope_works[row[0]['body']['work_item_id']]['scope'] == selected_scope]
             events = [(r, receipt) for r, receipt in events if r['scope'] == selected_scope]
+            scopes = local('scopes').Scopes(self.store)
+            scope_events = scopes.events(db, selected_scope)
             current = dict(work_sequence=len(rows), project_sequence=len(events))
+            schema_version = db.execute('PRAGMA user_version').fetchone()[0]
+            if schema_version >= 3: current['scope_sequence'] = len(scope_events)
             token = query.get('snapshot', self.snapshot(db, selected_scope, current))
-            if type(token) is not dict or set(token) != set(self.snapshot(db, selected_scope, current)):
+            fields = set(self.snapshot(db, selected_scope, current))
+            # Earlier signed snapshots keep their original two-stream MAC. They
+            # precede the scope log, so their scope metadata remains unrecorded.
+            allowed = (fields, fields - {'scope_sequence'}) if schema_version >= 3 else (fields,)
+            if type(token) is not dict or set(token) not in allowed:
                 raise ValueError('exact snapshot boundary required')
-            for name in current:
+            for name in (name for name in current if name in token):
                 if bounded(token[name]) > current[name]:
                     raise ValueError('future snapshot refused')
-            expected = self.snapshot(db, selected_scope, {name: token[name] for name in current})
+            expected = self.snapshot(db, selected_scope, {name: token[name] for name in current if name in token})
             if not hmac.compare_digest(self.c.encoded(token), self.c.encoded(expected)):
                 raise ValueError('snapshot boundary changed')
         rows, events = rows[:token['work_sequence']], events[:token['project_sequence']]
+        scope_events = scope_events[:token.get('scope_sequence', 0)]
         # Scope filtering precedes projection, sorting, search, counts and output.
         projects, assignments = self.replay(events)
         all_works = self.work_index(rows)
@@ -445,7 +464,7 @@ class Projects:
             return dict(work_item_id=work_id, title=definition['title'], objective=definition['objective'],
                 revision=definition['revision'], work_revision_sha256=work['work_revision_sha256'],
                 last_recorded_at=work['last_recorded_at'], latest_outcome=work['latest_outcome'],
-                outcome_revision_sha256=work['outcome_revision_sha256'], records=work['records'],
+                outcome_revision_sha256=work['outcome_revision_sha256'], outcome_revision=work.get('outcome_revision'), records=work['records'],
                 assignment=assignments.get(work_id))
         def page(values):
             return dict(items=values[offset:offset + limit], total=len(values), next_offset=offset + len(values[offset:offset + limit]),
@@ -455,17 +474,34 @@ class Projects:
             result['architecture'] = [public_document(d) for d in project['architecture']]
             result['closeouts'] = [{k: v for k, v in c.items() if k != 'members'} |
                                   {'work_count': len(c['members'])} for c in project['closeouts']]
-            result['designations'] = [dict(version=r['body']['version'], recorded_at=rcpt['recorded_at'])
+            result['designations'] = [dict(r['body'], recorded_at=rcpt['recorded_at'], occurred_at=r['occurred_at'],
+                source=r['source'], writer_uid=rcpt['writer_uid'], peer_uid=rcpt.get('peer_uid'), sequence=rcpt['sequence'])
                 for r, rcpt in events if r['project_id'] == project['project_id'] and r['operation'] == 'architecture.designate']
             designated = {d['version'] for d in result['designations']}
             for document in result['architecture']:
                 document['designation_status'] = ('governing' if document['version'] == project['governing_version'] else
                     'previously_governing' if document['version'] in designated else 'draft')
             members = [w for wid, w in works.items() if assignments.get(wid, {}).get('project_id') == project['project_id']]
+            counts = {name: 0 for name in ('completed_claim', 'partial', 'failed', 'unfinished', 'uncertain', 'not_recorded')}
+            earlier = 0
+            for work in members:
+                if work['latest_outcome'] is not None and work['outcome_revision_sha256'] != work['work_revision_sha256']:
+                    earlier += 1
+                else:
+                    counts[work['latest_outcome'] or 'not_recorded'] += 1
             result.update(work_count=len(members), last_work_activity=max((w['last_recorded_at'] for w in members), default=None),
+                          reported_outcome_counts=counts, earlier_revision_outcome_count=earlier,
                           baseline_applicability='not_applicable' if selected_scope['kind'] == 'non_git' else 'repository')
             return result
-        result = dict(scope=selected_scope, snapshot=token, authority_granted=False, audience='authorized_scope_private')
+        result = dict(scope=selected_scope, scope_metadata=scopes.metadata(selected_scope, scope_events),
+                      snapshot=token, authority_granted=False, audience='authorized_scope_private')
+        if view == 'scope':
+            result['metadata'] = scopes.metadata(selected_scope, scope_events, query.get('version'))
+            total = len(scope_events)
+            versions = [scopes.metadata(selected_scope, scope_events, n)
+                        for n in list(range(total, 0, -1))[offset:offset + limit]]
+            result.update(items=versions, total=total, next_offset=offset + len(versions), has_more=offset + limit < total)
+            return result
         project_id = query.get('project_id')
         project = projects.get(project_id)
         if project_id is not None and project is None:
@@ -482,12 +518,13 @@ class Projects:
             if view == 'works':
                 result.update(page([dict(m['work'], work_revision_sha256=m['work_revision_sha256'],
                     latest_outcome=m['latest_outcome'], outcome_revision_sha256=m['outcome_revision_sha256'],
-                    assignment=m['assignment'], last_recorded_at=m['last_recorded_at']) for m in closeout['members']]))
+                    outcome_revision=m.get('outcome_revision'), assignment=m['assignment'], last_recorded_at=m['last_recorded_at']) for m in closeout['members']]))
                 result['closeout'] = closeout
                 return result
             if view == 'project':
                 result['closeout'] = closeout
                 result['snapshot'] = closeout['snapshot']
+                result['scope_metadata'] = scopes.metadata(selected_scope, scope_events[:closeout['snapshot'].get('scope_sequence', 0)])
                 events = [(r, rcpt) for r, rcpt in events if rcpt['sequence'] <= number]
                 historical, assignments = self.replay(events)
                 project = historical[project_id]

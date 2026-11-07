@@ -7,10 +7,10 @@ from pathlib import Path,PurePosixPath
 import re
 
 SOURCE_FILES=tuple('engineering/tools/rras_history/'+name+'.py' for name in (
-    'access','contract','documents','scoped_documents','projects','project_cli','project_entry','store','unix','interactive','interactive_cli','production_entry','client_entry'))+(
+    'access','contract','documents','scoped_documents','projects','scopes','scope_cli','scope_entry','project_cli','project_entry','store','unix','interactive','interactive_cli','production_entry','client_entry'))+(
     'engineering/contracts/engineering-history-v1.schema.json',
     'engineering/contracts/engineering-history-v2.schema.json',
-    'engineering/contracts/engineering-project-v1.schema.json',)+tuple(
+    'engineering/contracts/engineering-project-v1.schema.json','engineering/contracts/engineering-scope-v1.schema.json',)+tuple(
     'engineering/docs/engineering-history-phase1/templates/'+name+'.md' for name in ('review','checkpoint','completion'))
 ARTIFACTS={'deployment/rras-engineering-history.service','deployment/access-policy.json',
            'deployment/install-plan.json','deployment/rras-history-client','deployment/ROLLBACK.md'}

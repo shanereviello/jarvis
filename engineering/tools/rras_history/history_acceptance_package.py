@@ -7,10 +7,10 @@ import re
 import stat
 
 SOURCE_FILES = tuple('engineering/tools/rras_history/'+name+'.py' for name in (
-    'access','contract','documents','scoped_documents','projects','project_cli','project_entry','store','unix','interactive','interactive_cli','service_cli','host_probe','host_acceptance')) + (
+    'access','contract','documents','scoped_documents','projects','scopes','scope_cli','scope_entry','project_cli','project_entry','store','unix','interactive','interactive_cli','service_cli','host_probe','host_acceptance')) + (
     'engineering/contracts/engineering-history-v1.schema.json',
     'engineering/contracts/engineering-history-v2.schema.json',
-    'engineering/contracts/engineering-project-v1.schema.json',) + tuple(
+    'engineering/contracts/engineering-project-v1.schema.json','engineering/contracts/engineering-scope-v1.schema.json',) + tuple(
     'engineering/docs/engineering-history-phase1/templates/'+name+'.md' for name in ('review','checkpoint','completion'))
 LIMIT=8*1024*1024
 

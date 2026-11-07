@@ -53,7 +53,11 @@ class Reader:
         if type(answer) is not dict or answer.get('authority_granted') is not False or type(answer.get('scopes')) is not list:
             raise ValueError('unavailable')
         configured=[{'kind':'repository','id':v} for v in self.repositories]+[{'kind':'non_git','id':v} for v in self.categories]
-        return {'scopes':[v for v in configured if v in answer['scopes']],'authority_granted':False}
+        selected = [v for v in configured if v in answer['scopes']]
+        metadata = answer.get('scope_metadata', [])
+        if type(metadata) is not list: raise ValueError('unavailable')
+        return {'scopes':selected, 'scope_metadata':[m for m in metadata if type(m) is dict and m.get('scope') in selected],
+                'authority_granted':False}
 
     def workspace(self,selected,query):
         configured=[{'kind':'repository','id':v} for v in self.repositories]+[{'kind':'non_git','id':v} for v in self.categories]

@@ -11,18 +11,19 @@ import subprocess
 import sys
 import time
 import traceback
+from urllib.parse import urlencode
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-STATE=Path('/var/lib/rras-history-web-acceptance-projects-20261106')
-RUNTIME=Path('/run/rras-history-web-acceptance-projects-20261106')
+STATE=Path('/var/lib/rras-history-web-acceptance-v02-20261107')
+RUNTIME=Path('/run/rras-history-web-acceptance-v02-20261107')
 PYTHON='/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13'
-HISTORY='rras-history-web-fixture-store-projects-20261106.service'
-WEB='rras-history-web-fixture-http-projects-20261106.service'
+HISTORY='rras-history-web-fixture-store-v02-20261107.service'
+WEB='rras-history-web-fixture-http-v02-20261107.service'
 ENV={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','LANG':'C.UTF-8'}
-OWNER=61172;READER=61173
+OWNER=61174;READER=61175
 WORK='wrk_'+'6'*32;DOC='doc_'+'7'*32
 
 
@@ -35,7 +36,7 @@ def checked(argv,raw=None,timeout=30):
     return result.stdout
 
 
-ACCOUNTS={OWNER:'rras-web-project-store-fixture',READER:'rras-web-project-reader-fixture'}
+ACCOUNTS={OWNER:'rras-web-v02-store-fixture',READER:'rras-web-v02-reader-fixture'}
 
 
 def verify_identity(uid):
@@ -259,11 +260,18 @@ def run():
         projects=workspace('projects')
         if projects['total']!=1:raise ValueError('project grouping differs')
         project_id='prj_'+'8'*32
-        detail=workspace('project','&project_id='+project_id)['project']
+        project_view=workspace('project','&project_id='+project_id)
+        detail=project_view['project']
         if detail['work_count']!=1 or detail['governing_version']!=1 or len(detail['architecture'])!=2:raise ValueError('project design state differs')
-        architecture=workspace('architecture','&project_id='+project_id+'&version=1')['document']
+        if project_view['scope_metadata']['revision']!=2 or project_view['snapshot'].get('scope_sequence')!=2:raise ValueError('scope projection differs')
+        serialized='&'+urlencode({'snapshot':json.dumps(project_view['snapshot'],separators=(',',':'))})
+        metadata=workspace('scope',serialized)
+        if metadata['total']!=2 or metadata['metadata']['display_name']!='Synthetic scope 2':raise ValueError('scope revisions differ')
+        if workspace('works','&project_id='+project_id+serialized)['total']!=1:raise ValueError('snapshot work page differs')
+        if not workspace('history','&project_id='+project_id+serialized)['items']:raise ValueError('snapshot history absent')
+        architecture=workspace('architecture','&project_id='+project_id+'&version=1'+serialized)['document']
         if hashlib.sha256(architecture['markdown'].encode()).hexdigest()!=architecture['markdown_sha256']:raise ValueError('architecture digest differs')
-        comparison=workspace('compare','&project_id='+project_id+'&left=1&right=2')
+        comparison=workspace('compare','&project_id='+project_id+'&left=1&right=2'+serialized)
         if '+Revised design.' not in comparison['diff']:raise ValueError('version comparison differs')
         other=http(pid,'/api/workspace/project?scope_kind=non_git&scope_id=jarvis-non-git&project_id='+'prj_'+'9'*32,token())
         if other['status']!=200 or json.loads(other['body'])['project']['baseline_applicability']!='not_applicable':raise ValueError('non-Git scope differs')
@@ -279,11 +287,19 @@ def run():
             source={'kind':'human_reported','namespace':'fixture','id':None},occurred_at=None,
             body=dict(revision=1,name='Must not be created',overview='Reader denial fixture',intended_outcome='Must refuse',
                 in_scope='Synthetic data',out_of_scope='Production',owner=None,change_summary='Must not write'))
+        scope_request=dict(contract='engineering-scope.v1',operation='scope.create',client_event_key='denied-reader-scope',
+            expected_head=None,scope={'kind':'repository','id':'fixture_library'},
+            source={'kind':'agent_reported','namespace':'fixture','id':None},occurred_at=None,
+            body=dict(revision=1,display_name='Must not write',description=None,repository_url=None,change_summary='Must refuse'))
         code="""import sys,importlib.util
 sys.path.insert(0,VENDOR)
 s=importlib.util.spec_from_file_location('u',UNIX);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 read=m.call(SOCKET,OWNER,{'method':'history','repository_id':'fixture_library','offset':0,'limit':10})
 assert len(read['records'])==2
+m.local('scopes').validate(SCOPE_REQUEST)
+try:m.call(SOCKET,OWNER,{'method':'scope_submit','request':SCOPE_REQUEST})
+except ValueError:pass
+else:raise SystemExit(1)
 m.local('projects').validate(PROJECT_REQUEST)
 try:m.call(SOCKET,OWNER,{'method':'project_submit','request':PROJECT_REQUEST})
 except ValueError:pass
@@ -292,7 +308,7 @@ m.local('contract').validate(REQUEST)
 try:m.call(SOCKET,OWNER,{'method':'submit','request':REQUEST})
 except ValueError:raise SystemExit(0)
 raise SystemExit(1)
-""".replace('VENDOR',repr(str(ROOT/'vendor'))).replace('UNIX',repr(str(ROOT/'engineering/tools/rras_history/unix.py'))).replace('SOCKET',repr(str(RUNTIME/'service.sock'))).replace('OWNER',str(OWNER)).replace('PROJECT_REQUEST',repr(project_request)).replace('REQUEST',repr(request))
+""".replace('VENDOR',repr(str(ROOT/'vendor'))).replace('UNIX',repr(str(ROOT/'engineering/tools/rras_history/unix.py'))).replace('SOCKET',repr(str(RUNTIME/'service.sock'))).replace('OWNER',str(OWNER)).replace('SCOPE_REQUEST',repr(scope_request)).replace('PROJECT_REQUEST',repr(project_request)).replace('REQUEST',repr(request))
         checked(['/usr/bin/setpriv','--reuid',str(READER),'--regid',str(READER),'--clear-groups','--no-new-privs',PYTHON,'-I','-B','-c',code])
         stop(HISTORY)
         if http(pid,'/api/works?repository_id=fixture_library',token())['status']!=503:raise ValueError('service outage reused history')
@@ -308,13 +324,15 @@ raise SystemExit(1)
         # No stale in-memory result after actual service policy revocation/restart.
         if http(pid,'/api/works?repository_id=fixture_library',token())['status']!=503:raise ValueError('revocation reused history')
         if http(pid,'/api/workspace/projects?scope_kind=non_git&scope_id=jarvis-non-git',token())['status']!=503:raise ValueError('revocation reused category history')
-        result=dict(phase='isolated_dashboard_project_host_verified',root=str(STATE),service_uid=OWNER,dashboard_uid=READER,
+        result=dict(phase='isolated_dashboard_v02_host_verified',root=str(STATE),service_uid=OWNER,dashboard_uid=READER,
             cases=['actual_root_owned_config_and_hardened_numeric_uid_unit','no_extra_groups_capabilities_or_provider_environment',
                 'private_network_and_masked_history_paths','signed_fixture_origin_tokens_and_invalid_access_denial',
                 'exact_cross_uid_history_and_document_digest','other_repository_and_write_routes_denied',
                 'actual_unix_reader_submission_denied','service_outage_and_restart_revocation_no_cached_history',
                 'explicit_v1_upgrade_and_cross_uid_project_reads','governing_design_and_saved_draft_exact_diff',
-                'explicit_non_git_category_without_git_baseline','category_revocation_no_cached_project_history'],
+                'explicit_non_git_category_without_git_baseline','category_revocation_no_cached_project_history',
+                'explicit_v2_to_v3_scope_upgrade_preserves_prior_bytes',
+                'versioned_scope_metadata_and_three_stream_snapshot_http_reads','actual_reader_scope_authoring_denied'],
             api_calls=0,real_credentials_used=False,production_services_mutated=False,production_history_changed=False,
             production_journal_changed=False,cloudflare_changed=False,fixture_units_stopped=True,permanent_accounts_created=False,
             real_cloudflare_key_fetch_tested=False,connector_route_tested=False,automatic_retry=False)
