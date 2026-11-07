@@ -6,7 +6,7 @@ from pathlib import Path,PurePosixPath
 import re
 import stat
 
-CORE=('access','contract','documents','scoped_documents','projects','scopes','scope_cli','scope_entry','project_cli','project_entry','store','unix','interactive','interactive_cli','production_entry','client_entry',
+CORE=('access','contract','documents','scoped_documents','projects','reporting','reporting_contract','reporting_cli','reporting_entry','scopes','scope_cli','scope_entry','project_cli','project_entry','store','unix','interactive','interactive_cli','production_entry','client_entry',
       'production_package','history_acceptance_package','host_acceptance','unit_acceptance','unit_acceptance_probe')
 # Explicitly freeze names in the bootstrap; importing runtime code is unnecessary.
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in CORE)|{

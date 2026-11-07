@@ -11,3 +11,10 @@ Follow the admitted task contract. Coding workers using `leave_uncommitted` must
 Keep secrets, full local configurations, private runtime records and raw credential-bearing logs out of Git. Publish source/tests/docs and appropriate validation summaries, not private operational artifacts. Do not change repository protection or credential permissions as a side effect of publication.
 
 Use focused tests for changed behavior. Current source navigation is in `engineering/docs/README.md`; standing publication policy is in `engineering/docs/publication-policy.md` and `engineering/config/publication-policy.json`. No source merge by itself authorizes installation, service activation, database migrations or legacy-directory deletion.
+
+For standardized engineering reporting, use the selected project's human-agreed
+architecture and mapped work item. Follow
+`engineering/docs/standardized-history-reporting/shared-agent-guidance.md` for
+Jarvis/Hermes and Codex roles, direct operator decisions, handoff and evidence
+reporting. Until the new integration is deployed, use the existing explicit
+recording interface; these instructions do not enable automatic collection.

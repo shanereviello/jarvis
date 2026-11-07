@@ -1,0 +1,94 @@
+{
+  "contract": "reporting-capture-evaluation.v1",
+  "synthetic_only": true,
+  "paid_model_calls": 0,
+  "real_credentials_used": false,
+  "real_sessions_read": false,
+  "real_collector_enabled": false,
+  "network_boundary": "executed in development sandbox; flags disable cloud sync/analytics; no network packet audit claimed",
+  "versions": {
+    "specstory": "2.17.0",
+    "entire": "0.13.1"
+  },
+  "specstory": {
+    "cases": {
+      "legacy": {
+        "exit_code": 0,
+        "prompt_retained": true,
+        "answer_retained": true
+      },
+      "thread-items": {
+        "exit_code": 0,
+        "prompt_retained": true,
+        "answer_retained": true
+      },
+      "response-only": {
+        "exit_code": 0,
+        "prompt_retained": false,
+        "answer_retained": false
+      }
+    },
+    "repeated_export_stable": true,
+    "background_append_captured": true,
+    "local_export_outside_source": true
+  },
+  "entire": {
+    "enable_exit_code": 0,
+    "settings": {
+      "enabled": true,
+      "strategy_options": {
+        "push_sessions": false
+      },
+      "telemetry": false,
+      "checkpoints": {
+        "primary": {
+          "type": "git-refs"
+        }
+      }
+    },
+    "installed_hook_events": [
+      "PostToolUse",
+      "SessionEnd",
+      "SessionStart",
+      "Stop",
+      "SubagentStart",
+      "SubagentStop",
+      "UserPromptSubmit"
+    ],
+    "hooks": [
+      {
+        "event": "SessionStart",
+        "exit_code": 0
+      },
+      {
+        "event": "UserPromptSubmit",
+        "exit_code": 0
+      },
+      {
+        "event": "Stop",
+        "exit_code": 0
+      },
+      {
+        "event": "SessionEnd",
+        "exit_code": 0
+      }
+    ],
+    "session_tracked": true,
+    "persistent_refs_without_code_commit": []
+  },
+  "native_source_unchanged_by_collectors": true,
+  "fixture_remotes": [],
+  "untested": [
+    "actual installed Codex desktop and managed runtime",
+    "Mac binary",
+    "compressed/rotated sessions",
+    "native Hermes capture",
+    "real-session pilot",
+    "runtime inference and live webhook"
+  ],
+  "executable_sha256": {
+    "specstory": "25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4",
+    "entire": "2b480571db74a57979422796f5697e733de24019dbc13765980e689ddaac7245"
+  },
+  "evidence_scope": "Linux synthetic fixtures only; no real-session or Mac compatibility claim"
+}
