@@ -1,84 +1,116 @@
-# Two-agent integration foundation and live setup boundary
+# Linear integration: approved v0.4 n8n reuse
 
-The approved architecture requires independent **Jarvis** and **Codex** Linear
-agents. This source provides selected private registration manifests, per-app
-PKCE installation custody, signed message admission, a durable integration spool,
-runtime-session binding, correlated handoff states, and an explicit publisher.
+Operator-approved architecture SHA-256:
+4ed76e0a493a5ae45bcc6154cb57fac3f1551644b1e823d5c96b1e2713365329.
+This is source and staged setup documentation, not a completed deployment.
 
-`linear_setup.py --public-origin ... --agent codex --output ...` produces only the
-Codex manifest and registration URL. Without `--agent`, it renders both roles.
-An existing active **Jarvis** app actor was found in Reviello Robotics; preserve
-that integration and verify its client/capabilities rather than create another
-Jarvis. This tool does not register or authorize an app.
-The chosen HTTPS origin must actually serve the reviewed callback/event transport
-before app installation. Keep that transport separate from the read-only history
-dashboard. Do not alter Cloudflare Access or reuse a privileged provider identity
-as an incidental setup step.
+## Responsibilities
 
-## Current source behavior
+Preserve Jarvis's existing app, credential, ingress, restricted Hermes tools and
+workflows. n8n owns Codex OAuth and transport. Codex has a distinct generic OAuth2
+credential with actor=app and **read write app:mentionable app:assignable** scopes.
+The installed built-in Linear credential default omits assignable; actual saved
+Jarvis grants were not inspected.
 
-- Both named app configurations are required, with distinct app users, OAuth
-  clients, credential locations and webhook-secret files. Issue/work/architecture bindings
-  are explicit and frozen with the spool policy. Policy evolution needs a reviewed
-  migration; editing the file does not rewrite old session associations.
-- The webhook boundary validates the raw-body signature, bounded JSON and fresh
-  body timestamp, organization/app/session/issue identity, and directed event kind.
-  It ignores neither signature failures nor scope mismatch. Duplicate delivery
-  and source events cannot change their contents or duplicate the stored message.
-- Follow-up user prompts keep the same agent/session/work binding. Self/other-agent
-  prompt echoes are refused. A source session must be bound before preparing a
-  handoff; recipient acceptance binds the recipient runtime to the same issue.
-- Frozen reply requests use a UUID-v4 activity ID and exact content. Publication
-  checks the app viewer and organization, records an intent before the mutation,
-  and retains uncertainty after a lost response. A second publish cannot silently
-  resend. A recorded receipt is replayed without another API mutation.
-- The HTTP factory accepts signed POST intake and optionally configured GET OAuth
-  callbacks. Neither surface begins installation, renews/revokes credentials,
-  launches models or reads history. The callback can be hosted for Codex alone;
-  no Jarvis file or service is needed. Development serving binds localhost and
-  disables access logging; actual reviewed ingress must also omit callback query
-  strings from logs. `serve-record-only` is not a live agent deployment.
+The dedicated Worker verifies Codex HMAC over unchanged bytes, timestamp,
+organization and delivery. It forwards to the authenticated Codex-only n8n route.
+Use distinct secrets; do not replace the Jarvis Worker. Never export secret values.
 
-A received message is **not** an executed run. Handoff `completed` is an exchange
-state, not a work outcome. Neither an agent prompt nor a board status is human
-architecture approval. The internal publisher is never called by passive intake.
+The private adapter owns only Codex runtime dispatch/result recovery. Shared
+ingress/n8n/PostgreSQL outages can affect both agents. Hermes downtime alone does
+not prevent Codex. Owned SQLite/private evidence remains engineering authority;
+bridge PostgreSQL is transport state, never human agreement or work completion.
 
-Installation commands, private configuration and failure recovery are described
-in [per-app OAuth custody](linear-oauth-custody.md).
+## Source package
 
-## Before native agent installation / live acceptance
+**linear_setup.py --n8n-redirect-url ... --verified-webhook-url ... --output ...**
+renders Codex-only registration. Use the exact displayed n8n OAuth Redirect URL;
+the custom /oauth/codex/callback is superseded. Do not recreate Jarvis.
 
-The following remain implementation and setup work, not completed capabilities:
+**n8n_codex.py --config ... --output ...** renders four **inactive** workflows:
+intake, dispatch, runtime reconciliation, and outbound native activities.
+Configuration contains public UUIDs, exact issue/work/design pins, fixed endpoints,
+and credential references, never tokens/signing secrets. Actual app/actor IDs must
+be bound after installation; fixture IDs are not production defaults. Reconcile
+existing imports by reviewed names instead of duplicating them.
 
-1. Preserve the verified Reviello Robotics project and REV-46–REV-53 mappings;
-   finish their additive typed owned-history relationship records. REV-54 is an
-   attributed agreement record; setup MCP writes are human-authorized connector
-   writes, not native Codex app activity.
-2. Workspace-admin registration/installation of the new Codex app and capability
-   verification of the existing Jarvis app. The connected MCP surface does not
-   expose app registration. Review the tested callback/custody code, then prepare
-   the installed service, renewal supervisor and ingress before actual OAuth
-   installation. Keep private secrets off chat and out of Git.
-3. Reviewed HTTPS ingress and pinned runtime delivery. Wire the Codex path directly
-   to its supported runtime; it must not depend on Hermes. Wire Jarvis to the
-   installed Hermes runtime. Preserve existing paid-run and operational authority.
-4. Deliver agent acknowledgments/activities within Linear's required time budget,
-   then actual directed turns, follow-ups, cancellation and reconnect behavior.
-   A `202` intake receipt alone does not satisfy the native agent-session UX.
-5. Verify agent-authored mention/delegation handoffs. If native event delivery is
-   insufficient, use the reviewed correlated adapter path rather than manual
-   operator retransmission or invented compatibility claims.
-6. Finish owned-history intake, artifact/mapping contracts, observations, UI and
-   curated retrieval, as well as the remaining architecture acceptance scenarios.
+**linear-codex-n8n-v1.sql** explicitly adds Codex tables/function in linear_bridge;
+no legacy Jarvis table changes. Review schema and file digest before installation.
+Repeat migration fails rather than accepting unknown schema. Installation grants
+only reviewed transport privileges; source makes no grants. Preserve and compare
+legacy rows/DDL before and after.
 
-Use the current explicit history interface while that integration is unfinished.
-No real token, webhook secret or raw payload belongs in Git or chat output.
+Intake commits receipt, session and initial thought before acknowledging Linear.
+Duplicate source delivery returns the original event. Changed delivery bytes or
+source context are refused. Webhook header authentication is mandatory: the
+verification header alone is insufficient. Optional app/client payload fields are
+checked when present; app-specific signatures, configured ingress and pinned OAuth
+viewer identify the recipient.
 
-Primary interfaces: [Linear agent setup](https://linear.app/developers/agents),
-[agent interaction](https://linear.app/developers/agent-interaction),
-[app manifests](https://linear.app/developers/oauth-app-manifests),
-[webhook signatures](https://linear.app/developers/webhooks), and the
-[published SDK schema](https://github.com/linear/linear/blob/master/packages/sdk/src/schema.graphql).
-Token lifecycle and installation behavior:
-[Linear OAuth](https://linear.app/developers/oauth-2-0-authentication) and
-[app actor authorization](https://linear.app/developers/oauth-actor-authorization).
+Runtime dispatch IDs are frozen event UUIDs. The fixed runtime/worktree has one active/uncertain
+executor across issues; follow-ups wait. Stop targets the known active turn in that session.
+Unknown stop targets remain uncertain. Lost responses require reconciliation,
+never another ID and automatic rerun.
+
+Outbound claims a row into **uncertain before sending**, verifies OAuth actor/org,
+and publishes the frozen activity UUID. Check GraphQL errors under HTTP 200.
+Confirmed unavailable sessions become dead letters; unknown outcomes remain
+uncertain, without automatic mutation resend. Initial acknowledgments have
+priority. Actual load acceptance must still establish five-second receipt and
+ten-second initial-activity timing.
+
+## Private runtime and evidence
+
+**codex_runtime_http.py** provides authenticated POST /v1/dispatch,
+GET /v1/runs/<dispatch UUID>, and POST /v1/interrupt. Default bind is loopback;
+review private-container networking before deployment. Never expose it through
+the public tunnel. Use a separate n8n header credential and owner-only token file.
+
+Installed policy selects binary, cwd, sandbox, app and issue pins. Messages cannot
+choose commands or privileges. Real execution must be admitted under the existing
+spending/execution authority; architecture approval alone does not grant it.
+The journal is runtime evidence, not another OAuth/webhook database. It pins policy,
+locks one adapter process, records intent before RPC, and stores thread/lineage/turn
+IDs separately. Repeated dispatch returns retained status. Restart or stream loss
+leaves active work uncertain and blocks rerun. Automated cross-process runtime
+reconciliation is unfinished.
+
+App Server start/resume/turn/cancellation use the supported interface. Permission
+or tool requests are never auto-approved; use the existing operator surface.
+Desktop conversation injection is not assumed. Managed/interactive worktree
+ownership and linked continuation still need acceptance.
+
+## Validation and outstanding acceptance
+
+Focused tests use actual private HTTP, SQLite restart and a synthetic stdio child,
+without real models. **probe_n8n_codex.py --isolated-containers** uses installed
+images with pull=never, no network/production mounts and disposable PostgreSQL.
+It tests real JS admission, generated node compilation, credential refusal,
+Worker signatures/unchanged forwarding, SQL replay/conflict and query preparation.
+It removes the fixture container and never executes live n8n workflows.
+
+Before activation, finish:
+
+1. Admin Codex registration and separate n8n OAuth2 configuration; verify complete
+   scopes, displayed redirect, returned actor and workspace/team. Keep secrets private.
+2. Isolated n8n import/execution, role grants, response handling, concurrency,
+   renewal, native handoffs, runtime permissions/streaming/recovery acceptance.
+3. Pinned release/runtime packaging, service identity/network/state permissions,
+   private credential/encryption-key backup and exact rollback. No secrets in Git.
+4. Separate merge/deployment decision on a concrete release. Retain Jarvis workflow
+   exports and bridge schema/records first; preserve the repaired database network.
+5. Separately authorized real mention/delegation/follow-up/cancellation and both
+   handoff directions. Recheck Jarvis without expanding its tools.
+6. Remaining SHRR artifact intake, observations/capture, UI, curated retrieval and
+   truthful retrospective architecture acceptance.
+
+Old standalone OAuth/inbox/publisher modules remain historical source/test
+foundations, **not v0.4 deployment**. The old setup CLI requires
+--legacy-standalone. Explicit history recording stays in use until integration
+deployment; source instructions do not enable automatic collection.
+
+References: [Linear agents](https://linear.app/developers/agents),
+[interaction](https://linear.app/developers/agent-interaction),
+[webhooks](https://linear.app/developers/webhooks),
+[n8n OAuth](https://docs.n8n.io/integrations/builtin/credentials/linear/),
+[Codex App Server](https://learn.chatgpt.com/docs/app-server).

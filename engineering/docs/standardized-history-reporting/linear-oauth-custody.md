@@ -1,3 +1,7 @@
+> **Superseded for deployment by approved v0.4.** n8n now owns OAuth. This
+> document describes historical source only; follow [the current integration
+> runbook](linear-integration.md) and do not install this standalone service.
+
 # Private per-app installation custody
 
 This is source/fixture acceptance, not a deployed native agent. Each role has a

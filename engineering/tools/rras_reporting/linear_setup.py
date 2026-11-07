@@ -1,4 +1,8 @@
-"""Render selected private Linear registrations. No credentials or network actions."""
+"""Render private Linear registrations. v0.4 uses n8n OAuth and verified ingress.
+
+Legacy standalone rendering is retained for old fixtures; CLI requires an explicit
+legacy flag and must not be used for the approved n8n deployment.
+"""
 import argparse
 import ipaddress
 import json
@@ -50,13 +54,53 @@ def setup(base, roles=('jarvis', 'codex')):
         paid_model_calls=0, configuration_changed=False)
 
 
+def n8n_setup(callback, webhook):
+    for value in (callback, webhook):
+        if not isinstance(value, str): raise ValueError('both reviewed endpoints required')
+        parsed = urlsplit(value)
+        setup(parsed.scheme + '://' + parsed.netloc, ('codex',))
+        if parsed.query or parsed.fragment or parsed.username or parsed.password:
+            raise ValueError('credential-free exact registration endpoints required')
+    if not urlsplit(callback).path.endswith('/oauth2-credential/callback'):
+        raise ValueError('use the OAuth Redirect URL displayed by n8n')
+    if urlsplit(webhook).path != '/webhooks/codex':
+        raise ValueError('dedicated verified Codex webhook required')
+    result = setup('https://' + urlsplit(webhook).netloc, ('codex',))
+    agent = result['agents']['codex']
+    agent['manifest']['oauth']['redirect_uris'] = [callback]
+    agent['manifest']['webhook']['url'] = webhook
+    agent.update(callback_url=callback, webhook_url=webhook)
+    params = [('distribution', 'private'), ('oauth.client_name', 'Codex'),
+        ('oauth.redirect_uris', callback), ('oauth.grant_types', 'authorization_code'),
+        ('webhook.enabled', 'true'), ('webhook.url', webhook),
+        ('webhook.resourceTypes', 'AgentSessionEvent')]
+    agent['creation_url'] = 'https://linear.app/settings/api/applications/new?' + urlencode(params)
+    result.update(contract='linear-agent-setup.v2', transport='existing-n8n', preserve_existing_jarvis=True,
+        required_before_installation=['Reviewed verified Codex ingress and inactive n8n routes prepared',
+            'Distinct n8n OAuth2 credential with actor=app and read write app:mentionable app:assignable',
+            'Workspace-admin installation only after deployment decision; no Jarvis reauthorization',
+            'Pin actual Codex actor, organization and issue/work/runtime authority before enabling dispatch'])
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--public-origin', required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument('--public-origin')
+    target.add_argument('--n8n-redirect-url')
+    parser.add_argument('--verified-webhook-url')
+    parser.add_argument('--legacy-standalone', action='store_true')
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--agent', choices=sorted(NAMES), action='append', help='Render only selected app(s); omit for both')
     args = parser.parse_args()
-    result = setup(args.public_origin, args.agent or ('jarvis', 'codex'))
+    if args.n8n_redirect_url:
+        if args.legacy_standalone or args.agent not in (None, ['codex']):
+            parser.error('v0.4 preserves Jarvis; render Codex only')
+        result = n8n_setup(args.n8n_redirect_url, args.verified_webhook_url)
+    else:
+        if not args.legacy_standalone or args.verified_webhook_url:
+            parser.error('standalone OAuth is superseded; use n8n endpoints')
+        result = setup(args.public_origin, args.agent or ('jarvis', 'codex'))
     args.output.mkdir(mode=0o700, parents=False, exist_ok=False)
     for role, value in result['agents'].items():
         (args.output / (role + '-manifest.json')).write_text(json.dumps(value['manifest'], indent=2) + '\n')

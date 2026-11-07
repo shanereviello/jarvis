@@ -1,18 +1,36 @@
 # Standardized History Reporting Format and Rules
 
-The operator approved exact editorial **v0.3** on November 7, 2026 and authorized
+The operator approved exact editorial **v0.4** on November 7, 2026 and authorized
 implementation. The retained architecture bytes still say draft because approval
 is a separate historical designation, not an edit to the document.
 
-- [Approved architecture v0.3](../engineering-project-workspace/STANDARDIZED-HISTORY-REPORTING-FORMAT-AND-RULES-ARCHITECTURE-DRAFT-v0.3-20261107.md)
-- SHA-256: `f5424199c3f6be3ce6798e578cffb18697967c429db51e1951d684b0763150ef`
+- [Approved architecture v0.4](../engineering-project-workspace/STANDARDIZED-HISTORY-REPORTING-FORMAT-AND-RULES-ARCHITECTURE-DRAFT-v0.4-20261107.md)
+- SHA-256: `4ed76e0a493a5ae45bcc6154cb57fac3f1551644b1e823d5c96b1e2713365329`
 - Source baseline: `354a893999b5006bdf3c31175f4e52d8d0306478`
 - [Shared agent guidance](shared-agent-guidance.md)
 - [Linear work and decision templates](linear-templates.md)
 - [Capture evaluation](capture-evaluation.md)
 - [Linear integration and remaining installation steps](linear-integration.md)
 
-## Actual position
+## Approved v0.4 integration direction
+
+Use existing n8n and verified ingress; preserve Jarvis. Codex has a distinct app,
+credential and runtime route with both mention and delegation permissions. n8n
+owns OAuth and delivery; the private adapter owns only Codex runtime bindings and
+results. The earlier standalone OAuth/inbox code below is retained source-only
+for provenance and tests, **superseded for deployment**. It must not be installed
+from the old registration instructions.
+
+The exact v0.4 bytes are retained/designated as version 4 through the existing
+history service, eight work memberships now pin version 4, and SHRR-03/08 have
+explicit revised definitions. REV-46–53 are updated, REV-54 retains the new
+operator decision, and Linear has a separate v0.4 reading copy. Historical
+versions and original work identities remain. No service upgrade occurred.
+
+[Current integration design and runbook](linear-integration.md) describes the
+remaining registration, deployment and live acceptance boundaries.
+
+## Earlier v0.3 source position (historical; see v0.4 direction above)
 
 This first source slice retains the approved design, a repeatable model-free
 capture comparison, private Linear app registration manifests, and an isolated
