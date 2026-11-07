@@ -37,7 +37,7 @@ def stage(candidate,expected):
             if type(value) is dict and value.get('phase')=='dashboard_host_acceptance_stopped':print(json.dumps(value),file=sys.stderr)
         raise ValueError('fixture stopped; preserve evidence')
     value=decode(result.stdout)
-    if value.get('phase')!='isolated_dashboard_project_host_verified' or value.get('api_calls')!=0 or value.get('fixture_source_database_unchanged') is not True:raise ValueError('fixture result differs')
+    if value.get('phase')!='isolated_dashboard_v02_host_verified' or value.get('api_calls')!=0 or value.get('fixture_source_database_unchanged') is not True:raise ValueError('fixture result differs')
     value.update(acceptance_release=str(release),manifest_sha256=expected,source_commit=manifest['source_commit'])
     return value
 

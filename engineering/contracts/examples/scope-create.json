@@ -1,0 +1,16 @@
+{
+  "contract": "engineering-scope.v1",
+  "operation": "scope.create",
+  "client_event_key": "synthetic-scope-create-1",
+  "expected_head": null,
+  "scope": {"kind": "repository", "id": "synthetic_example"},
+  "source": {"kind": "agent_reported", "namespace": "synthetic_example", "id": null},
+  "occurred_at": null,
+  "body": {
+    "revision": 1,
+    "display_name": "Synthetic repository",
+    "description": "Example only; not a production scope or permission grant.",
+    "repository_url": "https://example.test/owner/repository",
+    "change_summary": "Initial synthetic metadata"
+  }
+}

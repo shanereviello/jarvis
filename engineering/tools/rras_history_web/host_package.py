@@ -8,14 +8,14 @@ import stat
 import subprocess
 
 MANIFEST='release-manifest.json'
-STATE=Path('/var/lib/rras-history-web-acceptance-projects-20261106')
-RUNTIME=Path('/run/rras-history-web-acceptance-projects-20261106')
+STATE=Path('/var/lib/rras-history-web-acceptance-v02-20261107')
+RUNTIME=Path('/run/rras-history-web-acceptance-v02-20261107')
 PYTHON=Path('/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13')
 SOURCE_FILES={f'engineering/tools/rras_history_web/{name}.py' for name in ('access','app','history','entry','host_package','host_driver','host_probe','stage_host')}|{
     f'engineering/tools/rras_history_web/assets/{name}' for name in ('index.html','app.css','app.js')}|{
-    f'engineering/tools/rras_history/{name}.py' for name in ('contract','documents','scoped_documents','projects','store','access','unix','production_entry')}|{
+    f'engineering/tools/rras_history/{name}.py' for name in ('contract','documents','scoped_documents','projects','project_cli','project_entry','scopes','scope_cli','scope_entry','store','access','unix','production_entry')}|{
     'engineering/contracts/engineering-history-v1.schema.json','engineering/contracts/engineering-history-v2.schema.json',
-    'engineering/contracts/engineering-project-v1.schema.json','engineering/config/history-web/rras-engineering-history-web.service.in'}|{
+    'engineering/contracts/engineering-project-v1.schema.json','engineering/contracts/engineering-scope-v1.schema.json','engineering/config/history-web/rras-engineering-history-web.service.in'}|{
     f'engineering/docs/engineering-history-phase1/templates/{name}.md' for name in ('review','checkpoint','completion')}
 LIMIT=96*1024*1024
 

@@ -11,6 +11,11 @@ from test_history_web import web, key, access, client_call
 
 @pytest.fixture
 def project_reader(projects):
+    from test_history_scopes import envelope
+    scopes = module('scopes').Scopes(projects.store)
+    scopes.migrate(scopes.migration_plan()['expected_sha256'])
+    scopes.submit(envelope())
+    scopes.submit(envelope(NON_GIT, name='Jarvis non-Git planning'))
     create(projects)
     save(projects)
     designate(projects)
@@ -60,7 +65,7 @@ def test_scopes_and_complete_project_reader_path(project_reader, key):
 def test_project_tabs_reuse_actual_wire_snapshot(project_reader, key, view, query):
     app = web('app').create_app(project_reader, access(key))
     snapshot = client_call(app, key, url('project', project_id=P1)).json()['snapshot']
-    assert list(snapshot) == ['project_sequence', 'sha256', 'work_sequence']
+    assert list(snapshot) == ['project_sequence', 'scope_sequence', 'sha256', 'work_sequence']
     # JSON.stringify keeps the order received from the service, without spaces.
     token = json.dumps(snapshot, separators=(',', ':'))
     result = client_call(app, key, url(view, snapshot=token, **query))
@@ -105,6 +110,7 @@ def test_snapshot_authentication_stays_in_service(project_reader, key, change):
     snapshot = client_call(app, key, url('project', project_id=P1)).json()['snapshot']
     if change == 'missing_mac':
         del snapshot['sha256']
+        snapshot.pop('scope_sequence', None)
     elif change == 'wrong_mac':
         snapshot['sha256'] = '0' * 64
     elif change == 'future_boundary':
@@ -118,6 +124,25 @@ def test_snapshot_authentication_stays_in_service(project_reader, key, change):
 def test_legacy_unsigned_snapshot_still_parses():
     assert web('app').snapshot_token('{"project_sequence": 0, "work_sequence": 1}') == {
         'project_sequence': 0, 'work_sequence': 1}
+
+
+def test_scope_metadata_history_uses_the_same_signed_read_boundary(project_reader, key):
+    app = web('app').create_app(project_reader, access(key))
+    info = client_call(app, key, '/api/workspace/scopes').json()
+    assert [m['scope'] for m in info['scope_metadata']] == [REPO, NON_GIT]
+    result = client_call(app, key, url('scope')).json()
+    assert result['metadata']['display_name'] == 'Jarvis display name'
+    assert result['total'] == 1 and result['snapshot']['scope_sequence'] == 1
+    assert client_call(app, key, url('scope', version=1, snapshot=json.dumps(result['snapshot']))).status_code == 200
+
+
+@pytest.mark.parametrize('extra', ['scope_sequence', 'project_sequence', 'work_sequence'])
+def test_three_stream_snapshot_rejects_boolean_sequences(project_reader, key, extra):
+    app = web('app').create_app(project_reader, access(key))
+    token = dict(work_sequence=0, project_sequence=0, scope_sequence=0, sha256='a' * 64)
+    token[extra] = True
+    assert client_call(app, key, url('scope', snapshot=json.dumps(token))).status_code == 400
+    assert project_reader.calls == []
 
 
 @pytest.mark.parametrize('view', ['projects', 'project', 'architecture', 'compare', 'works', 'work', 'history'])

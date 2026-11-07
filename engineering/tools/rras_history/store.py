@@ -79,7 +79,7 @@ class Store:
         try:
             db.execute('PRAGMA trusted_schema=OFF')
             db.execute('PRAGMA foreign_keys=ON')
-            if not initializing and db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2):
+            if not initializing and db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2, 3):
                 raise ValueError('unsupported local store version')
             db.execute('PRAGMA journal_mode=DELETE')
             db.execute('PRAGMA synchronous=FULL')
@@ -117,7 +117,7 @@ class Store:
         principal = os.getuid() if peer_uid is None else -peer_uid
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if request['contract'] == 'engineering-history.v2' and db.execute('PRAGMA user_version').fetchone()[0] != 2:
+            if request['contract'] == 'engineering-history.v2' and db.execute('PRAGMA user_version').fetchone()[0] < 2:
                 raise ValueError('explicit project migration required for scoped work')
             rows = self.rows(db)
             duplicate = db.execute('SELECT request,receipt FROM submissions WHERE principal=? AND operation=? AND client_key=?',
@@ -143,7 +143,7 @@ class Store:
                 if (latest is None or request['expected_head'] != head or body['work_revision_sha256'] != head):
                     raise ValueError('exact current work revision required')
                 if operation == 'document.render':
-                    if db.execute('PRAGMA user_version').fetchone()[0] == 2:
+                    if db.execute('PRAGMA user_version').fetchone()[0] >= 2:
                         if any(r['operation'] == 'architecture.save' and r['body']['document_id'] == body['document_id']
                                for r, _ in local('projects').Projects(self).events(db)):
                             raise ValueError('document identity belongs to project architecture')

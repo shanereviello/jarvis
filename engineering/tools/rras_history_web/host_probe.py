@@ -7,7 +7,7 @@ import re
 import sys
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'vendor'))
-STATE=Path('/var/lib/rras-history-web-acceptance-projects-20261106')
+STATE=Path('/var/lib/rras-history-web-acceptance-v02-20261107')
 WORK='wrk_'+'6'*32
 DOC='doc_'+'7'*32
 
@@ -18,7 +18,7 @@ def load(directory,name):
 
 
 def seed():
-    if os.getuid()!=61172:raise ValueError('fixed fixture owner required')
+    if os.getuid()!=61174:raise ValueError('fixed fixture owner required')
     store=load('rras_history','store').Store(STATE/'history',create=True)
     def request(operation,key,head,body):return dict(contract='engineering-history.v1',operation=operation,client_event_key=key,
         expected_head=head,source={'kind':'agent_reported','namespace':'host_fixture','id':None},occurred_at=None,body=body)
@@ -65,11 +65,26 @@ def seed():
     project('project.create',dict(metadata,name='Synthetic non-Git project'))
     project('architecture.save',dict(document_id='doc_'+'9'*32,version=1,previous_sha256=None,
         title='Non-Git architecture',change_summary='Initial draft',markdown='# Non-Git design\n',source_reference=None))
-    print(json.dumps({'seeded':True,'records':2,'project_records':counter,'schema_version':2}))
+    tables=('submissions','outbox','project_submissions','project_outbox','project_metadata')
+    with store.connection() as db:before={table:db.execute('SELECT * FROM '+table).fetchall() for table in tables}
+    registry=load('rras_history','scopes').Scopes(store)
+    registry.migrate(registry.migration_plan()['expected_sha256'])
+    with store.connection() as db:
+        if before!={table:db.execute('SELECT * FROM '+table).fetchall() for table in tables}:raise ValueError('scope migration changed earlier bytes')
+    def scope_record(selected,version=1,head=None):
+        return registry.submit(dict(contract='engineering-scope.v1',operation='scope.create' if version==1 else 'scope.revise',
+            client_event_key=selected['id']+'-scope-'+str(version),expected_head=head,scope=selected,
+            source={'kind':'agent_reported','namespace':'host_fixture','id':None},occurred_at=None,
+            body=dict(revision=version,display_name='Synthetic scope '+str(version),description='Versioned fixture metadata',
+                repository_url=None,change_summary='Synthetic metadata revision')))
+    repo_scope={'kind':'repository','id':'fixture_library'}
+    first=scope_record(repo_scope)['receipt'];scope_record(repo_scope,2,first['request_sha256'])
+    scope_record({'kind':'non_git','id':'jarvis-non-git'})
+    print(json.dumps({'seeded':True,'records':2,'project_records':counter,'scope_records':3,'schema_version':3}))
 
 
 def serve():
-    if os.getuid()!=61173:raise ValueError('fixed fixture dashboard required')
+    if os.getuid()!=61175:raise ValueError('fixed fixture dashboard required')
     entry=load('rras_history_web','entry');auth=entry.local('access')
     public=auth.strict_json((STATE/'public-keys.json').read_bytes());original=auth.Keys
     def keys(config):

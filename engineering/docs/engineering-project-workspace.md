@@ -32,7 +32,8 @@ not independent acceptance, merge, deployment or verification. A recorded
 
 The existing private `history.sqlite3` stays with its service owner. New empty
 stores still initialize as schema v1. Normal service startup never upgrades a
-database. The new runtime reads both v1 and v2; the former runtime refuses v2.
+database. The completion runtime reads v1, v2 and v3. Earlier runtimes that only
+understand v1/v2 refuse v3; retain a compatible history runtime after upgrade.
 
 `projects.py` provides a read-only migration plan over exact legacy record/outbox
 bytes and SQLite schema. Applying it requires that exact fingerprint in a single
@@ -67,6 +68,31 @@ operator. Do not change its owner/permissions or run a desktop SQLite client
 against it. A separately reviewed stopped-service procedure must select the exact
 release, plan and identity. Database downgrade/restore to repair deployment
 receipts is not a rollback strategy; retain future history.
+
+### Versioned scope metadata: explicit v2-to-v3 upgrade
+
+`scopes.py` adds a separate immutable `scope_submissions` / `scope_outbox` stream,
+with `engineering-scope.v1` create/revise requests. It records the stable kind/ID,
+display name, optional description and credential-free HTTPS repository URL,
+revision/head, reason and provenance. Non-Git URLs are null. Metadata does not
+create a scope grant or admit managed execution. Unrecorded metadata is explicit.
+
+The owner-only upgrade fingerprints all prior work/project rows, outboxes, schema
+and the existing snapshot key. It adds only the scope tables/index/triggers and
+sets `user_version=3` atomically. Startup never migrates. The original rows, schema
+objects and snapshot key are preserved; a failure before commit rolls back.
+
+```sh
+python engineering/tools/rras_history/scope_entry.py migration-plan --store "$STORE"
+python engineering/tools/rras_history/scope_entry.py migrate --store "$STORE" \
+  --expected-sha256 "$EXACT_REVIEWED_V2_PLAN_SHA256"
+```
+
+New snapshot MACs bind a third, per-scope `scope_sequence` boundary. Signed v2
+snapshots and closeouts retain their exact two-stream MAC and bytes; they show
+scope metadata as unrecorded. A later rename does not retarget a v3 historical
+view. HTTP parsing accepts canonical wire order without trusting field order,
+duplicate keys, booleans, unknown fields or an unauthenticated MAC.
 
 ## Explicit authoring and recovery
 
@@ -110,6 +136,24 @@ Read queries are `{scope, query}`, where `scope` is `{kind: repository, id: jarv
 or `{kind: non_git, id: jarvis-non-git}` and `query.view` selects `projects`,
 `project`, `works`, `work`, `architecture`, `compare`, `history` or `document`.
 Use exact IDs and the returned snapshot token on subsequent pages.
+
+Scope authoring uses the same private request custody and existing scope write
+permission; scope reads use the existing `project_read` method with `view=scope`.
+`scope_submit` is never admitted by the dashboard's transport. The installed
+scope bootstrap and contract are included in the history runtime allowlist.
+
+```sh
+python engineering/tools/rras_history/scope_entry.py submit \
+  --service-socket /run/rras-engineering-history/service.sock --service-uid 995 \
+  --request "$EXACT_PRIVATE_SCOPE_REQUEST"
+python engineering/tools/rras_history/scope_entry.py read \
+  --service-socket /run/rras-engineering-history/service.sock --service-uid 995 \
+  --request "$EXACT_PRIVATE_SCOPE_QUERY"
+```
+
+The query shape is `{scope, query: {view: "scope", version?, offset?, limit?,
+snapshot?}}`. A revision supplies the exact prior scope head; unchanged retries
+return their original receipt. Scope history is paginated and snapshot-bound.
 
 ## Non-Git work and legacy compatibility
 
@@ -155,6 +199,14 @@ Exact architecture versions and closeouts have stable hash URLs. Architecture
 content and diffs are text, with verified Markdown download. Work links retain
 the existing detail views. Counts use distinct current work IDs. Prior-scope
 outcomes are labeled rather than treated as current-scope completion.
+
+Recorded scope display names retain their stable IDs in the selector. A read-only
+Scope details and history view shows description, repository link, revision
+history and attribution. Project outcomes count distinct work IDs separately from
+project state and separate older-revision outcomes. Work cards show actual last
+activity and the exact outcome revision. Architecture shows designation reasons,
+digests, principals/source/occurrence times and closeout pins. Historical closeout
+headers show the receipt recording date; old receipts are not rewritten to add it.
 
 Authentication/JWT validation, no-store headers, CSP and private-state clearing
 remain in force. Category names, doc text and diff content never become HTML.

@@ -63,7 +63,14 @@ class Access:
         if method == 'workspace_scopes' and set(message) == {'method'}:
             scopes = [{'kind': 'repository', 'id': name} for name in grant['private_read']]
             scopes += [{'kind': 'non_git', 'id': name} for name in grant.get('category_read', [])]
-            return dict(scopes=scopes, authority_granted=False)
+            registry = local('scopes').Scopes(self.store)
+            with self.store.connection() as db:
+                metadata = [registry.metadata(selected, registry.events(db, selected)) for selected in scopes]
+            return dict(scopes=scopes, scope_metadata=metadata, authority_granted=False)
+        if method == 'scope_submit' and set(message) == {'method', 'request'}:
+            scopes = local('scopes'); request = scopes.validate(copy.deepcopy(message['request']))
+            if not self.allowed(grant, request['scope'], write=True): raise ValueError('access refused')
+            return scopes.Scopes(self.store).submit(request, peer_uid=peer_uid)
         if method == 'project_submit' and set(message) == {'method', 'request'}:
             projects = local('projects')
             request = projects.validate(copy.deepcopy(message['request']))
