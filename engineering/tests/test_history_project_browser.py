@@ -67,6 +67,19 @@ def test_project_workspace_browser(projects, project_reader, key, tmp_path):
             page.screenshot(path=str(Path(os.environ['RRAS_UI_SCREENSHOT_DIR']) / 'project-workspace-synthetic-preview.png'), full_page=True)
         for tab in ('Overview', 'Work', 'Architecture', 'Baselines', 'History'):
             assert page.get_by_role('tab', name=tab, exact=True).count() == 1
+            page.get_by_role('tab', name=tab, exact=True).click()
+            playwright.expect(page.get_by_role('tab', name=tab, exact=True)).to_have_attribute('aria-selected', 'true')
+            if tab == 'Work':
+                playwright.expect(page.locator('#record-panel .doc-card')).to_have_count(1)
+            elif tab == 'Architecture':
+                page.get_by_role('button', name='Download exact Markdown', exact=True).wait_for()
+            elif tab == 'Baselines':
+                page.get_by_text('a' * 40, exact=True).wait_for()
+            elif tab == 'History':
+                playwright.expect(page.locator('#record-panel .record-card')).not_to_have_count(0)
+            else:
+                page.get_by_role('heading', name='Intended outcome', exact=True).wait_for()
+            assert page.locator('#notice').is_hidden()
         page.get_by_role('tab', name='Architecture', exact=True).click()
         page.get_by_role('button', name='Download exact Markdown', exact=True).wait_for()
         assert page.locator('.document-source').first.inner_text() == '# Architecture\n\nOriginal design.\n'

@@ -14,6 +14,29 @@ def response(value,status=200):
     return Response(raw,status_code=status,media_type='application/json')
 
 
+def snapshot_token(raw):
+    """Parse bounded token fields without depending on JSON member order.
+
+    The service still verifies the scope-bound MAC and exact stream boundaries.
+    Reject duplicate members before decoding can silently replace their values.
+    """
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result:raise ValueError('duplicate snapshot member')
+            result[key]=value
+        return result
+    if len(raw)>256:raise ValueError('bounded snapshot required')
+    value=json.loads(raw,object_pairs_hook=unique)
+    fields={'work_sequence','project_sequence'}
+    if type(value) is not dict or set(value) not in (fields,fields|{'sha256'}):raise ValueError('exact snapshot fields required')
+    for name in fields:
+        if type(value[name]) is not int or not 0<=value[name]<=10000:raise ValueError('bounded snapshot sequence required')
+    if 'sha256' in value and (type(value['sha256']) is not str or not re.fullmatch('[0-9a-f]{64}',value['sha256'])):
+        raise ValueError('exact snapshot MAC required')
+    return value
+
+
 HEADERS={
     'cache-control':'no-store, private','pragma':'no-cache','x-content-type-options':'nosniff',
     'referrer-policy':'no-referrer','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=()',
@@ -98,10 +121,7 @@ def create_app(reader,access):
                     if q[name] not in ('true','false'):raise ValueError()
                     q[name]=q[name]=='true'
             if 'snapshot' in q:
-                # The token is two exact per-scope integer boundaries, not an
-                # arbitrary JSON query or caller-provided authorization scope.
-                if not re.fullmatch(r'\{"work_sequence":[0-9]+,"project_sequence":[0-9]+(?:,"sha256":"[0-9a-f]{64}")?\}',q['snapshot']):raise ValueError()
-                q['snapshot']=json.loads(q['snapshot'])
+                q['snapshot']=snapshot_token(q['snapshot'])
             q['view']=request.path_params['view']
         except (ValueError,KeyError):return Response('Unavailable.',status_code=400)
         return await read(reader.workspace,selected,q)
