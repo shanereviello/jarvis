@@ -1,0 +1,4 @@
+# Separate inactive Linear-event receiver; never install into existing releases.
+# The private inbox uses Python 3.11+ stdlib and no model SDK.
+starlette==1.10.0
+uvicorn==0.54.0
