@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the bounded Codex evidence collection pass
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Persistent=true
+Unit=rras-codex-capture.service
+
+[Install]
+WantedBy=timers.target

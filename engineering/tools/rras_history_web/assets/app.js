@@ -95,7 +95,7 @@ async function route() {
     if (r.work) {
       const detail = await workspace('work', {work_id: r.work}, scope, state.detailSnapshot);
       if (version !== state.detailVersion) return;
-      state.detail = detail; state.detailScopeMetadata = detail.scope_metadata; state.selected = r.work; state.detailSnapshot = detail.snapshot; renderWork(r.tab || 'overview');
+      state.detail = detail; state.detailScopeMetadata = detail.scope_metadata; state.selected = r.work; state.detailSnapshot = detail.snapshot; await renderWork(r.tab || 'overview');
     } else if (r.project) await renderProject(r.tab || 'overview', version);
     else emptyDetail();
     stamp();
@@ -115,6 +115,9 @@ function attribution(panel, record) {
 async function renderScope(value, version) {
   const m = value.metadata; breadcrumb(); const panel = $('detail');
   panel.replaceChildren(node('div', 'work-eyebrow', state.scope.kind === 'repository' ? 'Repository' : 'Non-Git category'), node('h2', '', m.display_name), node('code', '', state.scope.id));
+  const unmapped = node('section'); unmapped.append(node('h3', 'section-label', 'Unmapped captured evidence')); panel.append(unmapped);
+  await paged(unmapped, 'reporting', {unassigned: true, operation: 'artifact.record'}, version, reportingRecord);
+  if (version !== state.detailVersion) return;
   if (!m.recorded) { panel.append(node('p', 'empty', 'Scope metadata not yet recorded.')); return; }
   field(panel, 'Description', m.description); field(panel, 'Scope revision', m.revision); field(panel, 'Change summary', m.change_summary); attribution(panel, m);
   if (m.repository_url) {
@@ -137,6 +140,7 @@ async function renderProject(tab, version) {
     panel.append(button('Architecture: ' + (doc ? 'Governing v' + doc.version : 'Not designated') + (latest ? ' · Latest saved v' + latest.version + ' (' + designLabel(latest) + ')'  : ''), () => navigate(projectRoute({tab: 'architecture'})), 'doc-card'));
     field(panel, 'Git baseline', p.scope.kind === 'non_git' ? 'Not applicable — non-Git project' : 'Starting: ' + (p.starting_baseline || 'Not recorded') + ' · Current: ' + (p.current_baseline || 'Not recorded'));
     field(panel, 'Project reference', p.project_id); field(panel, 'Project metadata', 'Revision ' + p.revision + ' · Updated ' + when(p.last_project_update));
+    reportingSummary(panel, p.reporting);
     attribution(panel, {source: p.last_source, peer_uid: p.last_peer_uid, writer_uid: p.last_writer_uid, recorded_at: p.last_project_update, occurred_at: p.last_occurred_at});
     panel.append(node('h3', 'section-label', 'Reported outcomes · current scope'));
     for (const [name, count] of Object.entries(p.reported_outcome_counts || {})) field(panel, name === 'not_recorded' ? 'No outcome recorded' : outcome(name), String(count));
@@ -148,10 +152,14 @@ async function renderProject(tab, version) {
     if (p.scope.kind === 'non_git') field(panel, 'Git baselines', 'Not applicable — non-Git project');
     else if (!p.baselines.length) field(panel, 'Git baselines', 'Not recorded');
     for (const b of p.baselines) { const card = node('article', 'record-card'); card.append(node('h3', '', 'v' + b.version + ' · ' + b.label), node('code', '', b.commit)); field(card, 'Repository / captured ref', b.repository_id + ' / ' + (b.ref || 'Not recorded')); field(card, 'Selection', [p.starting_baseline === b.version ? 'Starting' : '', p.current_baseline === b.version ? 'Current' : '', p.closeouts.some(c => c.baseline && c.baseline.version === b.version) ? 'At closeout' : ''].filter(Boolean).join(' · ') || 'Saved'); field(card, 'Change reason', b.reason); field(card, 'Provenance', b.source.kind + ' · Recorded ' + when(b.recorded_at)); field(card, 'Reported source information', (b.source_reference || 'Not recorded') + ' · Reported verification time: ' + when(b.verified_at)); card.append(node('p', 'event-time', 'A reported commit or verification timestamp is not an independently observed release.')); panel.append(card); }
-  } else await paged(panel, 'history', {project_id: p.project_id}, version, event => { const n = node('article', 'record-card'); n.append(node('h3', '', event.operation), badge(event.source.kind), node('p', 'event-time', 'Recorded ' + when(event.recorded_at) + ' · Occurred ' + when(event.occurred_at)), node('pre', 'document-source', JSON.stringify(event.body, null, 2))); return n; });
+    await reportingHistory(panel, {project_id: p.project_id, operation: 'attempt.record'}, version);
+  } else {
+    await paged(panel, 'history', {project_id: p.project_id}, version, event => { const n = node('article', 'record-card'); n.append(node('h3', '', event.operation), badge(event.source.kind), node('p', 'event-time', 'Recorded ' + when(event.recorded_at) + ' · Occurred ' + when(event.occurred_at)), node('pre', 'document-source', JSON.stringify(event.body, null, 2))); return n; });
+    if (version === state.detailVersion) await reportingHistory(panel, {project_id: p.project_id}, version);
+  }
   if (version === state.detailVersion) target.append(node('p', 'limit-note', 'Project state and design designation are explicit records. Work outcomes, merge, deployment and verification remain separate facts.'));
 }
-function workCard(item) { const b = button('', () => navigate(projectRoute({work: item.work_item_id})), 'doc-card'); b.append(node('strong', '', item.title), badge(outcome(item.latest_outcome)), node('p', 'event-time', 'Scope revision ' + item.revision + ' · Design ' + (item.assignment && item.assignment.architecture_version ? 'v' + item.assignment.architecture_version : 'Not designated')), node('p', 'event-time', 'Last recorded activity ' + when(item.last_recorded_at))); if (item.latest_outcome) b.append(node('p', 'event-time', 'Outcome for ' + (item.outcome_revision ? 'scope revision ' + item.outcome_revision : 'scope digest ' + item.outcome_revision_sha256) + (item.outcome_revision_sha256 !== item.work_revision_sha256 ? ' · Earlier scope revision' : ' · Current scope revision'))); return b; }
+function workCard(item) { const b = button('', () => navigate(projectRoute({work: item.work_item_id})), 'doc-card'); b.append(node('strong', '', item.title), badge(outcome(item.latest_outcome)), node('p', 'event-time', 'Scope revision ' + item.revision + ' · Design ' + (item.assignment && item.assignment.architecture_version ? 'v' + item.assignment.architecture_version : 'Not designated')), node('p', 'event-time', 'Last recorded activity ' + when(item.last_recorded_at))); if (item.latest_outcome) b.append(node('p', 'event-time', 'Outcome for ' + (item.outcome_revision ? 'scope revision ' + item.outcome_revision : 'scope digest ' + item.outcome_revision_sha256) + (item.outcome_revision_sha256 !== item.work_revision_sha256 ? ' · Earlier scope revision' : ' · Current scope revision'))); const report = item.reporting; if (report && report.available) { for (const mapping of report.mappings || []) if (mapping.body.kind === 'execution') b.append(node('p', 'event-time', mapping.body.plan_id + ' · ' + mapping.body.linear.identifier)); if (report.latest_attempt) b.append(node('p', 'event-time', agentLabel(report.latest_attempt.body.actor) + ' · ' + report.latest_attempt.body.phase)); if (report.latest_checkpoint) b.append(node('p', 'prose', report.latest_checkpoint.observation)); } return b; }
 async function paged(panel, view, params, version, render) {
   let offset = 0;
   const more = button('Show more', () => load(), 'more');
@@ -183,8 +191,9 @@ async function architecture(panel, p, r, version) {
   compare.append(left, right, button('Compare', async () => { try { const result = await workspace('compare', {project_id: p.project_id, left: left.value, right: right.value}, state.scope, state.detailSnapshot); if (version !== state.detailVersion) return; diff.textContent = result.diff || 'No text changes.'; } catch (_) { if (version === state.detailVersion) clearPrivate('Comparison unavailable.'); } }), diff); panel.append(compare);
   const related = node('section'); related.append(node('h3', 'section-label', 'Work using this design version')); panel.append(related);
   await paged(related, 'works', {project_id: p.project_id, architecture_version: selected}, version, item => workCard(item));
+  if (version === state.detailVersion) await reportingHistory(panel, {project_id: p.project_id, operation: 'decision.observe', architecture_version: selected}, version);
 }
-function renderWork(tab) {
+async function renderWork(tab) {
   const d = state.detail; const target = $('detail'); if (!['overview', 'timeline', 'documents', 'evidence'].includes(tab)) tab = 'overview'; breadcrumb(d.work);
   target.replaceChildren(button(state.project ? '← Back to project' : '← Back to list', () => state.project ? navigate(projectRoute()) : navigate({}), 'back'), node('div', 'work-eyebrow', d.repository_id + ' / revision ' + d.work.revision), node('h2', '', d.work.title), node('p', 'purpose', d.work.objective));
   const panel = tabs(target, ['Overview', 'Timeline', 'Documents', 'Evidence'], tab, name => navigate({...routeValues(), tab: name}));
@@ -192,6 +201,9 @@ function renderWork(tab) {
   if (tab === 'timeline') for (const e of [...d.timeline].reverse()) { const item = node('article', 'event'); item.append(node('h3', '', labels[e.operation] || e.operation), badge(e.provenance), node('p', 'prose', e.summary)); for (const decision of e.decisions) item.append(node('p', 'prose', decision)); if (e.next_action) field(item, 'Next action', e.next_action); if (e.operation === 'session.attach') field(item, 'Reported native session ID', e.session_id || 'Not recorded'); if (e.outcome) item.append(badge(outcome(e.outcome)), node('code', '', 'Scope digest: ' + e.work_revision_sha256)); item.append(node('p', 'event-time', 'Recorded ' + when(e.recorded_at) + ' · Occurred ' + when(e.occurred_at))); panel.append(item); }
   if (tab === 'documents') { if (!d.documents.length) panel.append(node('p', 'empty', 'No retained documents.')); for (const doc of d.documents) { const b = button('', () => openWorkDocument(doc), 'doc-card'); b.append(node('strong', '', doc.title), node('small', '', doc.type + ' · version ' + doc.version)); panel.append(b); } }
   if (tab === 'evidence') { if (!d.evidence.length) panel.append(node('p', 'empty', 'No supported external evidence links.')); for (const e of d.evidence) { let url; try { url = new URL(e.url); } catch (_) { continue; } if (url.protocol !== 'https:' || url.hostname !== 'github.com' || url.username || url.password) continue; const a = node('a', 'evidence-link', e.label); a.href = url.href; a.target = '_blank'; a.rel = 'noopener noreferrer'; panel.append(a); } }
+  if (tab === 'overview') reportingSummary(panel, d.reporting);
+  if (tab === 'timeline') await reportingHistory(panel, {work_id: d.work.work_item_id}, state.detailVersion);
+  if (tab === 'evidence') await reportingHistory(panel, {work_id: d.work.work_item_id, operation: 'artifact.record'}, state.detailVersion);
   target.append(node('p', 'limit-note', 'Records preserve reported and imported evidence. Release status is not inferred. Work outside explicit recording may be absent.'));
 }
 async function openWorkDocument(doc) {

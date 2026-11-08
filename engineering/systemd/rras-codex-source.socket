@@ -1,0 +1,15 @@
+[Unit]
+Description=Private socket for registered read-only Codex source capture
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Socket]
+ListenStream=/run/rras-codex-runtime/source.sock
+SocketUser=rras-codex-adapter
+SocketGroup=rras-codex-adapter
+SocketMode=0600
+DirectoryMode=0750
+Accept=yes
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

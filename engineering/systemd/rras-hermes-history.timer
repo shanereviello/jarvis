@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh selected Jarvis run and checkpoint evidence
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=true
+Unit=rras-hermes-history.service
+
+[Install]
+WantedBy=timers.target

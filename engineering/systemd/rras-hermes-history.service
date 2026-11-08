@@ -1,0 +1,33 @@
+[Unit]
+Description=Passively import selected native Jarvis engineering history
+After=rras-engineering-history.service
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Service]
+Type=oneshot
+User=rras-codex-adapter
+Group=rras-codex-adapter
+UMask=0077
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/hermes_history_http.py --config /etc/rras-engineering/codex-runtime/hermes-history.json
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=172.19.0.0/16
+StateDirectory=rras-codex-adapter
+StateDirectoryMode=0700
+TimeoutStartSec=60s
+MemoryMax=1G
+TasksMax=64
+StandardOutput=journal
+StandardError=journal

@@ -108,3 +108,5 @@ Historical bring-up reports, canary launchers and container experiments are reta
 - [Inactive curated production package](engineering-history-curated-inactive-install.md) — protected first installation with empty catalog; no activation or content publication.
 
 - [History foundation and read-only dashboard closeout](engineering-history-dashboard-closeout.md): deployed evidence, remaining browser acceptance and deferred next-plan backlog.
+
+- [Standardized History Reporting Format and Rules](standardized-history-reporting/README.md): approved v0.3 baseline, capture comparison, two-agent Linear foundation, and explicit remaining implementation/setup.

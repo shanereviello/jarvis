@@ -18,7 +18,7 @@ CLIENT=61122
 UNKNOWN=61123
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in (
     'contract','documents','scoped_documents','store','unix','link_delivery','managed_sync','managed_link','production_entry',
-    'curated_preview','curated_publication','curated_read_access','curated_read_unix',
+    'curated_preview','curated_reporting','reporting_contract','redaction','curated_publication','curated_read_access','curated_read_unix',
     'managed_host_package','managed_host_probe','managed_host_driver',
     'curated_host_package','curated_host_probe','curated_host_driver',
     'curated_writer_package','curated_writer_driver','curated_writer_probe','curated_publication_launch','curated_publication_entry'))|set(

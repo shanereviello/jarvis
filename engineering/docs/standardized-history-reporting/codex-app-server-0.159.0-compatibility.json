@@ -1,0 +1,42 @@
+{
+  "codex_version": "0.159.0",
+  "models_started": 0,
+  "checks": [
+    {
+      "schema": "v1/InitializeParams.json",
+      "sha256": "b55124e7c0f36a1789396daa5578217a92be67f053903696236686e59f6f212e",
+      "compatible": true,
+      "errors": []
+    },
+    {
+      "schema": "v2/ThreadStartParams.json",
+      "sha256": "e9c6d3cc18d049bfbc0249add3808fb8e5a27e1a0b5a423767aafbc3859a9428",
+      "compatible": true,
+      "errors": []
+    },
+    {
+      "schema": "v2/ThreadResumeParams.json",
+      "sha256": "c818e26d830ac4430791eab7d4a872d2384fa6006b14c505d8caf46e7e093527",
+      "compatible": true,
+      "errors": []
+    },
+    {
+      "schema": "v2/TurnStartParams.json",
+      "sha256": "2dfcf68705896fadc344ccfeb2e9fe5a6bcbbb8b9a90cf449ce232b636daf05a",
+      "compatible": true,
+      "errors": []
+    },
+    {
+      "schema": "v2/TurnInterruptParams.json",
+      "sha256": "6dff382dae73d1dbc58406ed045605f647e7a49660e2540fbd2c6c24d60c5f2b",
+      "compatible": true,
+      "errors": []
+    },
+    {
+      "schema": "v2/ThreadReadParams.json",
+      "sha256": "dfe040c6ac71d30795b8be3f3ff232e66f362a37f883b491e5d1ea367f470db4",
+      "compatible": true,
+      "errors": []
+    }
+  ]
+}

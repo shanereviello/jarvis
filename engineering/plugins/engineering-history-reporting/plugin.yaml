@@ -1,0 +1,4 @@
+name: engineering-history-reporting
+version: "0.1.0"
+description: "Scoped checkpoints and handoff requests for mapped native Linear runs. No coding, filesystem, archive-reading or approval tools."
+author: "Reviello Robotics"

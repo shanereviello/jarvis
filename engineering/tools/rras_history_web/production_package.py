@@ -11,7 +11,7 @@ import subprocess
 MANIFEST='runtime-manifest.json'
 PYTHON='/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13'
 SOURCE_FILES={f'engineering/tools/rras_history_web/{name}.py' for name in ('access','app','history','entry','runtime_entry')}|{
-    f'engineering/tools/rras_history_web/assets/{name}' for name in ('index.html','app.css','app.js')}|{
+    f'engineering/tools/rras_history_web/assets/{name}' for name in ('index.html','app.css','app.js','reporting.js')}|{
     'engineering/tools/rras_history/contract.py','engineering/tools/rras_history/unix.py',
     'engineering/contracts/engineering-history-v1.schema.json','engineering/contracts/engineering-history-v2.schema.json','engineering/config/history-web/rras-engineering-history-web.service.in',
     'engineering/requirements-history-web-lock.txt'}

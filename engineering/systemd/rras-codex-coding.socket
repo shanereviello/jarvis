@@ -1,0 +1,15 @@
+[Unit]
+Description=Private socket for the approved Codex App Server runtime
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Socket]
+ListenStream=/run/rras-codex-runtime/coding.sock
+SocketUser=rras-codex-adapter
+SocketGroup=rras-codex-adapter
+SocketMode=0600
+DirectoryMode=0750
+Accept=yes
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

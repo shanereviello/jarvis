@@ -136,7 +136,7 @@ class Scopes:
         principal = os.getuid() if peer_uid is None else -peer_uid
         with self.store.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0] != 3: raise ValueError('explicit scope migration required')
+            if db.execute('PRAGMA user_version').fetchone()[0] < 3: raise ValueError('explicit scope migration required')
             duplicate = db.execute('SELECT request,receipt FROM scope_submissions WHERE principal=? AND operation=? AND client_key=?',
                                    (principal, request['operation'], request['client_event_key'])).fetchone()
             if duplicate:

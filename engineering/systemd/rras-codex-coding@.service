@@ -1,0 +1,37 @@
+[Unit]
+Description=Codex App Server session for the engineering adapter (%i)
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+ConditionPathExists=/var/lib/rras-codex-native/codex/config.toml
+
+[Service]
+User=rras-codex-native
+Group=rras-codex-native
+UMask=0077
+StandardInput=socket
+StandardOutput=socket
+StandardError=null
+StateDirectory=rras-codex-native
+StateDirectoryMode=0700
+LoadCredential=openai-api-key:/etc/rras-engineering/codex-runtime/openai-api-key
+ExecStartPre=/usr/bin/install -d -m 0700 /var/lib/rras-codex-native/codex
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/codex_app_server_entry.py --binary /opt/rras-engineering/releases/standardized-history-runtime/runtime/bin/codex --codex-home /var/lib/rras-codex-native/codex
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/srv/git/jarvis
+TimeoutStartSec=30s
+TimeoutStopSec=10s
+MemoryMax=4G
+TasksMax=256
+KillMode=control-group
