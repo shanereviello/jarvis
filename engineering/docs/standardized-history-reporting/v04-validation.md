@@ -59,3 +59,23 @@ as well as the previous HMAC/SQL checks. The actual Access policy and tunnel pat
 are not tested by that synthetic probe. A separate step-by-step guide now makes
 Worker creation, path routing, Access protection, OAuth and activation explicit.
 No running Worker, tunnel route, Access policy or n8n setting was changed.
+
+## Operator setup and client-ID correction
+
+The operator subsequently reported saving the dedicated Codex app, OAuth and
+bridge credentials, Access application/token, tunnel route and Worker. The
+chosen public endpoint is the existing workers.dev hostname, with no custom
+domain required. A read-only GET returned the expected Worker 404 refusal.
+This verifies reachability only; signed production forwarding remains untested.
+Read-only credential metadata confirms the separate OAuth2 and Header Auth
+entries; secret values and token grants were not read.
+
+The operator-supplied public OAuth Client ID has 32 hexadecimal characters.
+Corrected the renderer to retain that format exactly rather than requiring an
+actor UUID. Organization and actor IDs still require canonical UUIDs. The
+focused n8n suite passes **20 tests**, and the disposable transport probe passes
+with a synthetic 32-character client ID, including exact incoming comparison,
+wrong-client refusal, Worker signing/forwarding and PostgreSQL replay checks.
+No live workflow, SQL migration, OAuth grant or runtime was activated by these
+checks. Native actor binding and the separate runtime Header Auth credential
+remain pending.

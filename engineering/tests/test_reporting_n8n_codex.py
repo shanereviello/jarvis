@@ -72,6 +72,20 @@ def test_no_blind_outbox_retry_or_runtime_relaunch(config):
     assert 'FOR UPDATE SKIP LOCKED' in query
 
 
+def test_linear_hex_client_id_is_preserved_without_uuid_conversion(config):
+    config['oauth_client_id']='0123456789abcdef0123456789abcdef'
+    package=m.render(config)
+    admission=package['workflows']['inbound']['nodes'][1]['parameters']['jsCode']
+    assert config['oauth_client_id'] in admission
+    assert '01234567-89ab-cdef-0123-456789abcdef' not in admission
+
+
+@pytest.mark.parametrize('client',[None,32,'', 'a'*31,'a'*33,'g'*32,'a'*32+'\n'])
+def test_invalid_linear_client_ids_are_refused(config,client):
+    config['oauth_client_id']=client
+    with pytest.raises(ValueError):m.render(config)
+
+
 def test_registration_uses_n8n_callback_and_both_scopes():
     spec=importlib.util.spec_from_file_location('setup_n8n_fixture',ROOT/'tools/rras_reporting/linear_setup.py')
     setup=importlib.util.module_from_spec(spec);spec.loader.exec_module(setup)

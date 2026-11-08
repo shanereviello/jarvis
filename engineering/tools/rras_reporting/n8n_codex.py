@@ -4,6 +4,7 @@ import copy
 import ipaddress
 import json
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 import uuid
 
@@ -33,7 +34,13 @@ def configuration(value):
             'agent_actor_ids','issues','n8n_redirect_url','verified_webhook_url','runtime_origin','credentials'}:
         raise ValueError('exact Codex n8n binding required')
     if value['contract']!='codex-n8n-config.v1':raise ValueError('wrong contract')
-    for key in ('organization_id','app_user_id','oauth_client_id'):identifier(value[key])
+    for key in ('organization_id','app_user_id'):identifier(value[key])
+    # Linear OAuth client IDs can be 32 hexadecimal characters. They are not
+    # actor UUIDs; retain their exact spelling for webhook comparisons.
+    client=value['oauth_client_id']
+    if not isinstance(client,str) or not re.fullmatch(
+            r'(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})',client):
+        raise ValueError('Linear OAuth client ID required')
     if type(value['agent_actor_ids']) is not list or value['app_user_id'] not in value['agent_actor_ids']:
         raise ValueError('explicit agent echo exclusion required')
     for actor in value['agent_actor_ids']:identifier(actor)

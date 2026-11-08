@@ -17,7 +17,7 @@ installation, PostgreSQL service, and server01-rack tunnel.**
 | Existing hooks route for /webhook/linear-agent-events | Keep for Jarvis. It does not match the new Codex path. |
 | Existing history dashboard and private CIDR route | Keep unchanged. |
 | New Worker: linear-codex-ingest | Add for Codex signature checks and forwarding. |
-| New Worker custom domain | jarvis-agents.reviellorobotics.com |
+| New Worker public hostname | linear-codex-ingest.shanereviello.workers.dev; custom domain optional. |
 | New backend path on the existing hooks hostname/tunnel | /webhook/rras-codex-agent-events → http://n8n:5678 |
 | New native Linear app and n8n OAuth credential | Codex only, separate from Jarvis. |
 | New n8n workflows and private runtime adapter | Source exists; installation/activation is not complete. |
@@ -30,7 +30,7 @@ Each app keeps its own identity, signing secret, routes, runtime and replies.
 Incoming work:
 
 Linear Codex app
-→ https://jarvis-agents.reviellorobotics.com/webhooks/codex
+→ https://linear-codex-ingest.shanereviello.workers.dev/webhooks/codex
 → new Codex Worker verifies Linear signature
 → https://hooks.reviellorobotics.com/webhook/rras-codex-agent-events
 → Cloudflare Access service authentication
@@ -48,10 +48,10 @@ The Worker does not handle OAuth or store Linear access/refresh tokens. The
 runtime adapter is private and gets no public tunnel route.
 
 The public Worker hostname and the backend hooks hostname serve different roles.
-Do not add jarvis-agents.reviellorobotics.com as an n8n tunnel hostname; it belongs
-to the Worker.
+The workers.dev hostname is served directly by the Worker. No additional public
+hostname or DNS record is needed on the n8n tunnel.
 
-## Stage 1 — the action requested now: register Codex in Linear
+## Stage 1 — register Codex in Linear
 
 You can reserve the app and its addresses before the Worker exists. Registration
 is different from installing/authorizing the app.
@@ -60,7 +60,7 @@ is different from installing/authorizing the app.
 2. Create a private app named **Codex**.
 3. Enable authorization-code grant.
 4. Set callback: https://n8n.reviellorobotics.com/rest/oauth2-credential/callback.
-5. Set webhook: https://jarvis-agents.reviellorobotics.com/webhooks/codex.
+5. Set webhook: https://linear-codex-ingest.shanereviello.workers.dev/webhooks/codex.
 6. Select AgentSessionEvent / Agent session events.
 7. Save the generated client secret and webhook signing secret privately.
 8. Send only the public Client ID. Leave the Jarvis app untouched.
@@ -141,10 +141,10 @@ identified in your screenshot.
 
 1. In Workers & Pages, create a Worker named **linear-codex-ingest**.
 2. Use the reviewed codex_edge_worker.mjs source from this project's release.
-3. On the new Worker's Domains/Domains & Routes tab, add Custom Domain:
-   jarvis-agents.reviellorobotics.com.
-4. Cloudflare creates the Worker DNS/certificate binding. If the hostname already
-   has a record or service, reconcile that conflict rather than overwriting it.
+3. Use the existing public workers.dev hostname:
+   linear-codex-ingest.shanereviello.workers.dev. Keep that route enabled.
+4. A custom domain is optional. It is not required for this installation. The
+   exact webhook URL in the Linear app must match the chosen Worker endpoint.
 5. Under Settings → Variables and secrets, configure the following on the new
    Worker only:
 
@@ -196,11 +196,16 @@ That fixture does not test your actual Access policy or tunnel.
 
 Native app installation, actual n8n workflow execution/import acceptance, runtime
 recovery/handoffs, release deployment and the remaining SHRR capabilities are
-unfinished. This guide is a map of the complete setup; only Stage 1 is requested
-from you now.
+unfinished. Use the current staged operator instructions to determine the next
+action; this guide describes the complete setup.
 
-No live Worker, DNS, Access, tunnel, n8n workflow or credential was modified while
-preparing this guide. Source is on the existing draft PR. The repository's
+The operator has since reported creating the Codex app, n8n OAuth/bridge
+credentials, dedicated Access token/application, tunnel path and Worker. A live
+GET on the workers.dev webhook returned the expected 404 refusal; this proves
+public reachability, not signed forwarding or backend acceptance. Credential
+name/type/reference metadata was read without secret values. OAuth installation,
+n8n workflow activation and runtime deployment remain pending. Source is on the
+existing draft PR. The repository's
 AGENTS.md says: “Merge and deployment require a separate explicit human decision.”
 The later deployment stages are documented here so you can see them in advance;
 they are not silently activated by app registration.

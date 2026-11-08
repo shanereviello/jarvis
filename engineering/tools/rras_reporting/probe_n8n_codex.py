@@ -19,7 +19,7 @@ def run(argv,data=None):
 def fixture():
     uid=lambda n:str(uuid.UUID(int=n))
     return dict(contract='codex-n8n-config.v1',organization_id=uid(1),app_user_id=uid(2),
-        oauth_client_id=uid(3),agent_actor_ids=[uid(2),uid(20)],
+        oauth_client_id='0123456789abcdef0123456789abcdef',agent_actor_ids=[uid(2),uid(20)],
         issues={uid(4):dict(project_id='prj_'+'1'*32,work_id='wrk_'+'2'*32,plan_id='SHRR-03',
             work_revision_sha256='3'*64,architecture_version=4,architecture_sha256='4'*64)},
         n8n_redirect_url='https://n8n.example.com/rest/oauth2-credential/callback',
@@ -34,7 +34,8 @@ const input=JSON.parse(fs.readFileSync(0,'utf8')), policy=input.policy;
 const admit=new Function(input.admission+'\nreturn admit;')();
 const uid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
 const now=Date.now(),body={type:'AgentSessionEvent',action:'created',organizationId:policy.organization_id,
- webhookTimestamp:now,agentSession:{id:uid(5),issue:{id:uid(4)},creatorId:uid(6)},promptContext:'Synthetic mention/delegation'};
+ webhookTimestamp:now,oauthClientId:policy.oauth_client_id,
+ agentSession:{id:uid(5),issue:{id:uid(4)},creatorId:uid(6)},promptContext:'Synthetic mention/delegation'};
 const headers={'x-rras-codex-verified':'v1','linear-delivery':uid(7),'x-rras-codex-body-sha256':'a'.repeat(64)};
 assert.equal(admit({headers,body},policy,now).envelope.binding.plan_id,'SHRR-03');
 const follow=structuredClone(body);follow.action='prompted';
