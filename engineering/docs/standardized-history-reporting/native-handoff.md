@@ -99,7 +99,26 @@ source identity, session, depth, stale dispatch, replay and admission outage.
 The offline cross-UID native App Server probe discovers and calls both tools
 through the real MCP path without any model turn or real credentials.
 
-Remaining integration includes the bounded existing-Jarvis admission patch,
+`n8n_jarvis_admission.py` now prepares that bounded patch against an exact private
+snapshot of the existing Jarvis workflow. Mapped engineering requests read native
+origin through the existing Jarvis OAuth identity, verify the actual comment or
+prompt author, and require exact correlated intent for agent-authored handoffs.
+The additive admission table retains the result and pins. Unconfirmed requests
+record an error without starting an assistant run. Other issues keep the original
+run path. All existing run fields, credential references, headers and restrictions
+are retained; engineering context adds instructions without repository, terminal,
+file or execution access. A flat native `issueId` is normalized as well as
+`issue.id`. Changed snapshots or unrecognized topology refuse preparation.
+
+The actual isolated n8n fixture exercises this patch with a synthetic legacy-shaped
+workflow and fake Hermes HTTP endpoint: a correlated Codex-to-Jarvis request is
+admitted, an agent prompt echo is refused, and an unselected issue preserves its
+original request instructions. It caught n8n's restriction on `binding` property
+access in expressions; the verified binding is serialized in the Code node before
+parameterized SQL. This proves engine behavior, not live Hermes model execution.
+The prepared patch has not been imported into or activated on the existing route.
+
+Remaining integration includes Hermes scoped reporting/handoff tools and capture,
 deployment packaging and separately authorized
 native interaction acceptance. These sources and fixture results do not activate
 any production workflow, PostgreSQL migration, collector or runtime. Earlier
