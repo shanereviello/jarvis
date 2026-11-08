@@ -84,6 +84,12 @@ different workspace or still-active stored turn remains uncertain. Recovery neve
 starts/resumes a generation. Full history exceeding the bounded RPC frame also
 remains unresolved; paginated-history support is not claimed.
 
+The runtime event journal retains only lifecycle/approval metadata and visible
+agent result messages. Reasoning channels, reasoning items/deltas, unneeded
+stream notifications and nested terminal-turn items are excluded before the
+bounded queue and again before persistence. Full visible exchanges belong to
+the separately selected capture adapters, not this recovery journal.
+
 App Server start/resume/turn/cancellation use the supported interface. Permission
 or tool requests are never auto-approved; use the existing operator surface.
 Desktop conversation injection is not assumed. Managed/interactive worktree

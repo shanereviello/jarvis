@@ -97,6 +97,7 @@ OPERATIONS = {'mapping.record': 'mapping', 'attempt.record': 'attempt', 'session
 # receipt/import time and native source occurrence time remain separate.
 DEFS['artifact']['properties']['captured_at']=UTC
 DEFS['artifact']['properties']['authorization_reference']=text(2048)
+DEFS['observation']['properties'].update(redaction_profile=NAME,source_snapshot_sha256=SHA,gaps=array(text()))
 
 SCHEMA = dict(obj(contract=dict(const='engineering-reporting.v1'), operation=choices(*OPERATIONS),
     client_event_key=text(128), expected_head=nullable(SHA), scope=ref('scope'), context=nullable(ref('context')),

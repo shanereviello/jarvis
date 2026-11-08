@@ -14,6 +14,7 @@ is a separate historical designation, not an edit to the document.
 - [Private evidence byte custody](evidence-custody.md)
 - [Selected-session capture and replay](capture-intake.md)
 - [Reporting reference UI](reference-ui.md)
+- [Passive Linear observation](linear-observation.md)
 
 ## Approved v0.4 integration direction
 
@@ -52,7 +53,7 @@ passive jobs are now implemented. The reporting reference UI exposes mapped work
 attempts, checkpoints, handoffs, decisions, capture gaps and exact private exports;
 actual Chromium fixtures cover navigation, literal source text, verified Unicode
 downloads, corruption clearing and unmapped evidence. Production migration,
-collector activation, passive Linear observation, curated reporting publication,
+collector activation, production Linear observation, curated reporting publication,
 native handoff acceptance and final deployment remain unfinished.
 
 ## Earlier v0.3 source position (historical; see v0.4 direction above)

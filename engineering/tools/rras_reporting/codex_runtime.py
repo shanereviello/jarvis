@@ -47,6 +47,33 @@ def private(path, directory=False):
     return path
 
 
+def visible_message(item):
+    return (type(item) is dict and item.get('type')=='agentMessage' and
+        item.get('channel',item.get('phase')) not in ('analysis','reasoning'))
+
+
+def journal_event(event):
+    """Runtime lifecycle journal, not a transcript or reasoning archive.
+
+    Drop token/delta noise before the bounded queue and project terminal frames
+    without their nested items (which can contain explicit reasoning payloads).
+    Full visible exchanges are captured separately by selected-source adapters.
+    """
+    if type(event) is not dict:return None
+    method=event.get('method');params=event.get('params') or {}
+    if type(params) is not dict:return None
+    if method=='adapter/approvalRequired':
+        return dict(method=method,params={k:params[k] for k in ('method','request_id') if k in params})
+    if method=='item/completed' and visible_message(params.get('item')):
+        item=params['item']
+        return dict(method=method,params=dict(threadId=params.get('threadId'),turnId=params.get('turnId'),
+            item={k:item[k] for k in ('id','type','text','phase') if k in item}))
+    if method=='turn/completed' and type(params.get('turn')) is dict:
+        return dict(method=method,params=dict(threadId=params.get('threadId'),turnId=params.get('turnId'),
+            turn={k:params['turn'][k] for k in ('id','status') if k in params['turn']}))
+    return None
+
+
 def policy(value):
     if type(value) is not dict or set(value) != {'contract', 'organization_id', 'app_user_id',
             'execution_authorized', 'execution_authority_reference', 'binary', 'cwd',
@@ -128,7 +155,8 @@ class AppServer:
                         target = self.pending.get(message['id'])
                         if target: target.put_nowait(message)
                 else:
-                    self.notifications.put_nowait(message)
+                    projected=journal_event(message)
+                    if projected is not None:self.notifications.put_nowait(projected)
         except (OSError, ValueError, TypeError, RecursionError, queue.Full):
             with self.lock:
                 self.closed = True
@@ -300,6 +328,8 @@ class Runtime:
     def collect(self):
         if self.client is None: return
         for event in self.client.events():
+            event=journal_event(event)
+            if event is None:continue
             raw = encoded(event)
             if len(raw) > MAX_FRAME: raise ValueError('runtime event exceeds bound')
             params = event.get('params') or {}
@@ -360,7 +390,7 @@ class Runtime:
             if type(items) is not list or any(type(i) is not dict for i in items):
                 raise ValueError('stored items differ')
             for item in items:
-                if item.get('type')=='agentMessage' and item.get('text'):
+                if visible_message(item) and item.get('text'):
                     result=bounded(item['text'],MAX_MESSAGE)
             evidence=dict(method='adapter/reconciled',params=dict(threadId=row['thread'],
                 turnId=row['turn'],status=turn['status'],stored_turn_sha256=hashlib.sha256(encoded(turn)).hexdigest()))

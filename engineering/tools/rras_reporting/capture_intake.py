@@ -60,6 +60,26 @@ def redact(raw):
     return text.encode(),counts
 
 
+def redact_object(value):
+    """Filter strings before JSON escaping can hide line/header boundaries."""
+    counts={}
+    def clean(item):
+        if type(item) is str:
+            raw,found=redact(item.encode())
+            for k,n in found.items():counts[k]=counts.get(k,0)+n
+            return raw.decode()
+        if type(item) is list:return [clean(x) for x in item]
+        if type(item) is dict:
+            result={}
+            for k,v in item.items():
+                if re.fullmatch(r'(?i)(authorization|proxy-authorization|set-cookie|cookie|client[_-]?secret|access[_-]?token|refresh[_-]?token|api[_-]?key|password)',k):
+                    result[k]='[REDACTED:credential_value]';counts['credential_value']=counts.get('credential_value',0)+1
+                else:result[k]=clean(v)
+            return result
+        return item
+    return clean(value),counts
+
+
 def stamp():return datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
 
 
@@ -144,6 +164,32 @@ class Spool:
                     status=status,gaps=[] if status=='current' else [detail],detail=detail))
             self.enqueue(db,request,'status');db.commit()
         sync(self.root);return dict(staged=True)
+
+    def observe_linear(self,snapshot,*,scope,context,organization_id,team_id,project_id,object_kind,object_id,updated_at):
+        original=self.c.encoded(snapshot);snapshot,redactions=redact_object(snapshot);raw=self.c.encoded(snapshot)
+        # The owned observation contract bounds small snapshots. Oversized
+        # content is a gap, never silent truncation into a successful record.
+        if len(raw)>65536:raise ValueError('Linear snapshot exceeds bounded observation; retain source')
+        body=dict(object_kind=object_kind,organization_id=organization_id,team_id=team_id,
+            linear_project_id=project_id,object_id=object_id,source_updated_at=updated_at,
+            snapshot_sha256=self.c.digest(raw),snapshot_text=raw.decode(),references=[],
+            redaction_profile=PROFILE,source_snapshot_sha256=self.c.digest(original),
+            gaps=['Polling can miss intermediate edits and objects deleted between polls.',
+                'Pattern redaction is partial; imported statements grant no execution or approval authority.'])
+        if redactions:body['gaps'].append('Recognized credentials were removed before persistent observation staging.')
+        key=self.c.digest(self.c.encoded(dict(scope=scope,context=context,body=body)))
+        request=dict(contract='engineering-reporting.v1',operation='linear.observe',client_event_key='linear-observation:'+key,
+            expected_head=None,scope=scope,context=context,source=dict(kind='imported',namespace='linear_poll',id=object_id),
+            occurred_at=updated_at,body=body)
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old=db.execute('SELECT sequence FROM items WHERE key=?',(request['client_event_key'],)).fetchone()
+            if old:return dict(staged=False,sequence=old[0])
+            count=db.execute('SELECT count(*) FROM items').fetchone()[0]
+            pending=db.execute("SELECT count(*) FROM items WHERE kind='artifact' AND receipt IS NULL").fetchone()[0]
+            if count+2*pending+1>MAX_ITEMS:raise ValueError('observation capacity reached; retain pending source')
+            seq=self.enqueue(db,request,'observation');db.commit()
+        sync(self.root);return dict(staged=True,sequence=seq)
 
     def stage(self,raw,*,scope,context,session,collector,collector_version,source_sha256,
               source_range=None,gaps=(),source_created_at=None,source_updated_at=None,authorization_reference=None):

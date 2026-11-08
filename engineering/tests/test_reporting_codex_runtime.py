@@ -97,6 +97,20 @@ def test_execution_authority_cannot_come_from_webhook(tmp_path,policy):
     value.close()
 
 
+def test_runtime_journal_excludes_reasoning_deltas_and_nested_private_fields(runtime,policy):
+    value,client=runtime;value.dispatch(request(policy))
+    client.waiting=[dict(method='item/reasoning/textDelta',params=dict(delta='EXCLUDED-REASONING')),
+        dict(method='item/completed',params=dict(threadId='thread-1',turnId='turn-1',item=dict(type='reasoning',text='EXCLUDED-REASONING'))),
+        dict(method='item/completed',params=dict(threadId='thread-1',turnId='turn-1',item=dict(type='agentMessage',phase='analysis',text='EXCLUDED-REASONING'))),
+        dict(method='item/completed',params=dict(threadId='thread-1',turnId='turn-1',item=dict(type='agentMessage',text='Visible final',reasoning='EXCLUDED-REASONING'))),
+        dict(method='turn/completed',params=dict(threadId='thread-1',turn=dict(id='turn-1',status='completed',
+            items=[dict(type='reasoning',text='EXCLUDED-REASONING')])))]
+    assert value.status(uid(4))['result']=='Visible final'
+    with value.connection() as db:
+        saved=[x[0] for x in db.execute('SELECT body FROM events')]
+        assert len(saved)==2 and all(b'EXCLUDED-REASONING' not in x for x in saved)
+
+
 def test_one_issue_executor_across_sessions_and_real_turn_interrupt(runtime,policy):
     value,client=runtime; value.dispatch(request(policy))
     with pytest.raises(ValueError,match='active or uncertain'): value.dispatch(request(policy,6,7))
@@ -170,7 +184,8 @@ for line in sys.stdin:
  if 'id' not in v: continue
  if v['method']=='initialize': result={'userAgent':'synthetic'}
  else:
-  print(json.dumps({'method':'synthetic/event','params':{}}),flush=True)
+  print(json.dumps({'method':'item/reasoning/textDelta','params':{'delta':'excluded synthetic reasoning'}}),flush=True)
+  print(json.dumps({'method':'turn/completed','params':{'threadId':'synthetic-thread','turn':{'id':'synthetic-turn','status':'completed','items':[{'type':'reasoning','text':'excluded synthetic reasoning'}]}}}),flush=True)
   result={'thread':{'id':'synthetic-thread'}}
  print(json.dumps({'id':v['id'],'result':result}),flush=True)
 ''')
@@ -178,7 +193,9 @@ for line in sys.stdin:
     client=m.AppServer(str(executable),str(tmp_path),timeout=3)
     try:
         assert client.call('thread/start',{})['thread']['id']=='synthetic-thread'
-        assert client.events()[0]['method']=='synthetic/event'
+        events=client.events()
+        assert len(events)==1 and events[0]['method']=='turn/completed'
+        assert 'excluded synthetic reasoning' not in json.dumps(events)
     finally:client.close()
 
 
