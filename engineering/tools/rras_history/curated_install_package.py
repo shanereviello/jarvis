@@ -18,7 +18,7 @@ OWNER=995
 DEPLOYMENT={'deployment/read-policy.json','deployment/rras-curated-history-read.service','deployment/rras-curated-publication'}
 SOURCE_FILES=set('engineering/tools/rras_history/'+name+'.py' for name in (
     'contract','documents','scoped_documents','store','unix','link_delivery','managed_sync','managed_link','production_entry',
-    'curated_preview','curated_publication','curated_read_access','curated_read_unix',
+    'curated_preview','curated_reporting','reporting_contract','redaction','curated_publication','curated_read_access','curated_read_unix',
     'curated_service_entry','curated_service_plan','curated_mcp','curated_publication_entry','curated_publication_launch',
     'curated_install_package'))|set(
     'engineering/contracts/'+name for name in ('engineering-history-v1.schema.json','engineering-history-v2.schema.json','engineering-managed-export-v1.schema.json'))|set(

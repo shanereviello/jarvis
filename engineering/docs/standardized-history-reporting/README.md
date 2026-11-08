@@ -15,6 +15,7 @@ is a separate historical designation, not an edit to the document.
 - [Selected-session capture and replay](capture-intake.md)
 - [Reporting reference UI](reference-ui.md)
 - [Passive Linear observation](linear-observation.md)
+- [Curated reporting profiles and MCP retrieval](curated-reporting.md)
 
 ## Approved v0.4 integration direction
 
@@ -53,8 +54,10 @@ passive jobs are now implemented. The reporting reference UI exposes mapped work
 attempts, checkpoints, handoffs, decisions, capture gaps and exact private exports;
 actual Chromium fixtures cover navigation, literal source text, verified Unicode
 downloads, corruption clearing and unmapped evidence. Production migration,
-collector activation, production Linear observation, curated reporting publication,
-native handoff acceptance and final deployment remain unfinished.
+collector activation, production Linear observation and curated-profile installation,
+native handoff acceptance and final deployment remain unfinished. Curated profiles
+and actual offline MCP search/read with distinct Unix UIDs now pass synthetic
+acceptance; this does not publish private production history or enable a tool.
 
 ## Earlier v0.3 source position (historical; see v0.4 direction above)
 

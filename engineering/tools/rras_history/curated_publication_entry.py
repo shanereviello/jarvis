@@ -24,10 +24,17 @@ def apply(root,raw,reviewed_request_sha256):
     # Bind the entire exact packet, including approval, operation and expected head.
     if c.digest(raw)!=reviewed_request_sha256:raise ValueError('reviewed request bytes differ')
     packet=c.decode(raw,max_bytes=LIMIT)
+    if type(packet) is dict and packet.get('contract')=='engineering-curated-profile-execution.v1':
+        if set(packet)!={'contract','operation','profile_sha256','expected_head','rows'} or packet['operation']!='publish_profile':
+            raise ValueError('exact installed-profile execution packet required')
+        return local('curated_reporting').publish_bound(root,packet['rows'],packet['profile_sha256'],packet['expected_head'])
     common={'contract','operation','client_key','expected_head','approved'}
     if type(packet) is not dict or packet.get('contract')!='engineering-curated-publication-request.v1' or packet.get('approved') is not True:
         raise ValueError('explicit publication request required')
     pub=local('curated_publication')
+    if packet.get('operation')=='install_profile' and set(packet)==common|{'profile','reviewed_profile_sha256'}:
+        if pub.head(Path(root))!=packet['expected_head']:raise ValueError('stale profile installation context')
+        return local('curated_reporting').install_profile(root,packet['profile'],packet['reviewed_profile_sha256'],approve_profile=True)
     if packet.get('operation')=='publish' and set(packet)==common|{'preview','reviewed_preview_sha256'}:
         return pub.publish(root,packet['preview'],packet['reviewed_preview_sha256'],packet['expected_head'],packet['client_key'],approve_publication=True)
     if packet.get('operation')=='withdraw' and set(packet)==common|{'entry_ids'}:

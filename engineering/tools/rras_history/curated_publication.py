@@ -46,9 +46,15 @@ def validate_preview(preview,repositories):
     c=local('contract');preview=c.decode(c.encoded(preview),max_bytes=2*1024*1024)
     sha=c.digest(c.encoded(preview))
     # This validates every entry/header before filtering; no source fallback.
-    local('curated_preview').search(preview,sha,repositories[0],'',limit=1)
+    preview_reader(preview).search(preview,sha,repositories[0],'',limit=1)
     if any(entry['repository_id'] not in repositories for entry in preview['entries']):raise ValueError('publication outside repository policy')
+    if preview.get('contract')=='engineering-curated-reporting-preview.v1' and any(
+            p['repository_id'] not in repositories for p in preview['profile']['projects']):raise ValueError('profile outside repository policy')
     return preview
+
+
+def preview_reader(preview):
+    return local('curated_reporting' if preview.get('contract')=='engineering-curated-reporting-preview.v1' else 'curated_preview')
 
 
 def head(root):
@@ -110,6 +116,7 @@ def commit(root,config,operation,preview,expected_head,client_key,withdrawn):
             if base is None or not set(withdrawn)<={e['entry_id'] for e in base['entries']}:raise ValueError('withdrawal source unavailable')
             preview=c.decode(c.encoded(base),max_bytes=2*1024*1024)
             preview['entries']=[e for e in preview['entries'] if e['entry_id'] not in withdrawn]
+            if preview.get('contract')=='engineering-curated-reporting-preview.v1':preview['coverage']['returned_count']=len(preview['entries'])
         request={'operation':operation,'client_key':client_key,'expected_head':expected_head,
                  'preview_sha256':c.digest(c.encoded(preview)),'withdrawn_ids':withdrawn}
         for sha,value in rows:
@@ -146,5 +153,5 @@ def search(root,repository_id,query,*,generation_sha256=None,offset=0,limit=20):
         return dict(answer,generation_sha256=None,publication_recorded=False,human_authenticated=False,catalog_state='empty')
     current,value=rows[0]
     if generation_sha256 is not None and generation_sha256!=current:raise ValueError('stale catalog cursor; discard cached results')
-    c=local('contract');answer=local('curated_preview').search(value['preview'],c.digest(c.encoded(value['preview'])),repository_id,query,offset=offset,limit=limit)
+    c=local('contract');answer=preview_reader(value['preview']).search(value['preview'],c.digest(c.encoded(value['preview'])),repository_id,query,offset=offset,limit=limit)
     return dict(answer,generation_sha256=current,publication_recorded=True,human_authenticated=False)
