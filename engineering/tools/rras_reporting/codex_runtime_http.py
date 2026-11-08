@@ -115,6 +115,8 @@ def main():
         tool=importlib.util.module_from_spec(spec);spec.loader.exec_module(tool)
         checkpoint=tool.BrokerLaunch(args.checkpoint_socket,os.getuid(),args.checkpoint_python)
     if reporter is None or checkpoint is None:raise ValueError('installed automatic reporting and scoped recorder required')
+    if set(reporter.task_contexts)!=set(selected['issues']) or reporter.configuration['capture'] is None:
+        raise ValueError('exact retained task contracts and selected capture installation required')
     runtime = m.Runtime(args.state, selected,reporter=reporter,checkpoint_tool=checkpoint,
         client_factory=lambda executable,cwd:m.SocketAppServer(args.native_socket,args.native_peer_uid))
     http = server(runtime, token, (args.bind, args.port))

@@ -17,6 +17,17 @@ metadata rather than a fresh checkout audit. Optional attempt and validation
 fields can retain managed task/run, worktree, command, criterion, environment,
 code commit and output digest without rewriting earlier records.
 
+The private adapter also supplies the exact retained governing architecture and
+work definition, including acceptance criteria. `runtime_task_context.py` obtains
+them through scoped reads at one signed snapshot, checks the work revision,
+membership and document digest, and preserves the designation's original source
+attribution. It does not interpret a board state as approval or independently
+authenticate the recorded human agreement. The production entry refuses missing
+task contracts or selected capture configuration. The coder receives the agreed
+text with its scope/authority limits on thread start and resume; it receives no
+general archive-reading capability or snapshot token. A fixture larger than
+64 KiB verifies that the architecture is supplied without truncation.
+
 `runtime_checkpoint_mcp.py` exposes only `engineering_checkpoint`. The trusted
 parent supplies the actual Linear session; its broker reads the integration's
 runtime journal and accepts a stable key, observations, reasons, changes,

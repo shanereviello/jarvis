@@ -378,6 +378,9 @@ class Runtime:
             try:
                 client = self._client()
                 checkpoint_parameters=self.checkpoint_tool.parameters(session,dispatch) if self.checkpoint_tool is not None else {}
+                if self.reporter is not None:
+                    instructions=self.reporter.task_instructions(issue)
+                    if instructions:checkpoint_parameters['developerInstructions']=checkpoint_parameters.get('developerInstructions','')+instructions
                 if prior and prior['thread']:
                     info = client.call('thread/resume', dict(threadId=prior['thread'],
                         cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))['thread']

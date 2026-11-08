@@ -25,7 +25,8 @@ def ident(prefix,value):return prefix+uuid.uuid5(uuid.NAMESPACE_URL,value).hex
 class Reporter:
     def __init__(self,configuration,policy):
         intake=local('capture_intake');self.intake=intake;self.c=intake.local('contract');rc=intake.local('reporting_contract')
-        if (type(configuration) is not dict or set(configuration)!={'contract','spool','scope','contexts','host_identity','oauth_client_id','capture'} or
+        required={'contract','spool','scope','contexts','host_identity','oauth_client_id','capture'}
+        if (type(configuration) is not dict or not required<=set(configuration) or set(configuration)-required-{'task_contexts'} or
                 configuration['contract']!='codex-runtime-reporting.v1' or type(configuration['contexts']) is not dict or
                 set(configuration['contexts'])!=set(policy['issues'])):raise ValueError('exact runtime reporting context required')
         self.configuration=configuration;self.policy=policy;self.spool=intake.Spool(configuration['spool'])
@@ -55,6 +56,14 @@ class Reporter:
                 if not p.is_absolute() or p.resolve()!=p:raise ValueError('canonical capture registration paths required')
             intake.private(capture['jobs'],True)
             if type(capture['service_uid']) is not int or capture['service_uid']<0:raise ValueError('exact history service UID required')
+        self.task_contexts={}
+        if 'task_contexts' in configuration:
+            if type(configuration['task_contexts']) is not dict or set(configuration['task_contexts'])!=set(policy['issues']):
+                raise ValueError('every installed issue requires exact retained task context')
+            for issue,value in configuration['task_contexts'].items():self.task_contexts[issue]=local('runtime_task_context').validate(value,configuration['scope'],configuration['contexts'][issue])
+
+    def task_instructions(self,issue):
+        return local('runtime_task_context').instructions(self.task_contexts[issue]) if issue in self.task_contexts else ''
 
     def request(self,row,operation,body,*,expected=None,key=None):
         value=dict(contract='engineering-reporting.v1',operation=operation,client_event_key=key or 'runtime:'+self.c.digest(self.c.encoded(
@@ -87,7 +96,8 @@ class Reporter:
             'failed':'Native runtime reported failure; this is not a new retry authorization.',
             'interrupted':'Native runtime reported an interrupted turn; work outcome remains separate.'}[phase]
         baseline=(metadata.get('gitInfo') or {}).get('sha')
-        if type(baseline) is not str or not re.fullmatch('[0-9a-f]{40}',baseline):baseline=None
+        if (self.configuration['scope']['kind']!='repository' or type(baseline) is not str or
+                not re.fullmatch('[0-9a-f]{40}',baseline)):baseline=None
         if baseline:result+=' Baseline is native thread metadata, not a fresh per-turn checkout audit.'
         body=dict(attempt_id=aid,version=old['body']['version']+1 if old else 1,
             previous_sha256=prior['request_sha256'] if prior else None,phase=phase,actor=actor,coordinator=None,
