@@ -4,7 +4,9 @@ import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import json
+import os
 from pathlib import Path
+import threading
 
 
 def local():
@@ -83,22 +85,23 @@ def main():
     parser.add_argument('--bridge-token-file', type=Path, required=True)
     parser.add_argument('--reporting-policy',type=Path)
     parser.add_argument('--checkpoint-python',type=Path)
-    parser.add_argument('--codex-home',type=Path,required=True)
+    parser.add_argument('--native-socket',type=Path,required=True)
+    parser.add_argument('--native-peer-uid',type=int,required=True)
+    parser.add_argument('--native-uid',type=int,required=True)
+    parser.add_argument('--checkpoint-socket',type=Path,required=True)
     parser.add_argument('--initialize', action='store_true')
     parser.add_argument('--bind', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8766)
     args = parser.parse_args(); m = local()
-    if args.codex_home!=args.state/'codex-home':raise ValueError('dedicated runtime-owned Codex home required')
+    m.history_unix().uid(args.native_uid)
+    if args.native_uid==os.getuid():raise ValueError('native coder and private adapter need distinct identities')
     selected = json.loads(m.private(args.policy).read_bytes())
     if args.initialize:
         # Initialization creates no native process, HTTP listener or model turn.
         runtime=m.Runtime(args.state,selected,create=True)
-        try:args.codex_home.mkdir(mode=0o700)
-        finally:runtime.close()
+        runtime.close()
         print(json.dumps(dict(initialized=True,models_started=0,listener_started=False)))
         return
-    # Separate native integration home: no inherited personal MCP/OAuth config.
-    home=m.private(args.codex_home,True)
     token = m.private(args.bridge_token_file).read_bytes().strip()
     reporter=None
     if args.reporting_policy:
@@ -110,12 +113,24 @@ def main():
         if reporter is None:raise ValueError('checkpoint tool requires installed reporting policy')
         spec=importlib.util.spec_from_file_location('private_runtime_checkpoint',Path(__file__).with_name('runtime_checkpoint_mcp.py'))
         tool=importlib.util.module_from_spec(spec);spec.loader.exec_module(tool)
-        checkpoint=tool.Launch(args.state,args.reporting_policy,args.checkpoint_python)
+        checkpoint=tool.BrokerLaunch(args.checkpoint_socket,os.getuid(),args.checkpoint_python)
+    if reporter is None or checkpoint is None:raise ValueError('installed automatic reporting and scoped recorder required')
     runtime = m.Runtime(args.state, selected,reporter=reporter,checkpoint_tool=checkpoint,
-        client_factory=lambda executable,cwd:m.AppServer(executable,cwd,codex_home=home))
+        client_factory=lambda executable,cwd:m.SocketAppServer(args.native_socket,args.native_peer_uid))
     http = server(runtime, token, (args.bind, args.port))
-    try: http.serve_forever()
-    finally: http.server_close(); runtime.close()
+    spec=importlib.util.spec_from_file_location('private_runtime_checkpoint_broker',Path(__file__).with_name('runtime_checkpoint_broker.py'))
+    broker_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(broker_module)
+    stopped=threading.Event()
+    os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8')
+    try:
+        with broker_module.Server(args.checkpoint_socket,runtime,reporter.configuration,args.native_uid,
+                on_bound=lambda path:broker_module.acl_on_bound(path,args.native_uid)) as broker:
+            def serve_checkpoints():
+                while not stopped.is_set():broker.serve_once()
+            thread=threading.Thread(target=serve_checkpoints,daemon=True);thread.start()
+            try:http.serve_forever()
+            finally:stopped.set();thread.join(timeout=3)
+    finally:http.server_close();runtime.close()
 
 
 if __name__ == '__main__': main()

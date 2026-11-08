@@ -18,7 +18,7 @@ fields can retain managed task/run, worktree, command, criterion, environment,
 code commit and output digest without rewriting earlier records.
 
 `runtime_checkpoint_mcp.py` exposes only `engineering_checkpoint`. The trusted
-parent supplies the actual Linear session; the tool reads that integration's
+parent supplies the actual Linear session; its broker reads the integration's
 runtime journal and accepts a stable key, observations, reasons, changes,
 validation, questions, references and next step. It injects the installed work,
 architecture and active attempt. Callers cannot choose work or grant approval.
@@ -29,11 +29,27 @@ checkpoint. No private history, execution or Linear credential is exposed.
 The runtime applies the recorder's MCP configuration and checkpoint guidance on
 both thread start and resume. Before generation, it inspects the actual thread's
 MCP inventory and refuses unexpected MCP identities/tools. A missing recorder is
-a visible reporting gap. The HTTP entry point requires a separate private
-`STATE/codex-home`; it never inherits the operator's personal Codex home. Native
-authentication is provisioned separately by the operator. The initialization
-operation creates only the journal and empty native home, then exits; it starts
-no listener, native process or model.
+a visible reporting gap. Production uses a protected Unix stream connected to a
+separate native coding account. The private HTTP adapter keeps the n8n bridge
+credential, runtime journal and intake spool; the coder has its own native home
+and provider authentication, without those adapter files or a general history
+grant. A systemd accepted service can connect native App Server stdin/stdout to
+the Unix stream. The adapter verifies the protected socket's owner and exact
+listener UID before sending context. Native authentication is provisioned
+separately by the operator. Initialization creates only the adapter journal and
+exits; it starts no listener, native process or model.
+
+The coder's MCP process is a thin client of a separate, write-only Unix broker.
+Kernel credentials restrict it to the configured native UID. A frozen session
+and dispatch binding must match an active retained attempt on every call; stale
+clients cannot report into a subsequent turn. The broker supplies work and
+architecture context and exposes no private-history read, arbitrary work
+selection or execution operation. Existing named-UID ACL helpers grant only
+endpoint traversal/connection, with no added group membership. Direct journal
+mode and the stdio launcher remain isolated fixture helpers. The production HTTP
+entry uses the separate socket transport and broker. Visible result text is also
+redacted before transport publication; private native/runtime evidence remains
+retained separately.
 
 Actual native source paths returned for a configured thread are registered as
 immutable, private selected-file jobs under the installed source root. This
@@ -67,3 +83,12 @@ It creates a synthetic ephemeral native thread and discovers the actual scoped
 MCP recorder in a disposable nonroot container with only loopback, no credentials
 and no production mounts. It calls **no** `turn/start`. This checks native MCP
 configuration/initialization rather than model behavior or paid execution.
+
+`probe_native_isolation.py` additionally passes actual native stdio-over-Unix RPC
+and a real MCP tool callback across numeric UIDs **61180/61181** in a disposable
+offline container. The native account cannot read the adapter's bridge marker,
+journal or spool. Wrong UID, history-method and stale-dispatch calls are refused;
+the valid callback stages the exact bound work. No permanent accounts, provider
+credentials, production mounts or coding turns are involved. That fixture uses
+an ordinary primary group for traversal; actual host named-UID ACLs, systemd
+activation and provider authentication remain host acceptance work.

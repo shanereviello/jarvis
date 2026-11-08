@@ -22,6 +22,12 @@ def local(name):
     value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
 
 
+def checkpoint_schema():
+    rc=local('capture_intake').local('reporting_contract');body=rc.DEFS['report']
+    return dict(type='object',properties=dict(key=rc.NAME,**{k:v for k,v in body['properties'].items() if k not in ('report_id','attempt_id')}),
+        required=['key','observations','next_step'],additionalProperties=False,**{'$defs':rc.DEFS})
+
+
 class Launch:
     """Trusted thread configuration; never constructed from an agent argument."""
     def __init__(self,state,configuration,python):
@@ -31,10 +37,12 @@ class Launch:
         if (not self.python.is_absolute() or not stat.S_ISREG(info.st_mode) or info.st_uid not in (0,os.getuid()) or
                 info.st_mode&0o022 or not os.access(self.python,os.X_OK)):raise ValueError('trusted installed MCP Python required')
 
-    def parameters(self,session):
+    def arguments(self,session,dispatch=None):
+        return ['-I','-B',str(Path(__file__).resolve()),'--state',str(self.state),'--reporting-policy',str(self.configuration),'--session',session]
+
+    def parameters(self,session,dispatch=None):
         local('codex_runtime').identifier(session)
-        tool=dict(command=str(self.python),args=['-I','-B',str(Path(__file__).resolve()),'--state',str(self.state),
-            '--reporting-policy',str(self.configuration),'--session',session],enabled=True,required=False,
+        tool=dict(command=str(self.python),args=self.arguments(session,dispatch),enabled=True,required=False,
             enabled_tools=['engineering_checkpoint'],startup_timeout_sec=15,tool_timeout_sec=15)
         return dict(config=dict(mcp_servers=dict(engineering_checkpoint=tool)),developerInstructions=(
             'Use engineering_checkpoint at meaningful findings, choices, failed attempts, changes, validation and pauses. '
@@ -73,9 +81,7 @@ class Checkpoints:
         finally:db.close()
 
     def schema(self):
-        rc=self.reporter.intake.local('reporting_contract');body=rc.DEFS['report']
-        return dict(type='object',properties=dict(key=rc.NAME,**{k:v for k,v in body['properties'].items() if k not in ('report_id','attempt_id')}),
-            required=['key','observations','next_step'],additionalProperties=False,**{'$defs':rc.DEFS})
+        return checkpoint_schema()
 
     def record(self,arguments):
         Draft202012Validator(self.schema()).validate(arguments)
@@ -100,6 +106,35 @@ class Checkpoints:
         return dict(staged=True,sequence=sequence,source='agent_reported',project_id=request['context']['project_id'],
             work_item_id=request['context']['work']['work_item_id'],architecture_version=request['context']['architecture']['version'],
             history_delivery='pending_or_replayed',redactions=redactions,authority_granted=False)
+
+
+class BrokerLaunch(Launch):
+    """Native account receives only an endpoint and public service UID."""
+    def __init__(self,socket_path,service_uid,python):
+        runtime=local('codex_runtime');u=runtime.history_unix();u.uid(service_uid)
+        self.socket=u.endpoint(socket_path);self.service_uid=service_uid;self.python=Path(python)
+        info=self.python.stat()
+        if not self.python.is_absolute() or not stat.S_ISREG(info.st_mode) or info.st_uid not in (0,os.getuid()) or info.st_mode&0o022:
+            raise ValueError('trusted installed MCP Python required')
+
+    def arguments(self,session,dispatch=None):
+        local('codex_runtime').identifier(dispatch)
+        return ['-I','-B',str(Path(__file__).resolve()),
+            '--socket',str(self.socket),'--service-uid',str(self.service_uid),'--session',session,'--dispatch',dispatch]
+
+
+class BrokerClient:
+    def __init__(self,path,service_uid,session,dispatch):
+        self.u=local('codex_runtime').history_unix();self.u.uid(service_uid)
+        self.path=self.u.endpoint(path);self.service_uid=service_uid
+        local('codex_runtime').identifier(session);local('codex_runtime').identifier(dispatch)
+        self.session=session;self.dispatch=dispatch
+
+    def schema(self):return checkpoint_schema()
+
+    def record(self,arguments):
+        Draft202012Validator(self.schema()).validate(arguments)
+        return self.u.call(self.path,self.service_uid,dict(method='checkpoint',session_id=self.session,dispatch_id=self.dispatch,arguments=arguments))
 
 
 def server(checkpoints):
@@ -153,11 +188,17 @@ def server(checkpoints):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--state',required=True)
-    parser.add_argument('--reporting-policy',required=True);parser.add_argument('--session',required=True);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--state')
+    parser.add_argument('--reporting-policy');parser.add_argument('--session');parser.add_argument('--dispatch');parser.add_argument('--socket');parser.add_argument('--service-uid',type=int);args=parser.parse_args()
     runtime=local('codex_runtime')
     try:
-        config=json.loads(runtime.private(args.reporting_policy).read_bytes());server(Checkpoints(args.state,config,args.session)).run()
+        if args.socket:
+            if args.state or args.reporting_policy or not args.session or not args.dispatch or args.service_uid is None:raise ValueError('exact broker-only configuration required')
+            checkpoints=BrokerClient(args.socket,args.service_uid,args.session,args.dispatch)
+        else:
+            if args.service_uid is not None or args.dispatch or not all((args.state,args.reporting_policy,args.session)):raise ValueError('exact isolated direct fixture configuration required')
+            config=json.loads(runtime.private(args.reporting_policy).read_bytes());checkpoints=Checkpoints(args.state,config,args.session)
+        server(checkpoints).run()
     except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,ValidationError):parser.exit(1,'Scoped checkpoint service refused.\n')
 
 

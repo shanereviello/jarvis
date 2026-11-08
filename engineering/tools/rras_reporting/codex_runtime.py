@@ -10,10 +10,13 @@ import json
 import os
 from pathlib import Path
 import queue
+import select
+import socket
 import sqlite3
 import stat
 import subprocess
 import threading
+import time
 import uuid
 
 MAX_MESSAGE = 64 * 1024
@@ -112,18 +115,26 @@ def policy(value):
 class AppServer:
     """Bounded stdio RPC. Never auto-accept server tool/permission requests."""
     def __init__(self, executable, cwd, *, timeout=15,codex_home=None):
+        self._setup(timeout)
+        # This stdio launcher is for isolated fixtures. Production uses the
+        # socket-activated native account, without the adapter's files/identity.
+        env = {k: os.environ[k] for k in ('HOME', 'PATH', 'LANG', 'CODEX_HOME') if k in os.environ}
+        if codex_home is not None:
+            home=private(codex_home,True);env.update(CODEX_HOME=str(home),HOME=str(home.parent))
+        self.process = subprocess.Popen([executable, 'app-server'], cwd=cwd, env=env,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        self.reader_stream=self.process.stdout;self.writer_stream=self.process.stdin
+        self._initialize()
+
+    def _setup(self,timeout):
         self.timeout = timeout
         self.lock = threading.Lock()
         self.pending = {}
         self.notifications = queue.Queue(maxsize=128)
         self.sequence = 0
         self.closed = False
-        # No Linear credential or n8n secret is passed to the coding runtime.
-        env = {k: os.environ[k] for k in ('HOME', 'PATH', 'LANG', 'CODEX_HOME') if k in os.environ}
-        if codex_home is not None:
-            home=private(codex_home,True);env.update(CODEX_HOME=str(home),HOME=str(home.parent))
-        self.process = subprocess.Popen([executable, 'app-server'], cwd=cwd, env=env,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    def _initialize(self):
         self.reader = threading.Thread(target=self._read, daemon=True); self.reader.start()
         try:
             self.call('initialize', dict(clientInfo=dict(name='rras_n8n_codex', version='0.4'),
@@ -135,12 +146,12 @@ class AppServer:
     def _write(self, value):
         raw = encoded(value)
         if len(raw) > MAX_FRAME: raise ValueError('runtime frame too large')
-        self.process.stdin.write(raw); self.process.stdin.flush()
+        self.writer_stream.write(raw); self.writer_stream.flush()
 
     def _read(self):
         try:
             while True:
-                raw = self.process.stdout.readline(MAX_FRAME + 1)
+                raw = self.reader_stream.readline(MAX_FRAME + 1)
                 if not raw or len(raw) > MAX_FRAME or not raw.endswith(b'\n'):
                     raise ValueError('runtime stream ended or exceeded its bound')
                 message = json.loads(raw)
@@ -197,6 +208,54 @@ class AppServer:
             except subprocess.TimeoutExpired: self.process.kill(); self.process.wait(timeout=3)
         self.reader.join(timeout=3)
         self.process.stdin.close(); self.process.stdout.close()
+
+
+def history_unix():
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('runtime_unix_framing',Path(__file__).parents[1]/'rras_history/unix.py')
+    value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
+
+
+class SocketAppServer(AppServer):
+    """Native stdio RPC over a protected systemd-accepted Unix stream.
+
+    The listening socket is owned by the adapter and has an exact expected peer
+    UID (normally root/systemd). Its accepted service runs as the separate coding
+    account. No bridge credential or adapter journal is mounted into that account.
+    """
+    def __init__(self,path,peer_uid,*,timeout=15):
+        if type(peer_uid) is not int or not 0<=peer_uid<2**32-1:raise ValueError('exact native listener identity required')
+        u=history_unix();path=u.endpoint(path);u.parents(path,os.getuid());info=path.lstat()
+        if not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600:
+            raise ValueError('private adapter-owned native socket required')
+        self._setup(timeout);self.connection_socket=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        try:
+            self.connection_socket.settimeout(5);self.connection_socket.connect(str(path))
+            if u.peer(self.connection_socket)!=peer_uid:raise ValueError('native listener identity differs')
+            self.connection_socket.settimeout(None);self.reader_stream=self.connection_socket.makefile('rb')
+            self._initialize()
+        except BaseException:
+            self.connection_socket.close();raise
+
+    def _write(self,value):
+        raw=encoded(value)
+        if len(raw)>MAX_FRAME:raise ValueError('runtime frame too large')
+        pending=memoryview(raw);deadline=time.monotonic()+5
+        while pending:
+            remaining=deadline-time.monotonic()
+            if remaining<=0 or not select.select([],[self.connection_socket],[],remaining)[1]:raise TimeoutError('native write unavailable')
+            try:sent=self.connection_socket.send(pending,socket.MSG_DONTWAIT)
+            except BlockingIOError:continue
+            if sent<=0:raise OSError('native stream ended')
+            pending=pending[sent:]
+
+    def close(self):
+        self.closed=True
+        try:self.connection_socket.shutdown(socket.SHUT_RDWR)
+        except OSError:pass
+        if hasattr(self,'reader'):self.reader.join(timeout=3)
+        if hasattr(self,'reader_stream'):self.reader_stream.close()
+        self.connection_socket.close()
 
 
 class Runtime:
@@ -318,7 +377,7 @@ class Runtime:
             self._report(dispatch)
             try:
                 client = self._client()
-                checkpoint_parameters=self.checkpoint_tool.parameters(session) if self.checkpoint_tool is not None else {}
+                checkpoint_parameters=self.checkpoint_tool.parameters(session,dispatch) if self.checkpoint_tool is not None else {}
                 if prior and prior['thread']:
                     info = client.call('thread/resume', dict(threadId=prior['thread'],
                         cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))['thread']
@@ -327,6 +386,7 @@ class Runtime:
                     info = client.call('thread/start', dict(cwd=self.policy['cwd'],
                         sandbox=self.policy['sandbox'], approvalPolicy='on-request', ephemeral=False,**checkpoint_parameters))['thread']
                 thread = bounded(info['id'], 256); lineage = bounded(info['sessionId'],256) if info.get('sessionId') else None
+                if info.get('cwd') is not None and info['cwd']!=self.policy['cwd']:raise ValueError('native workspace differs')
                 with self.connection() as db:
                     db.execute('UPDATE sessions SET thread=?,lineage=? WHERE session=?', (thread,lineage,session))
                     db.execute('UPDATE turns SET thread=? WHERE dispatch=?', (thread,dispatch))
@@ -354,7 +414,13 @@ class Runtime:
 
     @staticmethod
     def _public(row):
-        return {k:row[k] for k in ('dispatch','session','issue','state','thread','turn','result','reason')}
+        value={k:row[k] for k in ('dispatch','session','issue','state','thread','turn','result','reason')}
+        if value['result'] is not None:
+            import importlib.util
+            spec=importlib.util.spec_from_file_location('runtime_public_redaction',Path(__file__).parents[1]/'rras_history/redaction.py')
+            redaction=importlib.util.module_from_spec(spec);spec.loader.exec_module(redaction)
+            value['result']=redaction.redact(value['result'].encode())[0].decode()
+        return value
 
     def collect(self):
         if self.client is None: return
