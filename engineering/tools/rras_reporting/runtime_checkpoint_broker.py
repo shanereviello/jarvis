@@ -24,13 +24,16 @@ class Access:
         self.runtime=runtime;self.configuration=configuration;self.grants={native_uid:True}
 
     def dispatch(self,caller,message):
-        if caller not in self.grants or type(message) is not dict or set(message)!={'method','arguments','session_id','dispatch_id'} or message['method']!='checkpoint':
+        if caller not in self.grants or type(message) is not dict or set(message)!={'method','arguments','session_id','dispatch_id'} or message['method'] not in ('checkpoint','handoff'):
             raise ValueError('only scoped checkpoint recording is available')
         native=local('codex_runtime');native.identifier(message['session_id']);native.identifier(message['dispatch_id'])
         with self.runtime.connection() as db:
-            rows=db.execute("SELECT session FROM turns WHERE dispatch=? AND session=? AND state IN ('preparing','running','uncertain','interrupt_requested')",
+            rows=db.execute("SELECT * FROM turns WHERE dispatch=? AND session=? AND state IN ('preparing','running','uncertain','interrupt_requested')",
                 (message['dispatch_id'],message['session_id'])).fetchall()
         if len(rows)!=1:raise ValueError('one actual active runtime context required')
+        if message['method']=='handoff':
+            if self.runtime.reporter is None:raise ValueError('installed handoff reporting required')
+            return local('runtime_handoff').stage(self.runtime,self.runtime.reporter,rows[0],message['arguments'])
         recorder=local('runtime_checkpoint_mcp').Checkpoints(self.runtime.root,self.configuration,rows[0]['session'])
         if recorder.policy!=self.runtime.policy:raise ValueError('actual runtime policy differs')
         return recorder.record(message['arguments'])

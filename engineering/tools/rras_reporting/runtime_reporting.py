@@ -26,7 +26,7 @@ class Reporter:
     def __init__(self,configuration,policy):
         intake=local('capture_intake');self.intake=intake;self.c=intake.local('contract');rc=intake.local('reporting_contract')
         required={'contract','spool','scope','contexts','host_identity','oauth_client_id','capture'}
-        if (type(configuration) is not dict or not required<=set(configuration) or set(configuration)-required-{'task_contexts'} or
+        if (type(configuration) is not dict or not required<=set(configuration) or set(configuration)-required-{'task_contexts','handoff'} or
                 configuration['contract']!='codex-runtime-reporting.v1' or type(configuration['contexts']) is not dict or
                 set(configuration['contexts'])!=set(policy['issues'])):raise ValueError('exact runtime reporting context required')
         self.configuration=configuration;self.policy=policy;self.spool=intake.Spool(configuration['spool'])
@@ -57,6 +57,13 @@ class Reporter:
             intake.private(capture['jobs'],True)
             if type(capture['service_uid']) is not int or capture['service_uid']<0:raise ValueError('exact history service UID required')
         self.task_contexts={}
+        if 'handoff' in configuration:
+            selected=configuration['handoff']
+            if type(selected) is not dict or set(selected)!={'policy','spool'}:raise ValueError('exact private handoff staging policy required')
+            native=local('native_handoff').policy(selected['policy'])
+            if (native['organization_id']!=policy['organization_id'] or native['agents']['codex']!=policy['app_user_id'] or
+                    native['issues']!=policy['issues']):raise ValueError('runtime/handoff identity or work pins differ')
+            local('runtime_handoff').Queue(selected['spool'])
         if 'task_contexts' in configuration:
             if type(configuration['task_contexts']) is not dict or set(configuration['task_contexts'])!=set(policy['issues']):
                 raise ValueError('every installed issue requires exact retained task context')
@@ -99,8 +106,10 @@ class Reporter:
         if (self.configuration['scope']['kind']!='repository' or type(baseline) is not str or
                 not re.fullmatch('[0-9a-f]{40}',baseline)):baseline=None
         if baseline:result+=' Baseline is native thread metadata, not a fresh per-turn checkout audit.'
+        request=self.c.decode(row['request']);chain=request.get('incoming_handoff')
+        coordinator=(dict(role='jarvis',runtime='hermes',source_actor_id=chain['sender_app_user_id']) if chain else None)
         body=dict(attempt_id=aid,version=old['body']['version']+1 if old else 1,
-            previous_sha256=prior['request_sha256'] if prior else None,phase=phase,actor=actor,coordinator=None,
+            previous_sha256=prior['request_sha256'] if prior else None,phase=phase,actor=actor,coordinator=coordinator,
             sessions=sessions,baseline_commit=baseline,result=result,references=[dict(namespace='runtime_dispatch',id=row['dispatch'],sha256=row['digest'])])
         comparable={k:v for k,v in body.items() if k not in ('version','previous_sha256')}
         if old and comparable=={k:v for k,v in old['body'].items() if k not in ('version','previous_sha256')}:return aid

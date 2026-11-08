@@ -324,8 +324,16 @@ reply(404,{error:'unknown fixture route'});
         assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+first_handoff['id']+"';").strip()=='acknowledged'
         status=json.loads(request('/fixture/status',port=8899)['body']);assert len(status['calls'])==4
         assert status['calls'][-1]['session_id']==target and status['calls'][-1]['binding']==trusted['binding']
+        assert status['calls'][-1]['incoming_handoff']==dict(id=first_handoff['id'],depth=1,source_session_id=trusted['session_id'],
+            sender_app_user_id=uid(20),recipient_app_user_id=uid(2),target_session_id=target)
         request('/fixture/complete',{},port=8899);execute('reconcile');execute('handoff_jarvis_reconcile')
         assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+first_handoff['id']+"';").strip()=='completed'
+        # Human follow-up in the same native session keeps its incoming chain;
+        # an ordinary prompt must not reset a later return handoff's depth.
+        deliver(601,651,652);execute('dispatch')
+        followup=json.loads(request('/fixture/status',port=8899)['body'])['calls'][-1]
+        assert followup['incoming_handoff']['id']==first_handoff['id'] and followup['incoming_handoff']['depth']==1
+        request('/fixture/complete',{},port=8899);execute('reconcile')
         second_handoff=handoff.prepare(handoff_policy,'codex',dict(trusted,session_id=target,parent_handoff_id=first_handoff['id'],depth=1),
             dict(arguments,key='fixture-codex-to-jarvis',requested_action='Review the engineering result and report remaining questions.'))
         submit_handoff(second_handoff);execute('handoff_codex_comment');execute('handoff_codex_reconcile')

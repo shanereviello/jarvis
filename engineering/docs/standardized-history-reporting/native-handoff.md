@@ -79,8 +79,28 @@ the private reader, exclusion of another project's narrative and exact typed
 projection. Owned-history fixtures verify all three retained versions, dependency
 ordering, outage/replay and historical context preservation.
 
-Remaining integration includes trusted runtime tool staging/relay, the bounded
-existing-Jarvis admission patch, deployment packaging and separately authorized
+`engineering_handoff` is an optional tool on the same scoped native MCP server
+as the checkpoint recorder. The parent broker supplies the actual active
+dispatch/session, mapped work and incoming chain. The coder supplies only bounded
+prose, evidence references and a stable key. It receives no n8n token, OAuth
+credential or private queue path. The private queue retains immutable requests,
+refuses changed replay and stops at capacity without deleting old records.
+`runtime_handoff_delivery.py` makes a bounded passive delivery pass to the fixed
+Codex admission endpoint. A lost acknowledgment retries that same idempotent
+admission, not a Linear mutation or a coding turn. Publication still waits for
+source quiescence. A Codex-to-Jarvis request for assistant context does not itself
+delegate engineering ownership.
+
+Authenticated n8n origin/binding checks supply incoming handoff metadata to the
+coder adapter. It records Jarvis as coordinator only for such an incoming
+handoff. Human follow-ups within that same native session preserve the chain;
+ordinary prompts cannot reset its depth. Synthetic tests cover wrong recipient,
+source identity, session, depth, stale dispatch, replay and admission outage.
+The offline cross-UID native App Server probe discovers and calls both tools
+through the real MCP path without any model turn or real credentials.
+
+Remaining integration includes the bounded existing-Jarvis admission patch,
+deployment packaging and separately authorized
 native interaction acceptance. These sources and fixture results do not activate
 any production workflow, PostgreSQL migration, collector or runtime. Earlier
 private staged transport files must be regenerated from the final source; they

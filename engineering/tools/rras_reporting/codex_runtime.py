@@ -6,6 +6,7 @@ Only the fixed, operator-installed policy selects a runtime and work context.
 from contextlib import contextmanager
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -357,8 +358,8 @@ class Runtime:
         return self.client
 
     def validate(self, value):
-        if type(value) is not dict or set(value) != {'contract','dispatch_id','organization_id',
-                'app_user_id','session_id','issue_id','message','binding'} or value['contract'] != 'codex-dispatch.v1':
+        required={'contract','dispatch_id','organization_id','app_user_id','session_id','issue_id','message','binding'}
+        if type(value) is not dict or not required<=set(value) or set(value)-required-{'incoming_handoff'} or value['contract'] != 'codex-dispatch.v1':
             raise ValueError('exact admitted dispatch required')
         for key in ('dispatch_id','organization_id','app_user_id','session_id','issue_id'): identifier(value[key])
         if (value['organization_id'] != self.policy['organization_id'] or
@@ -367,6 +368,12 @@ class Runtime:
                 value['binding'] != self.policy['issues'][value['issue_id']]):
             raise ValueError('wrong app, organization, issue or architecture context')
         bounded(value['message'])
+        if 'incoming_handoff' in value:
+            selected=self.reporter.configuration.get('handoff') if self.reporter is not None else None
+            if selected is None:raise ValueError('installed handoff policy required')
+            spec=importlib.util.spec_from_file_location('runtime_incoming_handoff',Path(__file__).with_name('runtime_handoff.py'))
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            module.incoming(value['incoming_handoff'],selected['policy'],value['issue_id'],value['session_id'])
         if not self.policy['execution_authorized']:
             raise ExecutionNotAuthorized('runtime execution not authorized by installed operator policy')
         return json.loads(encoded(value))

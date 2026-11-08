@@ -45,6 +45,9 @@ def parent():
     spool=intake.Spool(root/'spool',create=True)
     configuration=dict(contract='codex-runtime-reporting.v1',spool=str(spool.root),scope=dict(kind='repository',id='jarvis'),
         contexts={uid(3):ctx},host_identity='offline-cross-uid-fixture',oauth_client_id=None,capture=None)
+    handoffs=local('runtime_handoff').Queue(root/'handoffs',create=True)
+    configuration['handoff']=dict(spool=str(handoffs.path),policy=dict(contract='native-agent-handoff-policy.v1',
+        organization_id=uid(1),agents=dict(codex=uid(2),jarvis=uid(20)),issues=policy['issues']))
     reporter=local('runtime_reporting').Reporter(configuration,policy);runtime=m.Runtime(root/'runtime',policy,create=True,reporter=reporter)
     request=dict(contract='codex-dispatch.v1',dispatch_id=uid(4),organization_id=uid(1),app_user_id=uid(2),
         session_id=uid(5),issue_id=uid(3),message='Synthetic recording context; no model turn.',binding=pin)
@@ -62,7 +65,7 @@ def parent():
         worker=threading.Thread(target=serve,daemon=True);worker.start();print('ready',flush=True)
         try:
             client=m.SocketAppServer(SOCKET,0,timeout=30)
-            launch=local('runtime_checkpoint_mcp').BrokerLaunch(REPORT,ADAPTER,sys.executable)
+            launch=local('runtime_checkpoint_mcp').BrokerLaunch(REPORT,ADAPTER,sys.executable,handoff=True)
             params=launch.parameters(uid(5),uid(4));params.update(cwd=policy['cwd'],sandbox='read-only',approvalPolicy='on-request',ephemeral=True)
             params['config'].update({'analytics.enabled':False,'check_for_update_on_startup':False})
             native=client.call('thread/start',params)['thread'];thread=native['id']
@@ -75,6 +78,13 @@ def parent():
             result=client.call('mcpServer/tool/call',dict(threadId=thread,server='engineering_checkpoint',tool='engineering_checkpoint',
                 arguments=dict(key='cross-uid-native-sdk',observations=['Actual native MCP callback reached the bound private adapter.'],next_step='Keep real model acceptance separate.')))
             assert not result.get('isError') and json.loads(result['content'][0]['text'])['work_item_id']==pin['work_id']
+            result=client.call('mcpServer/tool/call',dict(threadId=thread,server='engineering_checkpoint',tool='engineering_handoff',
+                arguments=dict(key='cross-uid-native-handoff',summary='Retain this exact selected engineering context.',
+                    requested_action='Summarize for the operator; no coding ownership is transferred.',references=[],limitations=['Synthetic offline acceptance only.'])))
+            assert not result.get('isError') and json.loads(result['content'][0]['text'])['staged']
+            with handoffs.connection() as db:
+                intent=intake.local('contract').decode(db.execute('SELECT intent FROM handoffs').fetchone()[0])
+            assert intent['source_session_id']==uid(5) and intent['binding']==pin and intent['recipient']=='jarvis'
             print('recorded',flush=True)
             assert sys.stdin.readline().strip()=='stop'
             with spool.connection() as db:
@@ -131,7 +141,7 @@ def inside():
         if adapter.returncode:raise ValueError('private adapter fixture failed: '+stderr[-2000:])
         native.wait(timeout=10)
         print(json.dumps(dict(native_app_server=True,stdio_over_unix_socket=True,distinct_numeric_uids=True,
-            actual_native_mcp_callback=True,private_bridge_file_denied=True,private_runtime_and_spool_denied=True,
+            actual_native_mcp_callback=True,actual_native_handoff_callback=True,private_bridge_file_denied=True,private_runtime_and_spool_denied=True,
             history_method_denied=True,wrong_uid_denied=True,stale_dispatch_denied=True,exact_bound_work=True,
             fixture_acl='ordinary_primary_group_for_traversal;production_named_UID_ACL_pending_host_acceptance',
             models_started=0,turn_start_calls=0,real_credentials=False,production_mounts=False,permanent_accounts_created=False)))

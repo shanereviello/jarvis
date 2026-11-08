@@ -32,7 +32,8 @@ text with its scope/authority limits on thread start and resume; it receives no
 general archive-reading capability or snapshot token. A fixture larger than
 64 KiB verifies that the architecture is supplied without truncation.
 
-`runtime_checkpoint_mcp.py` exposes only `engineering_checkpoint`. The trusted
+`runtime_checkpoint_mcp.py` exposes `engineering_checkpoint` and, when installed,
+the narrow [handoff staging tool](native-handoff.md). The trusted
 parent supplies the actual Linear session; its broker reads the integration's
 runtime journal and accepts a stable key, observations, reasons, changes,
 validation, questions, references and next step. It injects the installed work,

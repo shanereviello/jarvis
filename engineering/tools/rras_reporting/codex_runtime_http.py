@@ -115,7 +115,7 @@ def main():
         if reporter is None:raise ValueError('checkpoint tool requires installed reporting policy')
         spec=importlib.util.spec_from_file_location('private_runtime_checkpoint',Path(__file__).with_name('runtime_checkpoint_mcp.py'))
         tool=importlib.util.module_from_spec(spec);spec.loader.exec_module(tool)
-        checkpoint=tool.BrokerLaunch(args.checkpoint_socket,os.getuid(),args.checkpoint_python)
+        checkpoint=tool.BrokerLaunch(args.checkpoint_socket,os.getuid(),args.checkpoint_python,handoff='handoff' in reporter.configuration)
     if reporter is None or checkpoint is None:raise ValueError('installed automatic reporting and scoped recorder required')
     if set(reporter.task_contexts)!=set(selected['issues']) or reporter.configuration['capture'] is None:
         raise ValueError('exact retained task contracts and selected capture installation required')

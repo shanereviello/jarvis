@@ -141,6 +141,12 @@ runtime_result:result.permitted?null:{dispatch:row.id,state:'failed',reason:'Nat
  runtime_result=CASE WHEN $4::boolean THEN runtime_result ELSE $5::jsonb END,updated_at=now()
  WHERE {select} AND id=$1::uuid AND state='dispatching' RETURNING *)
  SELECT saved.*,saved.id AS event_id,$4::boolean AS origin_permitted,$6::uuid AS active_dispatch,
+ (SELECT jsonb_build_object('id',h.id,'depth',h.depth,'source_session_id',h.source_session_id,
+ 'sender_app_user_id',h.body->>'sender_app_user_id','recipient_app_user_id',h.body->>'recipient_app_user_id',
+ 'target_session_id',saved.session_id) FROM linear_bridge.native_handoffs h
+ WHERE h.organization_id=saved.organization_id AND h.recipient='codex' AND h.issue_id=(saved.envelope->>'issue_id')::uuid
+ AND h.body->'binding'=saved.envelope->'binding' AND (h.id=$3::uuid OR h.target_session_id=saved.session_id)
+ AND $4::boolean ORDER BY h.created_at DESC LIMIT 1) AS incoming_handoff,
  CASE WHEN $3::uuid IS NOT NULL AND $4::boolean THEN
  linear_bridge.native_handoff_bind('{org}'::uuid,'codex',$3::uuid,saved.session_id) ELSE NULL END AS handoff_binding
  FROM saved"""
@@ -151,7 +157,8 @@ const stop=v.signal==='stop', target=stop?e.active_dispatch:e.id;
 return [{json:{event_id:e.id,target_dispatch:target,can_dispatch:!!target,
 url:ORIGIN+(stop?'/v1/interrupt':'/v1/dispatch'),
 request:stop?{dispatch_id:target}:{contract:'codex-dispatch.v1',dispatch_id:e.id,organization_id:v.organization_id,
-app_user_id:v.app_user_id,session_id:v.session_id,issue_id:v.issue_id,message:v.message,binding:v.binding},
+app_user_id:v.app_user_id,session_id:v.session_id,issue_id:v.issue_id,message:v.message,binding:v.binding,
+...(e.incoming_handoff?{incoming_handoff:e.incoming_handoff}:{})},
 runtime_result:{state:'uncertain',reason:'No confirmed active runtime turn; reconcile.'}}}];""".replace('ORIGIN',json.dumps(c['runtime_origin'].rstrip('/')))
     assess="""const source=$(PREPARE).first().json;
 const reply=$input.first().json, body=reply.body||{};
