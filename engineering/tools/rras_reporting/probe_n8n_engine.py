@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import time
 import uuid
 
@@ -103,6 +104,13 @@ def probe():
             postgres=c['credentials']['postgres'],codex_oauth=dict(id=c['credentials']['codex_oauth'],type='oAuth2Api'),
             jarvis_oauth=dict(id='fixture-jarvis-oauth',type='oAuth2Api'),jarvis_header='fixture-jarvis-handoff',codex_header='fixture-codex-handoff')))
         package['workflows'].update({'handoff_'+key:value for key,value in hp['workflows'].items()})
+        history=hm.local('handoff_history');pin=c['issues'][str(uuid.UUID(int=4))]
+        history_context=dict(project_id=pin['project_id'],architecture=dict(document_id='doc_'+'3'*32,
+            version=pin['architecture_version'],markdown_sha256=pin['architecture_sha256']),
+            work=dict(work_item_id=pin['work_id'],work_revision_sha256=pin['work_revision_sha256'],assignment_sha256='a'*64))
+        history_selected=dict(contract='native-handoff-history-source.v1',policy=handoff_policy,scope=dict(kind='repository',id='jarvis'),
+            contexts={str(uuid.UUID(int=4)):[dict(binding=pin,context=history_context)]})
+        package['workflows']['handoff_history']=hm.local('n8n_handoff_history').render(history_selected,c['credentials']['postgres'],'fixture-handoff-history')
         sql("INSERT INTO linear_bridge.codex_apps VALUES('"+c['organization_id']+"','"+c['app_user_id']+"');")
         creds=[dict(id=c['credentials']['postgres'],name='Fixture SQL',type='postgres',data=dict(host='127.0.0.1',port=5432,database='postgres',user='codex_transport',password='synthetic',ssl='disable')),
             dict(id=c['credentials']['edge_header'],name='Fixture edge',type='httpHeaderAuth',data=dict(name='X-RRAS-Codex-Bridge',value='synthetic-edge-bridge')),
@@ -112,6 +120,8 @@ def probe():
         jarvis_credential['data']['oauthTokenData']['access_token']='synthetic-jarvis-oauth-token';creds.append(jarvis_credential)
         for role in ('jarvis','codex'):creds.append(dict(id='fixture-'+role+'-handoff',name='Fixture '+role+' handoff',type='httpHeaderAuth',
             data=dict(name='Authorization',value='Bearer synthetic-handoff-'+role)))
+        creds.append(dict(id='fixture-handoff-history',name='Fixture selected handoff reader',type='httpHeaderAuth',data=dict(
+            name='Authorization',value='Bearer synthetic-handoff-history')))
         def write(path,value):
             node("require('node:fs').writeFileSync("+json.dumps(path)+",require('node:fs').readFileSync(0),{mode:0o600});",json.dumps(value))
         def api(path,body):
@@ -336,9 +346,37 @@ reply(404,{error:'unknown fixture route'});
         sql("UPDATE linear_bridge.hermes_runs SET status='completed',completed_at=now() WHERE hermes_run_id='fixture-run-return';")
         execute('handoff_codex_reconcile')
         assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+second_handoff['id']+"';").strip()=='completed'
+        other_pin=dict(pin,project_id='prj_'+'9'*32,work_id='wrk_'+'8'*32)
+        other_policy=dict(handoff_policy,issues={uid(99):other_pin})
+        other_intent=handoff.prepare(other_policy,'jarvis',dict(trusted,session_id=uid(76),issue_id=uid(99),binding=other_pin),
+            dict(arguments,key='foreign-project-fixture',summary='UNSELECTED-PROJECT-NARRATIVE'))
+        sql("INSERT INTO linear_bridge.native_handoff_issues VALUES('"+uid(1)+"','"+uid(99)+"',"+js(other_pin)+");"
+            "INSERT INTO linear_bridge.agent_sessions VALUES('"+uid(76)+"','"+uid(1)+"','"+uid(99)+"','fixture-foreign-session','fixture-foreign-run');"
+            "SELECT linear_bridge.native_handoff_request('"+uid(1)+"','jarvis',"+js(other_intent)+','+lit(handoff.comment_body(other_intent))+');')
+        api('/rest/workflows/'+ids['handoff_history']+'/activate',dict(versionId=workflows['handoff_history']['versionId']))
+        history_path='/webhook/rras-native-handoff-events-'+pin['project_id']
+        for _ in range(30):
+            response=request(history_path,dict(after=0),dict(Authorization='wrong'))
+            if response['status']!=404:break
+            time.sleep(.25)
+        assert response['status']==403,response
+        def query_history(after):
+            response=request(history_path,dict(after=after),dict(Authorization='Bearer synthetic-handoff-history'))
+            assert response['status']==200,response
+            assert 'UNSELECTED-PROJECT-NARRATIVE' not in response['body']
+            return json.loads(response['body'])
+        with tempfile.TemporaryDirectory(prefix='shrr-handoff-history-fixture-') as folder:
+            spool=hm.local('capture_intake').Spool(Path(folder)/'spool',create=True)
+            observed=history.poll(spool,history_selected,query_history)
+            assert observed['events_staged']==6 and observed['after']==6
+            assert history.poll(spool,history_selected,query_history)['events_staged']==0
+            with spool.connection() as db:records=[spool.c.decode(x[0]) for x in db.execute("SELECT request FROM items WHERE kind='native_handoff' ORDER BY sequence")]
+            assert [r['body']['state'] for r in records]==['requested','acknowledged','completed']*2
+            assert all(r['context']==history_context and r['source']['kind']=='imported' for r in records)
         print(json.dumps(dict(n8n_version='2.28.3',actual_import=True,actual_http_webhook=True,header_denial=True,durable_receipt=True,duplicate_receipt=True,initial_activity=True,exact_single_dispatch=True,runtime_reconcile=True,uncertain_then_final=True,follow_up_serialized=True,matching_turn_stop=True,one_cancellation_result=True,lost_publication_no_resend=True,wrong_oauth_actor_refused=True,final_activity=True,role_grants=True,jarvis_sentinel_preserved=True,
             handoff_private_intake=True,handoff_actual_engine_both_publish_directions=True,handoff_source_quiescence=True,handoff_lost_comment_and_session_response_reconciled=True,
-            handoff_separate_oauth_actors=True,handoff_correlated_codex_dispatch_once=True,handoff_ack_and_terminal=True,hermes_execution='synthetic_bridge_rows_only',
+            handoff_separate_oauth_actors=True,handoff_correlated_codex_dispatch_once=True,handoff_ack_and_terminal=True,
+            handoff_history_read_only_endpoint=True,handoff_history_scope_denial=True,handoff_history_exact_typed_projection=True,hermes_execution='synthetic_bridge_rows_only',
             network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:
         for name in reversed(created):

@@ -14,7 +14,7 @@ CREATE TABLE linear_bridge.native_handoffs (
  source_session_id uuid NOT NULL, issue_id uuid NOT NULL, body jsonb NOT NULL,
  comment_id uuid NOT NULL UNIQUE, comment_body text NOT NULL,
  parent_handoff_id uuid REFERENCES linear_bridge.native_handoffs(id), depth integer NOT NULL CHECK(depth BETWEEN 1 AND 4),
- source_quiescence jsonb, comment_state text NOT NULL DEFAULT 'pending' CHECK(comment_state IN ('pending','uncertain','confirmed')),
+ source_quiescence jsonb, recipient_observation jsonb, comment_state text NOT NULL DEFAULT 'pending' CHECK(comment_state IN ('pending','uncertain','confirmed')),
  session_state text NOT NULL DEFAULT 'blocked' CHECK(session_state IN ('blocked','pending','uncertain','bound')),
  target_session_id uuid UNIQUE,
  state text NOT NULL DEFAULT 'requested' CHECK(state IN ('requested','acknowledged','completed','declined')),
@@ -134,27 +134,30 @@ BEGIN
 END $$;
 
 CREATE FUNCTION linear_bridge.native_handoff_refresh(p_org uuid,p_id uuid) RETURNS text LANGUAGE plpgsql AS $$
-DECLARE v_row record; v_done jsonb; v_active boolean;
+DECLARE v_row record; v_done jsonb; v_active jsonb;
 BEGIN
  SELECT * INTO v_row FROM linear_bridge.native_handoffs WHERE id=p_id AND organization_id=p_org FOR UPDATE;
  IF NOT FOUND OR v_row.session_state<>'bound' OR v_row.state IN ('completed','declined') THEN RETURN NULL; END IF;
  v_done:=linear_bridge.native_handoff_quiescence(p_org,v_row.recipient,v_row.target_session_id);
  IF v_row.recipient='codex' THEN
-  SELECT EXISTS(SELECT 1 FROM linear_bridge.codex_events e WHERE e.organization_id=p_org AND e.session_id=v_row.target_session_id
-   AND e.runtime_result->>'thread' IS NOT NULL AND e.runtime_result->>'turn' IS NOT NULL) INTO v_active;
+  SELECT jsonb_build_object('source','codex_runtime','dispatch_id',e.id,'state',e.state,
+    'thread',e.runtime_result->>'thread','turn',e.runtime_result->>'turn') INTO v_active
+   FROM linear_bridge.codex_events e WHERE e.organization_id=p_org AND e.session_id=v_row.target_session_id
+   AND e.runtime_result->>'thread' IS NOT NULL AND e.runtime_result->>'turn' IS NOT NULL ORDER BY e.received_at DESC,e.id DESC LIMIT 1;
  ELSE
-  SELECT EXISTS(SELECT 1 FROM linear_bridge.agent_sessions s JOIN linear_bridge.hermes_runs r
+  SELECT jsonb_build_object('source','hermes_runtime','run_id',r.hermes_run_id,'state',r.status) INTO v_active
+   FROM linear_bridge.agent_sessions s JOIN linear_bridge.hermes_runs r
    ON r.agent_session_id=s.agent_session_id AND r.hermes_run_id=s.latest_hermes_run_id
-   WHERE s.organization_id=p_org::text AND s.agent_session_id=v_row.target_session_id::text) INTO v_active;
+   WHERE s.organization_id=p_org::text AND s.agent_session_id=v_row.target_session_id::text;
  END IF;
  IF v_done IS NOT NULL THEN
   IF v_row.state='requested' THEN
-   UPDATE linear_bridge.native_handoffs SET state='acknowledged',result='Actual recipient runtime is bound; no work outcome is inferred.',updated_at=now() WHERE id=p_id;
+   UPDATE linear_bridge.native_handoffs SET state='acknowledged',recipient_observation=coalesce(v_active,v_done),result='Actual recipient runtime is bound; no work outcome is inferred.',updated_at=now() WHERE id=p_id;
   END IF;
-  UPDATE linear_bridge.native_handoffs SET state='completed',result='Recipient runtime reached terminal state; work acceptance remains separate.',updated_at=now() WHERE id=p_id;
+  UPDATE linear_bridge.native_handoffs SET state='completed',recipient_observation=v_done,result='Recipient runtime reached terminal state; work acceptance remains separate.',updated_at=now() WHERE id=p_id;
   RETURN 'completed';
- ELSIF v_active THEN
-  UPDATE linear_bridge.native_handoffs SET state='acknowledged',result='Actual recipient runtime is bound; no work outcome is inferred.',updated_at=now() WHERE id=p_id;
+ ELSIF v_active IS NOT NULL THEN
+  UPDATE linear_bridge.native_handoffs SET state='acknowledged',recipient_observation=v_active,result='Actual recipient runtime is bound; no work outcome is inferred.',updated_at=now() WHERE id=p_id;
   RETURN 'acknowledged';
  END IF;
  RETURN 'requested';

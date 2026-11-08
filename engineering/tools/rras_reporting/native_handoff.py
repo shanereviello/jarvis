@@ -49,7 +49,7 @@ def prepare(configuration,role,trusted,arguments):
             not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',arguments.get('key','')) or
             type(arguments['references']) is not list or len(arguments['references'])>32 or
             type(arguments['limitations']) is not list or len(arguments['limitations'])>32):raise ValueError('exact bounded handoff report required')
-    for field in ('summary','requested_action'):text(arguments[field])
+    text(arguments['summary']);text(arguments['requested_action'],4096)
     for item in arguments['limitations']:text(item,4096)
     for ref in arguments['references']:
         if type(ref) is not dict or set(ref)!={'namespace','id','sha256'}:raise ValueError('exact evidence reference required')

@@ -25,7 +25,7 @@ function validateHandoff(h,policy,role) {
       h.sender_app_user_id!==policy.agents[role] || h.recipient_app_user_id!==policy.agents[recipient] ||
       ![h.id,h.comment_id,h.source_session_id,h.issue_id].every(uuid) ||
       (h.parent_handoff_id!==null&&!uuid(h.parent_handoff_id)) || !Number.isInteger(h.depth) || h.depth<1 || h.depth>4 ||
-      !bounded(h.summary,8192) || !bounded(h.requested_action,8192) || !Array.isArray(h.references) || h.references.length>32 ||
+      !bounded(h.summary,8192) || !bounded(h.requested_action,4096) || !Array.isArray(h.references) || h.references.length>32 ||
       !Array.isArray(h.limitations) || h.limitations.length>32 || !h.limitations.every(x=>bounded(x,4096)) ||
       h.execution_authority_granted!==false || h.human_approval_inferred!==false ||
       !policy.issues[h.issue_id] || JSON.stringify(sorted(h.binding))!==JSON.stringify(sorted(policy.issues[h.issue_id])) ||

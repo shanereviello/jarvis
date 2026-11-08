@@ -62,9 +62,25 @@ The fixture's Hermes execution is represented by synthetic bridge rows; it does
 not launch a real Jarvis or Codex model. The separate PostgreSQL probe covers
 immutable intent, changed replay, changed recipient and parent-reset refusal.
 
-Remaining integration includes trusted runtime tool staging/relay, projection of
-handoff state into owned reporting, the bounded existing-Jarvis admission patch,
-worker/adapter credential isolation, deployment packaging and separately authorized
+The separate read-only handoff-history endpoint filters by installed organization,
+project and issue IDs before returning an advancing, byte-bounded event page. It
+exposes no mutation or source-selection argument. `handoff_history.py` freezes each
+transition into the private intake queue and delivers ordinary `handoff.record`
+versions through the scoped owned-history API. Exact source event digests, native
+runtime references and bridge observation times remain attributed. Receipt time
+is not substituted for native occurrence time. An unavailable history service
+leaves ordered requests pending and never reruns the coding work.
+
+Explicit retained context versions resolve older work/architecture pins during
+late import; the current project version is not substituted. Changed source
+events, missing initial transitions and unknown context stop collection with a
+gap and retained bridge evidence. The actual n8n fixture additionally verifies
+the private reader, exclusion of another project's narrative and exact typed
+projection. Owned-history fixtures verify all three retained versions, dependency
+ordering, outage/replay and historical context preservation.
+
+Remaining integration includes trusted runtime tool staging/relay, the bounded
+existing-Jarvis admission patch, deployment packaging and separately authorized
 native interaction acceptance. These sources and fixture results do not activate
 any production workflow, PostgreSQL migration, collector or runtime. Earlier
 private staged transport files must be regenerated from the final source; they
