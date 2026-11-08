@@ -1,0 +1,36 @@
+[Unit]
+Description=Credential-free Codex filesystem reader for registered capture (%i)
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Service]
+User=rras-codex-native
+Group=rras-codex-native
+UMask=0077
+StandardInput=socket
+StandardOutput=socket
+StandardError=null
+StateDirectory=rras-codex-source
+StateDirectoryMode=0700
+Environment=CODEX_HOME=/var/lib/rras-codex-source/codex
+ExecStartPre=/usr/bin/install -d -m 0700 /var/lib/rras-codex-source/codex
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/runtime/bin/codex app-server
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/var/lib/rras-codex-native/codex
+TimeoutStartSec=30s
+TimeoutStopSec=10s
+MemoryMax=2G
+TasksMax=128
+KillMode=control-group

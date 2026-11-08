@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import pwd
 import threading
 
 
@@ -89,12 +90,19 @@ def main():
     parser.add_argument('--checkpoint-python',type=Path)
     parser.add_argument('--native-socket',type=Path,required=True)
     parser.add_argument('--native-peer-uid',type=int,required=True)
-    parser.add_argument('--native-uid',type=int,required=True)
+    native_identity=parser.add_mutually_exclusive_group(required=True)
+    native_identity.add_argument('--native-uid',type=int)
+    native_identity.add_argument('--native-user')
     parser.add_argument('--checkpoint-socket',type=Path,required=True)
     parser.add_argument('--initialize', action='store_true')
     parser.add_argument('--bind', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8766)
     args = parser.parse_args(); m = local()
+    if args.native_user:
+        if (not args.native_user.isascii() or not args.native_user[0].isalpha() or
+                not args.native_user.replace('_','').replace('-','').isalnum()):
+            raise ValueError('exact named native service identity required')
+        args.native_uid=pwd.getpwnam(args.native_user).pw_uid
     m.history_unix().uid(args.native_uid)
     if args.native_uid==os.getuid():raise ValueError('native coder and private adapter need distinct identities')
     spec=importlib.util.spec_from_file_location('private_runtime_protected_config',Path(__file__).with_name('protected_config.py'))

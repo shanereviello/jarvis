@@ -191,3 +191,24 @@ The operator confirmed that the existing engineering API setup should serve the
 native Codex runtime and that coding history resides on server01. This guides
 the deployment package; provider authentication and unit permissions still need
 model-free host acceptance before any separately authorized paid interaction.
+
+## Server runtime package candidate — November 8
+
+The host now has a review-only systemd candidate for the adapter, separate
+credentialed coding App Server, credential-free registered-source App Server,
+and passive Codex/Hermes capture timers. The adapter binds to the existing n8n
+Docker bridge gateway `172.19.0.1:8766` and is limited to that bridge subnet. The
+only provider secret goes through a root-only extraction helper from the
+operator-approved existing `.env` variable into systemd `LoadCredential`; the
+secret value was never read or printed. The Jarvis service identity is not
+reused. No service users, credentials, paths, sockets, ACLs, or units were
+created or changed.
+
+The 40 focused reporting/runtime/host-candidate tests pass. `systemd-analyze
+verify` on systemd 249 accepts the unit syntax and the `Accept=yes` template
+relationship; expected missing-executable errors remain because the candidate
+release is not installed. A broader run in the workspace sandbox passed 207
+tests before its first named-UID ACL case failed under the sandbox UID mapping;
+the same temporary-directory ACL test passes with the host UID mapping, and the
+two tests that needed the pinned PyYAML package pass separately (**6 passed**).
+No production host acceptance or activation has occurred.

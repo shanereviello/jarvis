@@ -19,6 +19,7 @@ is a separate historical designation, not an edit to the document.
 - [Automatic runtime reporting and selected background capture](runtime-reporting.md)
 - [Explicit native handoff transport and acceptance limits](native-handoff.md)
 - [Scoped native Jarvis reporting](hermes-runtime.md)
+- [Server runtime installation candidate](runtime-host-setup.md)
 
 ## Approved v0.4 integration direction
 
@@ -65,7 +66,7 @@ acceptance; this does not publish private production history or enable a tool.
 As of November 8, the native coder source has exact retained task contracts,
 automatic start/progress/terminal reports, numeric native usage summaries and
 scoped checkpoint/handoff tools. Actual offline native MCP callbacks pass across
-separate Unix identities. The n8n fixture imports fourteen workflows, including
+separate Unix identities. The n8n fixture imports sixteen workflows, including
 the bounded existing-Jarvis admission patch and passive handoff-history reader;
 it covers both handoff directions, source attribution, echo refusal and preserved
 unselected Jarvis behavior. No coding model is invoked. The operator selected
@@ -77,6 +78,17 @@ retrospectives. Their original agreements remain unknown and the new drafts are
 not designated governing. Existing work, membership, baselines and closeout state
 were preserved through the normal scoped history API. SHRR-07 has a recorded
 completion claim; the other work items retain their current unfinished status.
+
+The latest branch extends that work with selected native Jarvis lifecycle and
+checkpoint import, existing-Jarvis origin/context admission, and credential-free
+selected Codex source reads. Its latest isolated n8n probe imports 16 workflows;
+the Hermes native reader fixture confirms compression lineage, exact source
+selection, reasoning exclusion and unchanged source bytes. Review-only systemd
+unit candidates now target the existing `jarvis-net` bridge and the existing
+engineering API credential source, giving the native coding service only the
+OpenAI key. The server installation candidate remains inactive. Current focused
+reporting tests pass; the broad legacy test suite is limited by missing test
+dependencies and host-only ACL/service checks in this workspace environment.
 
 ## Earlier v0.3 source position (historical; see v0.4 direction above)
 

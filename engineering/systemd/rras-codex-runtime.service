@@ -1,0 +1,37 @@
+[Unit]
+Description=Private Codex runtime bridge for the selected engineering project
+After=network.target rras-engineering-history.service
+Requires=rras-codex-coding.socket rras-codex-source.socket
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Service]
+Type=simple
+User=rras-codex-adapter
+Group=rras-codex-adapter
+UMask=0077
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/codex_runtime_http.py --policy /etc/rras-engineering/codex-runtime/policy.json --state /var/lib/rras-codex-adapter/runtime --bridge-token-file /etc/rras-engineering/codex-runtime/n8n-bridge-token --reporting-policy /etc/rras-engineering/codex-runtime/reporting.json --checkpoint-python /opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python --native-socket /run/rras-codex-runtime/coding.sock --native-peer-uid 0 --native-user rras-codex-native --checkpoint-socket /run/rras-codex-runtime/checkpoint.sock --bind 172.19.0.1 --port 8766
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=10s
+StateDirectory=rras-codex-adapter
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=172.19.0.0/16
+MemoryMax=2G
+TasksMax=128
+TimeoutStartSec=45s
+StandardOutput=journal
+StandardError=journal

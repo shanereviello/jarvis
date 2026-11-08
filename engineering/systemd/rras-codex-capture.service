@@ -1,0 +1,31 @@
+[Unit]
+Description=Passive selected Codex source and history capture
+After=rras-engineering-history.service rras-codex-runtime.service
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+
+[Service]
+Type=oneshot
+User=rras-codex-adapter
+Group=rras-codex-adapter
+UMask=0077
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/runtime_capture_jobs.py --policy /etc/rras-engineering/codex-runtime/policy.json --reporting-policy /etc/rras-engineering/codex-runtime/reporting.json
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+StateDirectory=rras-codex-adapter
+StateDirectoryMode=0700
+TimeoutStartSec=60s
+MemoryMax=2G
+TasksMax=128
+StandardOutput=journal
+StandardError=journal
