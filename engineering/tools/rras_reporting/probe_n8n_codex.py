@@ -32,7 +32,7 @@ JAVASCRIPT=r"""
 const assert=require('node:assert/strict'),fs=require('node:fs');
 const input=JSON.parse(fs.readFileSync(0,'utf8')), policy=input.policy;
 const admit=new Function(input.admission+'\nreturn admit;')();
-const uid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
+const uid=n=>'00000000-0000-0000-0000-'+n.toString(16).padStart(12,'0');
 const now=Date.now(),body={type:'AgentSessionEvent',action:'created',organizationId:policy.organization_id,
  webhookTimestamp:now,oauthClientId:policy.oauth_client_id,
  agentSession:{id:uid(5),issue:{id:uid(4)},creatorId:uid(6)},promptContext:'Synthetic mention/delegation'};

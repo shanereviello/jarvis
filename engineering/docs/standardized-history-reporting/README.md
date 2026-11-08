@@ -17,6 +17,7 @@ is a separate historical designation, not an edit to the document.
 - [Passive Linear observation](linear-observation.md)
 - [Curated reporting profiles and MCP retrieval](curated-reporting.md)
 - [Automatic runtime reporting and selected background capture](runtime-reporting.md)
+- [Explicit native handoff transport and acceptance limits](native-handoff.md)
 
 ## Approved v0.4 integration direction
 

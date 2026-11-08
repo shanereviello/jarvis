@@ -112,7 +112,9 @@ def render(value):
 
     claim=f"""WITH candidate AS (
  SELECT e.id FROM linear_bridge.codex_events e WHERE {select.replace('organization_id','e.organization_id').replace('app_user_id','e.app_user_id')}
- AND e.state='pending' AND (
+ AND e.state='pending' AND (e.envelope->>'signal'='stop' OR NOT EXISTS (
+ SELECT 1 FROM linear_bridge.native_handoffs h WHERE h.organization_id=e.organization_id AND h.sender='codex'
+ AND h.source_session_id=e.session_id AND h.state IN ('requested','acknowledged'))) AND (
  e.envelope->>'signal'='stop' OR NOT EXISTS (
  SELECT 1 FROM linear_bridge.codex_events a WHERE a.organization_id=e.organization_id AND a.app_user_id=e.app_user_id
  AND a.state IN ('dispatching','running','uncertain')))
@@ -120,7 +122,28 @@ def render(value):
  UPDATE linear_bridge.codex_events e SET state='dispatching',updated_at=now()
  FROM candidate WHERE e.id=candidate.id RETURNING e.*,
  (SELECT a.id FROM linear_bridge.codex_events a WHERE a.organization_id=e.organization_id AND a.app_user_id=e.app_user_id
- AND a.session_id=e.session_id AND a.id<>e.id AND a.state='running' ORDER BY a.received_at DESC LIMIT 1) AS active_dispatch"""
+ AND a.session_id=e.session_id AND a.id<>e.id AND a.state='running' ORDER BY a.received_at DESC LIMIT 1) AS active_dispatch,
+ (SELECT to_jsonb(h) FROM linear_bridge.native_handoffs h WHERE h.organization_id=e.organization_id AND h.recipient='codex'
+ AND h.issue_id=(e.envelope->>'issue_id')::uuid AND (h.comment_id::text=e.envelope->>'origin_comment_id'
+ OR h.target_session_id=e.session_id) ORDER BY h.created_at DESC LIMIT 1) AS correlated_handoff"""
+    origin_query=('query CodexNativeOrigin($id:String!,$actor:String!){viewer{id organization{id}} '
+        'sourceActor:user(id:$actor){id app} agentSession(id:$id){id appUser{id} issue{id} creator{id app} '
+        'comment{id user{id app}} sourceComment{id user{id app}}}}')
+    origin_prepare="""const row=$input.first().json;if(!row.id)return [];
+return [{json:{...row,origin_request:{query:QUERY,variables:{id:row.session_id,
+actor:row.envelope.source_actor_id||row.envelope.responsible_human_id||APP}}}}];""".replace('QUERY',json.dumps(origin_query)).replace('APP',json.dumps(app))
+    origin_assess=(ROOT/'n8n_native_origin.js').read_text()+"\nconst policy="+json.dumps(policy)+";\n"+"""const row=$('Prepare Codex origin read').first().json;
+const result=verifyOrigin(row.envelope,$input.first().json,policy,row.correlated_handoff);
+return [{json:{...row,event_id:row.id,origin_permitted:result.permitted,origin_observation:result.observation,
+correlated_handoff_id:result.correlated_handoff_id,
+runtime_result:result.permitted?null:{dispatch:row.id,state:'failed',reason:'Native request origin unconfirmed; no coding turn was started.'}}}];"""
+    origin_record=f"""WITH saved AS (UPDATE linear_bridge.codex_events SET origin_observation=$2::jsonb,
+ runtime_result=CASE WHEN $4::boolean THEN runtime_result ELSE $5::jsonb END,updated_at=now()
+ WHERE {select} AND id=$1::uuid AND state='dispatching' RETURNING *)
+ SELECT saved.*,saved.id AS event_id,$4::boolean AS origin_permitted,$6::uuid AS active_dispatch,
+ CASE WHEN $3::uuid IS NOT NULL AND $4::boolean THEN
+ linear_bridge.native_handoff_bind('{org}'::uuid,'codex',$3::uuid,saved.session_id) ELSE NULL END AS handoff_binding
+ FROM saved"""
     prepare="""const e=$input.first().json;
 if (!e.id) return [];
 const v=e.envelope;
@@ -150,7 +173,14 @@ return [{json:{event_id:source.event_id,runtime_result:result}}];"""
  AND (coalesce(envelope->>'signal','')<>'stop' OR state='uncertain')
  ON CONFLICT(organization_id,app_user_id,source_key) DO NOTHING"""
     repl='={{ [$json.event_id,JSON.stringify($json.runtime_result)] }}'
-    dispatch_nodes=[schedule(),pg('Claim Codex dispatch',claim),code('Prepare Codex dispatch',prepare),
+    dispatch_nodes=[schedule(),pg('Claim Codex dispatch',claim),code('Prepare Codex origin read',origin_prepare),
+        http('Read native Codex origin','https://api.linear.app/graphql','={{ JSON.stringify($json.origin_request) }}',True),
+        code('Verify native Codex origin',origin_assess),pg('Retain native origin observation',origin_record,
+            '={{ [$json.event_id,JSON.stringify($json.origin_observation),$json.correlated_handoff_id,$json.origin_permitted,JSON.stringify($json.runtime_result),$json.active_dispatch] }}'),
+        node('Native origin admitted','if',dict(conditions=dict(options=dict(typeValidation='strict'),
+            conditions=[dict(id='origin',leftValue='={{ $json.origin_permitted }}',rightValue=True,
+                operator=dict(type='boolean',operation='true',singleValue=True))],combinator='and'),options={})),
+        code('Prepare Codex dispatch',prepare),
         node('Known target','if',dict(conditions=dict(options=dict(typeValidation='strict'),
             conditions=[dict(id='known',leftValue='={{ $json.can_dispatch }}',rightValue=True,
                              operator=dict(type='boolean',operation='true',singleValue=True))],combinator='and'),options={})),
@@ -160,6 +190,8 @@ return [{json:{event_id:source.event_id,runtime_result:result}}];"""
     conn={a['name']:dict(main=[[dict(node=b['name'],type='main',index=0)]]) for a,b in zip(dispatch_nodes,dispatch_nodes[1:])}
     conn['Known target']=dict(main=[[dict(node='Dispatch fixed Codex runtime',type='main',index=0)],
                                   [dict(node='Record dispatch outcome',type='main',index=0)]])
+    conn['Native origin admitted']=dict(main=[[dict(node='Prepare Codex dispatch',type='main',index=0)],
+        [dict(node='Record dispatch outcome',type='main',index=0)]])
     dispatch=workflow('Codex Runtime Dispatch v0.4 (inactive)',dispatch_nodes,conn)
     poll=f"SELECT id AS event_id,coalesce(runtime_result->>'dispatch',id::text)::uuid AS target_dispatch FROM linear_bridge.codex_events WHERE {select} AND (state IN ('running','uncertain') OR (state='dispatching' AND updated_at<now()-interval '60 seconds')) ORDER BY updated_at,received_at LIMIT 1"
     reconcile=workflow('Codex Runtime Reconcile v0.4 (inactive)',[schedule(),pg('Select Codex runtime',poll),

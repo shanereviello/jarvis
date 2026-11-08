@@ -37,10 +37,21 @@ def probe():
         def sql(query):
             return run(['docker','exec','-i',pg,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],query)
         sql('CREATE SCHEMA linear_bridge;\n'+(ROOT/'contracts/linear-codex-n8n-v1.sql').read_text())
+        sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text);'
+            'CREATE TABLE linear_bridge.hermes_runs(hermes_run_id text PRIMARY KEY,agent_session_id text,status text,completed_at timestamptz);'
+            +(ROOT/'contracts/linear-native-handoff-v1.sql').read_text())
         sql("CREATE ROLE codex_transport LOGIN; GRANT USAGE ON SCHEMA linear_bridge TO codex_transport;"
             "GRANT SELECT,UPDATE ON linear_bridge.codex_apps TO codex_transport;"
             "GRANT SELECT,INSERT,UPDATE ON linear_bridge.codex_sessions,linear_bridge.codex_events,linear_bridge.codex_deliveries,linear_bridge.codex_outbox TO codex_transport;"
             "GRANT EXECUTE ON FUNCTION linear_bridge.codex_accept(uuid,uuid,uuid,text,jsonb) TO codex_transport;"
+            "GRANT SELECT,UPDATE ON linear_bridge.native_handoffs TO codex_transport;"
+            "GRANT SELECT,INSERT ON linear_bridge.native_handoff_events TO codex_transport;"
+            "GRANT USAGE,SELECT ON SEQUENCE linear_bridge.native_handoff_events_sequence_seq TO codex_transport;"
+            "GRANT EXECUTE ON FUNCTION linear_bridge.native_handoff_bind(uuid,text,uuid,uuid) TO codex_transport;"
+            "GRANT SELECT ON linear_bridge.native_handoff_apps,linear_bridge.native_handoff_issues TO codex_transport;"
+            "GRANT INSERT ON linear_bridge.native_handoffs TO codex_transport;"
+            "GRANT SELECT ON linear_bridge.agent_sessions,linear_bridge.hermes_runs TO codex_transport;"
+            "GRANT EXECUTE ON FUNCTION linear_bridge.native_handoff_request(uuid,text,jsonb,text),linear_bridge.native_handoff_quiescence(uuid,text,uuid),linear_bridge.native_handoff_refresh(uuid,uuid) TO codex_transport;"
             "CREATE TABLE linear_bridge.jarvis_fixture(value text);INSERT INTO linear_bridge.jarvis_fixture VALUES('preserve');")
         run(['docker','run','-d','--pull=never','--name',n8n,'--network','container:'+pg,
             '--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--user','node',
@@ -84,11 +95,23 @@ def probe():
         spec=importlib.util.spec_from_file_location('engine_render',ROOT/'tools/rras_reporting/n8n_codex.py')
         m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
         c=p.fixture();c['runtime_origin']='http://127.0.0.1:8899/runtime';package=m.render(c)
+        spec=importlib.util.spec_from_file_location('engine_handoff',ROOT/'tools/rras_reporting/n8n_handoff.py')
+        hm=importlib.util.module_from_spec(spec);spec.loader.exec_module(hm)
+        handoff_policy=dict(contract='native-agent-handoff-policy.v1',organization_id=c['organization_id'],
+            agents=dict(codex=c['app_user_id'],jarvis=str(uuid.UUID(int=20))),issues=c['issues'])
+        hp=hm.render(dict(contract='native-handoff-n8n-config.v1',policy=handoff_policy,credentials=dict(
+            postgres=c['credentials']['postgres'],codex_oauth=dict(id=c['credentials']['codex_oauth'],type='oAuth2Api'),
+            jarvis_oauth=dict(id='fixture-jarvis-oauth',type='oAuth2Api'),jarvis_header='fixture-jarvis-handoff',codex_header='fixture-codex-handoff')))
+        package['workflows'].update({'handoff_'+key:value for key,value in hp['workflows'].items()})
         sql("INSERT INTO linear_bridge.codex_apps VALUES('"+c['organization_id']+"','"+c['app_user_id']+"');")
         creds=[dict(id=c['credentials']['postgres'],name='Fixture SQL',type='postgres',data=dict(host='127.0.0.1',port=5432,database='postgres',user='codex_transport',password='synthetic',ssl='disable')),
             dict(id=c['credentials']['edge_header'],name='Fixture edge',type='httpHeaderAuth',data=dict(name='X-RRAS-Codex-Bridge',value='synthetic-edge-bridge')),
             dict(id=c['credentials']['runtime_header'],name='Fixture runtime',type='httpHeaderAuth',data=dict(name='Authorization',value='Bearer synthetic-runtime-bridge')),
             dict(id=c['credentials']['codex_oauth'],name='Fixture OAuth',type='oAuth2Api',data=dict(grantType='authorizationCode',authUrl='http://127.0.0.1:8899/authorize',accessTokenUrl='http://127.0.0.1:8899/token',clientId=c['oauth_client_id'],clientSecret='synthetic',scope='read write app:mentionable app:assignable',authentication='body',oauthTokenData=dict(access_token='synthetic-oauth-token',token_type='Bearer',expires_in=86400)))]
+        jarvis_credential=json.loads(json.dumps(creds[-1]));jarvis_credential.update(id='fixture-jarvis-oauth',name='Fixture Jarvis OAuth')
+        jarvis_credential['data']['oauthTokenData']['access_token']='synthetic-jarvis-oauth-token';creds.append(jarvis_credential)
+        for role in ('jarvis','codex'):creds.append(dict(id='fixture-'+role+'-handoff',name='Fixture '+role+' handoff',type='httpHeaderAuth',
+            data=dict(name='Authorization',value='Bearer synthetic-handoff-'+role)))
         def write(path,value):
             node("require('node:fs').writeFileSync("+json.dumps(path)+",require('node:fs').readFileSync(0),{mode:0o600});",json.dumps(value))
         def api(path,body):
@@ -115,8 +138,8 @@ def probe():
                 for ref in n.get('credentials',{}).values():ref['id']=credential_refs[ref['id']]
             print('Importing fixture '+name,flush=True)
             workflows[name]=api('/rest/workflows',w)
-        remote=r"""const http=require('node:http');const state={calls:[],activities:[],requests:[],interrupts:[],active:null,complete:false,uncertain:false,losePublication:false,wrongActor:false};
-const uid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
+        remote=r"""const http=require('node:http');const state={calls:[],activities:[],requests:[],interrupts:[],comments:{},sessions:{},sessionMutations:0,commentMutations:0,active:null,complete:false,uncertain:false,losePublication:false,wrongActor:false};
+const uid=n=>'00000000-0000-0000-0000-'+n.toString(16).padStart(12,'0');
 http.createServer(async(req,res)=>{let raw='';for await(const x of req)raw+=x;let b=raw?JSON.parse(raw):{};
 state.requests.push({url:req.url,authorization:req.headers.authorization,query:b.query});
 const reply=(status,v)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(v));};
@@ -125,15 +148,32 @@ if(req.url==='/fixture/complete'){state.complete=true;return reply(200,{ok:true}
 if(req.url==='/fixture/uncertain'){state.uncertain=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/lose-publication'){state.losePublication=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/wrong-actor'){state.wrongActor=true;return reply(200,{ok:true});}
+if(req.url==='/fixture/clear-wrong-actor'){state.wrongActor=false;return reply(200,{ok:true});}
+if(req.url==='/fixture/lose-handoff-comment'){state.loseHandoffComment=true;return reply(200,{ok:true});}
+if(req.url==='/fixture/lose-handoff-session'){state.loseHandoffSession=true;return reply(200,{ok:true});}
 if(req.url==='/graphql'){
-if(req.headers.authorization!=='Bearer synthetic-oauth-token')return reply(403,{error:'fixture OAuth denied'});
-if(b.query.startsWith('query '))return reply(200,{data:{viewer:{id:uid(state.wrongActor?20:2),organization:{id:uid(1)}}}});
+const actor=req.headers.authorization==='Bearer synthetic-oauth-token'?uid(2):req.headers.authorization==='Bearer synthetic-jarvis-oauth-token'?uid(20):null;
+if(!actor)return reply(403,{error:'fixture OAuth denied'});
+const viewer={id:state.wrongActor?uid(20):actor,organization:{id:uid(1)}};
+if(b.query.startsWith('mutation NativeHandoffComment')){const input=b.variables.input;state.commentMutations++;
+ state.comments[input.id]={id:input.id,body:input.body,user:{id:actor,app:true},issue:{id:input.issueId},agentSessions:{nodes:[],pageInfo:{hasNextPage:false,endCursor:null}}};
+ if(state.loseHandoffComment){state.loseHandoffComment=false;return res.destroy();}
+ return reply(200,{data:{commentCreate:{success:true,comment:{id:input.id}}}});}
+if(b.query.startsWith('mutation NativeHandoffSession')){const comment=state.comments[b.variables.input.commentId];if(!comment)return reply(200,{errors:[{message:'Comment not found'}]});
+ state.sessionMutations++;const session={id:uid(600+state.sessionMutations),appUser:{id:actor},issue:comment.issue,creator:null,comment:{id:comment.id,user:comment.user},sourceComment:null};
+ state.sessions[session.id]=session;comment.agentSessions.nodes.push({id:session.id,appUser:session.appUser,issue:session.issue});
+ if(state.loseHandoffSession){state.loseHandoffSession=false;return res.destroy();}
+ return reply(200,{data:{agentSessionCreateOnComment:{success:true,agentSession:{id:session.id}}}});}
+if(b.query.startsWith('query NativeHandoffReadComment'))return reply(200,{data:{viewer,comment:state.comments[b.variables.id]||null}});
+if(b.query.startsWith('query CodexNativeOrigin'))return reply(200,{data:{viewer:{id:uid(state.wrongActor?20:2),organization:{id:uid(1)}},
+ sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,appUser:{id:uid(2)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:null,sourceComment:null}}});
+if(b.query.startsWith('query '))return reply(200,{data:{viewer}});
 state.activities.push(b.variables.input);if(state.losePublication){state.losePublication=false;return res.destroy();}
 return reply(200,{data:{agentActivityCreate:{success:true,agentActivity:{id:b.variables.input.id}}}});}
 if(req.headers.authorization!=='Bearer synthetic-runtime-bridge')return reply(403,{error:'fixture runtime denied'});
-if(req.url==='/runtime/v1/dispatch'){state.calls.push(b);state.active=b.dispatch_id;state.complete=false;state.uncertain=false;return reply(202,{dispatch:b.dispatch_id,state:'running'});}
+if(req.url==='/runtime/v1/dispatch'){state.calls.push(b);state.active=b.dispatch_id;state.complete=false;state.uncertain=false;return reply(202,{dispatch:b.dispatch_id,state:'running',thread:'fixture-thread',turn:'fixture-turn'});}
 if(req.url==='/runtime/v1/interrupt'){state.interrupts.push(b.dispatch_id);return reply(200,{dispatch:b.dispatch_id,state:'interrupted'});}
-if(req.url.startsWith('/runtime/v1/runs/')){const id=req.url.split('/').pop();return reply(200,{dispatch:id,state:state.interrupts.includes(id)?'interrupted':state.complete?'completed':state.uncertain?'uncertain':'running',result:'Synthetic final result'});}
+if(req.url.startsWith('/runtime/v1/runs/')){const id=req.url.split('/').pop();return reply(200,{dispatch:id,state:state.interrupts.includes(id)?'interrupted':state.complete?'completed':state.uncertain?'uncertain':'running',result:'Synthetic final result',thread:'fixture-thread',turn:'fixture-turn'});}
 reply(404,{error:'unknown fixture route'});
 }).listen(8899,'127.0.0.1');"""
         node("require('node:fs').writeFileSync('/tmp/remote.cjs',require('node:fs').readFileSync(0));",remote)
@@ -155,13 +195,13 @@ reply(404,{error:'unknown fixture route'});
         assert sql('SELECT count(*) FROM linear_bridge.codex_events;').strip()=='1'
         assert sql('SELECT count(*) FROM linear_bridge.codex_outbox;').strip()=='1'
         def execute(which):
-            result=api('/rest/workflows/'+ids[which]+'/run',dict(triggerToStartFrom=dict(name='Poll Codex transport')))
+            result=api('/rest/workflows/'+ids[which]+'/run',dict(triggerToStartFrom=dict(name='Poll explicit handoffs' if which.startswith('handoff_') else 'Poll Codex transport')))
             assert 'executionId' in result,result
             for _ in range(100):
                 status=sql("SELECT status FROM execution_entity WHERE id="+str(int(result['executionId']))+";").strip()
-                if status not in ('new','running','waiting'):break
+                if status not in ('','new','running','waiting'):break
                 time.sleep(.25)
-            assert status in ('success',''), 'Engine execution failed: '+which+' '+status+' '+sql('SELECT left(data,14000) FROM execution_data ORDER BY \"executionId\" DESC LIMIT 1;')+' '+repr(request('/fixture/status',port=8899))
+            assert status=='success', 'Engine execution failed: '+which+' '+status+' '+sql('SELECT left(data,14000) FROM execution_data ORDER BY \"executionId\" DESC LIMIT 1;')+' '+repr(request('/fixture/status',port=8899))
         execute('outbound')
         assert sql("SELECT count(*) FROM linear_bridge.codex_outbox WHERE state='sent';").strip()=='1', sql('SELECT data FROM execution_data ORDER BY \"executionId\" DESC LIMIT 1;')+' '+repr(request('/fixture/status',port=8899))
         execute('dispatch')
@@ -224,7 +264,82 @@ reply(404,{error:'unknown fixture route'});
         try:sql('SET ROLE codex_transport; SELECT * FROM linear_bridge.jarvis_fixture;')
         except ValueError:pass
         else:raise ValueError('Transport could read the Jarvis sentinel')
-        print(json.dumps(dict(n8n_version='2.28.3',actual_import=True,actual_http_webhook=True,header_denial=True,durable_receipt=True,duplicate_receipt=True,initial_activity=True,exact_single_dispatch=True,runtime_reconcile=True,uncertain_then_final=True,follow_up_serialized=True,matching_turn_stop=True,one_cancellation_result=True,lost_publication_no_resend=True,wrong_oauth_actor_refused=True,final_activity=True,role_grants=True,jarvis_sentinel_preserved=True,network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
+        request('/fixture/clear-wrong-actor',{},port=8899)
+        uid=lambda number:str(uuid.UUID(int=number));handoff=hm.local('native_handoff')
+        def lit(value):return "'"+value.replace("'","''")+"'"
+        def js(value):return lit(json.dumps(value))+'::jsonb'
+        sql("INSERT INTO linear_bridge.native_handoff_apps VALUES('"+uid(1)+"','codex','"+uid(2)+"'),('"+uid(1)+"','jarvis','"+uid(20)+"');"
+            "INSERT INTO linear_bridge.native_handoff_issues VALUES('"+uid(1)+"','"+uid(4)+"',"+js(c['issues'][uid(4)])+");"
+            "INSERT INTO linear_bridge.agent_sessions VALUES('"+uid(75)+"','"+uid(1)+"','"+uid(4)+"','fixture-hermes-75','fixture-run-75');"
+            "INSERT INTO linear_bridge.hermes_runs VALUES('fixture-run-75','"+uid(75)+"','running',NULL);")
+        for role in ('jarvis','codex'):
+            w=workflows['handoff_'+role+'_request'];api('/rest/workflows/'+ids['handoff_'+role+'_request']+'/activate',dict(versionId=w['versionId']))
+        for _ in range(30):
+            response=request('/webhook/rras-native-handoff-jarvis',{},dict(Authorization='wrong'))
+            if response['status']!=404:break
+            time.sleep(.25)
+        assert response['status']==403,response
+        trusted=dict(session_id=uid(75),issue_id=uid(4),binding=c['issues'][uid(4)],parent_handoff_id=None,depth=0)
+        arguments=dict(key='fixture-jarvis-to-codex',summary='A selected failure needs engineering investigation.',
+            requested_action='Investigate, validate and report through the same work item.',references=[],limitations=['Synthetic fixture, no model.'])
+        first_handoff=handoff.prepare(handoff_policy,'jarvis',trusted,arguments)
+        def submit_handoff(intent):
+            response=request('/webhook/rras-native-handoff-'+intent['sender'],intent,
+                dict(Authorization='Bearer synthetic-handoff-'+intent['sender']))
+            assert response['status']==200,response
+            assert json.loads(response['body'])['request_id']==intent['id'],response
+        submit_handoff(first_handoff);submit_handoff(first_handoff)
+        execute('handoff_jarvis_comment')
+        assert json.loads(request('/fixture/status',port=8899)['body'])['commentMutations']==0
+        sql("UPDATE linear_bridge.hermes_runs SET status='completed',completed_at=now() WHERE hermes_run_id='fixture-run-75';")
+        request('/fixture/lose-handoff-comment',{},port=8899);execute('handoff_jarvis_comment');execute('handoff_jarvis_comment')
+        native_status=json.loads(request('/fixture/status',port=8899)['body'])
+        assert native_status['commentMutations']==1,dict(mutations=native_status['commentMutations'],requests=native_status['requests'][-8:],
+            database=sql('SELECT id,comment_state,session_state,source_quiescence FROM linear_bridge.native_handoffs;'),
+            engine=sql('SELECT left(data,12000) FROM execution_data ORDER BY \"executionId\" DESC LIMIT 1;'))
+        execute('handoff_jarvis_reconcile')
+        assert sql("SELECT comment_state||':'||session_state FROM linear_bridge.native_handoffs WHERE id='"+first_handoff['id']+"';").strip()=='confirmed:pending'
+        request('/fixture/lose-handoff-session',{},port=8899);execute('handoff_jarvis_session');execute('handoff_jarvis_session')
+        execute('handoff_jarvis_reconcile')
+        target=sql("SELECT target_session_id FROM linear_bridge.native_handoffs WHERE id='"+first_handoff['id']+"';").strip()
+        assert target==uid(601)
+        status=json.loads(request('/fixture/status',port=8899)['body']);assert status['sessionMutations']==1
+        native=dict(body,appUserId=uid(2),webhookTimestamp=int(time.time()*1000),agentSession=dict(id=target,issueId=uid(4),
+            appUserId=uid(2),commentId=first_handoff['comment_id'],creatorId=None),promptContext=handoff.comment_body(first_handoff))
+        hs=dict(headers);hs['Linear-Delivery']=uid(650);hs['X-RRAS-Codex-Body-Sha256']=hashlib.sha256(json.dumps(native).encode()).hexdigest()
+        response=request(path,native,hs);assert response['status']==200,response
+        assert request(path,native,hs)['status']==200
+        execute('dispatch');execute('handoff_jarvis_reconcile')
+        assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+first_handoff['id']+"';").strip()=='acknowledged'
+        status=json.loads(request('/fixture/status',port=8899)['body']);assert len(status['calls'])==4
+        assert status['calls'][-1]['session_id']==target and status['calls'][-1]['binding']==trusted['binding']
+        request('/fixture/complete',{},port=8899);execute('reconcile');execute('handoff_jarvis_reconcile')
+        assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+first_handoff['id']+"';").strip()=='completed'
+        second_handoff=handoff.prepare(handoff_policy,'codex',dict(trusted,session_id=target,parent_handoff_id=first_handoff['id'],depth=1),
+            dict(arguments,key='fixture-codex-to-jarvis',requested_action='Review the engineering result and report remaining questions.'))
+        submit_handoff(second_handoff);execute('handoff_codex_comment');execute('handoff_codex_reconcile')
+        execute('handoff_codex_session');execute('handoff_codex_reconcile')
+        jarvis_target=sql("SELECT target_session_id FROM linear_bridge.native_handoffs WHERE id='"+second_handoff['id']+"';").strip()
+        assert jarvis_target==uid(602)
+        status=json.loads(request('/fixture/status',port=8899)['body'])
+        assert status['comments'][first_handoff['comment_id']]['user']['id']==uid(20)
+        assert status['sessions'][target]['appUser']['id']==uid(2)
+        assert status['comments'][second_handoff['comment_id']]['user']['id']==uid(2)
+        assert status['sessions'][jarvis_target]['appUser']['id']==uid(20)
+        assert status['commentMutations']==2 and status['sessionMutations']==2
+        # Existing Hermes execution is represented only by synthetic retained
+        # bridge rows here; this fixture does not invoke a real Jarvis runtime.
+        sql("INSERT INTO linear_bridge.agent_sessions VALUES('"+jarvis_target+"','"+uid(1)+"','"+uid(4)+"','fixture-hermes-return','fixture-run-return');"
+            "INSERT INTO linear_bridge.hermes_runs VALUES('fixture-run-return','"+jarvis_target+"','running',NULL);")
+        execute('handoff_codex_reconcile')
+        assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+second_handoff['id']+"';").strip()=='acknowledged'
+        sql("UPDATE linear_bridge.hermes_runs SET status='completed',completed_at=now() WHERE hermes_run_id='fixture-run-return';")
+        execute('handoff_codex_reconcile')
+        assert sql("SELECT state FROM linear_bridge.native_handoffs WHERE id='"+second_handoff['id']+"';").strip()=='completed'
+        print(json.dumps(dict(n8n_version='2.28.3',actual_import=True,actual_http_webhook=True,header_denial=True,durable_receipt=True,duplicate_receipt=True,initial_activity=True,exact_single_dispatch=True,runtime_reconcile=True,uncertain_then_final=True,follow_up_serialized=True,matching_turn_stop=True,one_cancellation_result=True,lost_publication_no_resend=True,wrong_oauth_actor_refused=True,final_activity=True,role_grants=True,jarvis_sentinel_preserved=True,
+            handoff_private_intake=True,handoff_actual_engine_both_publish_directions=True,handoff_source_quiescence=True,handoff_lost_comment_and_session_response_reconciled=True,
+            handoff_separate_oauth_actors=True,handoff_correlated_codex_dispatch_once=True,handoff_ack_and_terminal=True,hermes_execution='synthetic_bridge_rows_only',
+            network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:
         for name in reversed(created):
             subprocess.run(['docker','rm','-f',name],capture_output=True,timeout=30)

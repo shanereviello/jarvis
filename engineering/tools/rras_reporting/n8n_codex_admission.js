@@ -40,15 +40,20 @@ function admit(input, policy, now = Date.now()) {
   const activity = body.agentActivity || {};
   const signal = activity.signal == null ? null : activity.signal;
   if (signal != null && !['stop','continue'].includes(signal)) throw new Error('unsupported signal');
-  let source, message, actor = null;
+  let source, message, actor = null, responsibleHuman = null, originComment = null;
   if (body.action === 'created') {
     source = 'created:'+sessionId;
     message = text(body.promptContext);
-    actor = session.creatorId || session.creator?.id || null;
+    responsibleHuman = session.creatorId || session.creator?.id || null;
+    if (responsibleHuman != null) uuid(responsibleHuman);
+    if (policy.agent_actor_ids.includes(responsibleHuman)) throw new Error('invalid responsible human');
+    originComment = session.sourceCommentId || session.commentId || session.sourceComment?.id || session.comment?.id || null;
+    if (originComment != null) uuid(originComment);
   } else {
     if (activity.agentSessionId != null && activity.agentSessionId !== sessionId) throw new Error('wrong activity session');
     if (activity.content?.type != null && activity.content.type !== 'prompt') throw new Error('only user prompts admitted');
     actor = activity.userId || activity.user?.id || null;
+    if (actor == null) throw new Error('actual directed prompt actor required');
     source = 'prompt:'+uuid(activity.id);
     message = signal === 'stop' ? 'Stop requested for this agent session.' :
       text(activity.content?.body || activity.body);
@@ -58,7 +63,7 @@ function admit(input, policy, now = Date.now()) {
   const envelope = {
     contract:'codex-admitted-event.v1', organization_id:policy.organization_id,
     app_user_id:policy.app_user_id, session_id:sessionId, issue_id:issue,
-    source_key:source, source_actor_id:actor, message, signal,
+    source_key:source, source_actor_id:actor, responsible_human_id:responsibleHuman, origin_comment_id:originComment, message, signal,
     binding:policy.issues[issue], action:body.action
   };
   // Canonical content is used for SQL semantic replay checking, independent of

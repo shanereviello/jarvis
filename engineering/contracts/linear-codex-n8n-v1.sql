@@ -26,6 +26,7 @@ CREATE TABLE linear_bridge.codex_events (
     state text NOT NULL DEFAULT 'pending'
         CHECK (state IN ('pending','dispatching','running','completed','interrupted','failed','uncertain')),
     runtime_result jsonb,
+    origin_observation jsonb,
     received_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (organization_id,app_user_id,source_key),
