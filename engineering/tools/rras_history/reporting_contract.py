@@ -93,6 +93,11 @@ OPERATIONS = {'mapping.record': 'mapping', 'attempt.record': 'attempt', 'session
     'decision.observe': 'decision', 'artifact.record': 'artifact', 'artifact.associate': 'association',
     'source.observe': 'freshness'}
 
+# Optional additive capture-time fact. Earlier retained manifests stay valid;
+# receipt/import time and native source occurrence time remain separate.
+DEFS['artifact']['properties']['captured_at']=UTC
+DEFS['artifact']['properties']['authorization_reference']=text(2048)
+
 SCHEMA = dict(obj(contract=dict(const='engineering-reporting.v1'), operation=choices(*OPERATIONS),
     client_event_key=text(128), expected_head=nullable(SHA), scope=ref('scope'), context=nullable(ref('context')),
     source=ref('source'), occurred_at=nullable(UTC), body=dict(type='object')),
@@ -151,7 +156,7 @@ def validate(value):
     if op == 'linear.observe' and c.digest(body['snapshot_text'].encode()) != body['snapshot_sha256']:
         raise ValueError('exact observed snapshot digest required')
     # Source times are observations, never receipt times or independent approval.
-    for stamp in [value['occurred_at']] + ([body.get(k) for k in ('source_updated_at', 'source_created_at', 'source_observed_at')]):
+    for stamp in [value['occurred_at']] + ([body.get(k) for k in ('source_updated_at', 'source_created_at', 'source_observed_at','captured_at')]):
         if stamp is not None and not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z', stamp):
             raise ValueError('exact UTC source time required')
     return value

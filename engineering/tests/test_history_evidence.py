@@ -80,6 +80,14 @@ def test_upload_exact_replay_and_changed_key_conflict(evidence):
     assert first['receipt']['visibility']=='operator_private' and first['receipt']['authority_granted'] is False
 
 
+def test_upload_receipt_counter_does_not_expose_other_scope_uploads(evidence):
+    first=evidence.upload(upload(b'jarvis-one'))
+    other=evidence.upload(upload(b'other-one',scope=dict(kind='repository',id='other')))
+    next_one=evidence.upload(upload(b'jarvis-two'))
+    assert first['receipt']['sequence']==other['receipt']['sequence']==1
+    assert next_one['receipt']['sequence']==2
+
+
 @pytest.mark.parametrize('change',['digest','size','boolean','base64','path','extra','too_large'])
 def test_malformed_chunks_never_enter_custody(evidence,change):
     value=upload()

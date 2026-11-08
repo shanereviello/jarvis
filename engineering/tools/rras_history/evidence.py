@@ -183,8 +183,9 @@ class Evidence:
                     if fd is not None:os.close(fd)
                     path.unlink();self.sync(self.chunks);raise
             stamp=datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
+            scoped_sequence=db.execute('SELECT count(*) FROM evidence_uploads WHERE scope_kind=? AND scope_id=?',args).fetchone()[0]+1
             receipt=dict(contract='engineering-evidence-receipt.v1',receipt_id='rcp_'+uuid.uuid4().hex,
-                sequence=count+1,request_sha256=request_sha,scope=selected,sha256=value['sha256'],byte_length=len(raw),
+                sequence=scoped_sequence,request_sha256=request_sha,scope=selected,sha256=value['sha256'],byte_length=len(raw),
                 writer_uid=os.getuid(),peer_uid=peer_uid,recorded_at=stamp,visibility='operator_private',authority_granted=False)
             db.execute('INSERT INTO evidence_uploads VALUES(?,?,?,?,?,?,?,?,?)',
                 (count+1,principal,value['client_event_key'],*args,value['sha256'],len(raw),request_sha,self.c.encoded(receipt)))
