@@ -83,8 +83,10 @@ def probe():
             "GRANT SELECT ON linear_bridge.agent_sessions,linear_bridge.hermes_runs TO codex_transport;"
             "GRANT EXECUTE ON FUNCTION linear_bridge.native_handoff_request(uuid,text,jsonb,text),linear_bridge.native_handoff_quiescence(uuid,text,uuid),linear_bridge.native_handoff_refresh(uuid,uuid) TO codex_transport;"
             "GRANT SELECT,INSERT ON linear_bridge.jarvis_engineering_admissions TO codex_transport;"
+            "GRANT USAGE,SELECT ON SEQUENCE linear_bridge.jarvis_engineering_admissions_sequence_seq TO codex_transport;"
             "GRANT EXECUTE ON FUNCTION linear_bridge.jarvis_engineering_admit(uuid,uuid,uuid,uuid,boolean,jsonb,jsonb,uuid) TO codex_transport;"
             "GRANT SELECT,INSERT ON linear_bridge.jarvis_engineering_runs TO codex_transport;"
+            "GRANT USAGE,SELECT ON SEQUENCE linear_bridge.jarvis_engineering_runs_sequence_seq TO codex_transport;"
             "GRANT EXECUTE ON FUNCTION linear_bridge.jarvis_engineering_run_bind(text,uuid) TO codex_transport;"
             "GRANT SELECT,INSERT ON linear_bridge.jarvis_engineering_checkpoints TO codex_transport;"
             "GRANT USAGE,SELECT ON SEQUENCE linear_bridge.jarvis_engineering_checkpoints_sequence_seq TO codex_transport;"
@@ -155,6 +157,8 @@ def probe():
         history_selected=dict(contract='native-handoff-history-source.v1',policy=handoff_policy,scope=dict(kind='repository',id='jarvis'),
             contexts={str(uuid.UUID(int=4)):[dict(binding=pin,context=history_context)]})
         package['workflows']['handoff_history']=hm.local('n8n_handoff_history').render(history_selected,c['credentials']['postgres'],'fixture-handoff-history')
+        native_history_selected=dict(history_selected,contract='hermes-runtime-history-source.v1')
+        package['workflows']['hermes_history']=hm.local('n8n_hermes_history').render(native_history_selected,c['credentials']['postgres'],'fixture-handoff-history')
         sql("INSERT INTO linear_bridge.codex_apps VALUES('"+c['organization_id']+"','"+c['app_user_id']+"');")
         creds=[dict(id=c['credentials']['postgres'],name='Fixture SQL',type='postgres',data=dict(host='127.0.0.1',port=5432,database='postgres',user='codex_transport',password='synthetic',ssl='disable')),
             dict(id=c['credentials']['edge_header'],name='Fixture edge',type='httpHeaderAuth',data=dict(name='X-RRAS-Codex-Bridge',value='synthetic-edge-bridge')),
@@ -489,6 +493,29 @@ reply(404,{error:'unknown fixture route'});
             with spool.connection() as db:records=[spool.c.decode(x[0]) for x in db.execute("SELECT request FROM items WHERE kind='native_handoff' ORDER BY sequence")]
             assert [r['body']['state'] for r in records]==['requested','acknowledged','completed']*2
             assert all(r['context']==history_context and r['source']['kind']=='imported' for r in records)
+        api('/rest/workflows/'+ids['hermes_history']+'/activate',dict(versionId=workflows['hermes_history']['versionId']))
+        native_history_path='/webhook/rras-hermes-engineering-history-'+pin['project_id']
+        for _ in range(30):
+            response=request(native_history_path,dict(after_admission=0,after_run=0,after_checkpoint=0),native_headers)
+            if response['status']!=404:break
+            time.sleep(.25)
+        assert response['status']==403,response
+        def native_history_query(cursor):
+            response=request(native_history_path,cursor,dict(Authorization='Bearer synthetic-handoff-history'))
+            assert response['status']==200,response
+            return json.loads(response['body'])
+        with tempfile.TemporaryDirectory(prefix='shrr-native-history-fixture-') as folder:
+            native_spool=hm.local('capture_intake').Spool(Path(folder)/'spool',create=True)
+            native_source=hm.local('hermes_history');result=native_source.poll(native_spool,native_history_selected,native_history_query)
+            assert result==dict(admissions=1,runs=1,checkpoints=1,models_started=0),result
+            with native_spool.connection() as db:
+                native_records=[native_spool.c.decode(row[0]) for row in db.execute('SELECT request FROM items')]
+                count=db.execute('SELECT count(*) FROM items').fetchone()[0]
+            assert [row['body']['phase'] for row in native_records if row['operation']=='attempt.record']==['started','completed']
+            assert sum(row['operation']=='checkpoint.report' for row in native_records)==1
+            assert all(row['context']==history_context for row in native_records)
+            native_source.poll(native_spool,native_history_selected,native_history_query)
+            with native_spool.connection() as db:assert db.execute('SELECT count(*) FROM items').fetchone()[0]==count
         request('/fixture/deny-execution',{},port=8899)
         before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
         denied=deliver(800,801);execute('dispatch')
@@ -501,6 +528,7 @@ reply(404,{error:'unknown fixture route'});
             handoff_history_read_only_endpoint=True,handoff_history_scope_denial=True,handoff_history_exact_typed_projection=True,pre_dispatch_execution_refusal=True,
             jarvis_admission_actual_engine=True,jarvis_correlated_handoff_admitted=True,jarvis_agent_echo_denied=True,jarvis_unselected_run_preserved=True,
             jarvis_exact_native_run_context=True,jarvis_wrong_native_run_context_denied=True,jarvis_scoped_checkpoint_intake=True,
+            jarvis_private_history_reader=True,jarvis_producer_private_history_denied=True,jarvis_typed_history_projection=True,
             hermes_execution='synthetic_http_endpoint_only',
             network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:

@@ -132,6 +132,7 @@ def policy(value):
 
 class AppServer:
     """Bounded stdio RPC. Never auto-accept server tool/permission requests."""
+    READ_FRAME_LIMIT=MAX_FRAME
     def __init__(self, executable, cwd, *, timeout=15,codex_home=None):
         self._setup(timeout)
         # This stdio launcher is for isolated fixtures. Production uses the
@@ -169,8 +170,8 @@ class AppServer:
     def _read(self):
         try:
             while True:
-                raw = self.reader_stream.readline(MAX_FRAME + 1)
-                if not raw or len(raw) > MAX_FRAME or not raw.endswith(b'\n'):
+                raw = self.reader_stream.readline(self.READ_FRAME_LIMIT + 1)
+                if not raw or len(raw) > self.READ_FRAME_LIMIT or not raw.endswith(b'\n'):
                     raise ValueError('runtime stream ended or exceeded its bound')
                 message = json.loads(raw)
                 if type(message) is not dict: raise ValueError('invalid runtime frame')

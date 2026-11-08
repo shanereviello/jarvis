@@ -71,6 +71,29 @@ def native_exporter(path):
     native=importlib.util.module_from_spec(spec);spec.loader.exec_module(native);return native
 
 
+def codex_export_record(value):
+    """Exclude identified private channels before any third-party rendering."""
+    payload=value.get('payload',{});payload=payload if type(payload) is dict else {}
+    kind=payload.get('type','')
+    if value.get('type')=='turn_context':return None
+    if (payload.get('channel',payload.get('phase')) in ('analysis','reasoning') or
+            kind in ('reasoning','agent_reasoning','agent_reasoning_raw_content') or
+            (type(kind) is str and kind.startswith('agent_reasoning'))):return None
+    if value.get('type')=='response_item' and kind=='message' and payload.get('role') in ('system','developer'):return None
+    item=payload.get('item',{})
+    if type(item) is dict and (item.get('channel',item.get('phase')) in ('analysis','reasoning') or item.get('type') in ('Reasoning','AgentReasoning','reasoning')):
+        return None
+    private={'reasoning','reasoning_content','reasoning_details','codex_reasoning_items','encrypted_content',
+        'base_instructions','developer_instructions','system_prompt','replacement_history'}
+    def clean(item):
+        if type(item) is dict:return {key:clean(child) for key,child in item.items() if key not in private}
+        if type(item) is list:return [clean(child) for child in item]
+        return item
+    result=clean(value)
+    if result.get('type')=='session_meta':result['payload'].pop('instructions',None)
+    return result
+
+
 def collect_hermes(spool,*,snapshot,exporter,scope,context,authorization_reference):
     """Render one explicitly selected native DTO; no native DB/config discovery."""
     authorization(authorization_reference)
@@ -131,7 +154,7 @@ def collect_hermes(spool,*,snapshot,exporter,scope,context,authorization_referen
         staged=staged,excluded_messages=excluded,visible_messages=clean['message_count'],models_started=0)
 
 
-def collect_codex(spool,*,source,session,binary,scope,context,authorization_reference):
+def collect_codex(spool,*,source,session,binary,scope,context,authorization_reference,source_gaps=()):
     authorization(authorization_reference)
     binary=Path(binary);info=binary.lstat()
     if (not binary.is_absolute() or binary.resolve()!=binary or not stat.S_ISREG(info.st_mode) or
@@ -144,6 +167,10 @@ def collect_codex(spool,*,source,session,binary,scope,context,authorization_refe
     gaps=['Collector input relocates only session_meta.cwd into a private temporary Git repository.',
         'Original native source remains under its original owner; only the normalized export is ingested.',
         'Full tool, attachment and media coverage is not independently established.']
+    gaps.append('Explicit system/developer/analysis/reasoning records and known private reasoning/instruction fields are excluded before collector input.')
+    if type(source_gaps) not in (list,tuple) or len(source_gaps)>8 or any(type(value) is not str or not 1<=len(value.encode())<=4096 for value in source_gaps):
+        raise ValueError('bounded source transport limitations required')
+    gaps.extend(source_gaps)
     with spool.connection() as db:
         latest=db.execute("SELECT request FROM items WHERE kind='artifact' AND artifact=? ORDER BY sequence DESC LIMIT 1",(artifact,)).fetchone()
     if latest:
@@ -160,10 +187,11 @@ def collect_codex(spool,*,source,session,binary,scope,context,authorization_refe
         sessions=home/'.codex/sessions/2026/11/07';sessions.mkdir(parents=True,mode=0o700)
         moved=[]
         for line in raw.splitlines(keepends=True):
-            value=json.loads(line)
+            value=codex_export_record(json.loads(line))
+            if value is None:continue
             if value.get('type')=='session_meta':
-                value['payload']['cwd']=str(repo);line=(json.dumps(value,ensure_ascii=False)+'\n').encode()
-            moved.append(line)
+                value['payload']['cwd']=str(repo)
+            moved.append((json.dumps(value,ensure_ascii=False)+'\n').encode())
         path=sessions/('rollout-2026-11-07T00-00-00-'+session+'.jsonl')
         with path.open('xb') as f:os.fchmod(f.fileno(),0o600);f.write(b''.join(moved))
         env=dict(HOME=str(home),PATH='/usr/bin:/bin',LANG='C.UTF-8',CI='1',DO_NOT_TRACK='1',

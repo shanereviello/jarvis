@@ -2,7 +2,7 @@
 -- No existing workflow, credential, session, run, role or grant is changed.
 BEGIN;
 CREATE TABLE linear_bridge.jarvis_engineering_admissions (
- delivery_id uuid PRIMARY KEY, organization_id uuid NOT NULL, session_id uuid NOT NULL,
+ sequence bigserial UNIQUE NOT NULL,delivery_id uuid PRIMARY KEY, organization_id uuid NOT NULL, session_id uuid NOT NULL,
  issue_id uuid NOT NULL, permitted boolean NOT NULL, observation jsonb NOT NULL,
  binding jsonb NOT NULL, handoff_id uuid REFERENCES linear_bridge.native_handoffs(id),
  observed_at timestamptz NOT NULL DEFAULT now()
@@ -37,9 +37,10 @@ BEGIN
  RETURN p_permitted;
 END $$;
 REVOKE ALL ON TABLE linear_bridge.jarvis_engineering_admissions FROM PUBLIC;
+REVOKE ALL ON SEQUENCE linear_bridge.jarvis_engineering_admissions_sequence_seq FROM PUBLIC;
 REVOKE ALL ON FUNCTION linear_bridge.jarvis_engineering_admit(uuid,uuid,uuid,uuid,boolean,jsonb,jsonb,uuid) FROM PUBLIC;
 CREATE TABLE linear_bridge.jarvis_engineering_runs (
- run_id text PRIMARY KEY,delivery_id uuid UNIQUE NOT NULL REFERENCES linear_bridge.jarvis_engineering_admissions(delivery_id),
+ sequence bigserial UNIQUE NOT NULL,run_id text PRIMARY KEY,delivery_id uuid UNIQUE NOT NULL REFERENCES linear_bridge.jarvis_engineering_admissions(delivery_id),
  organization_id uuid NOT NULL,session_id uuid NOT NULL,issue_id uuid NOT NULL,
  hermes_session_id text NOT NULL,binding jsonb NOT NULL,recorded_at timestamptz NOT NULL DEFAULT now()
 );
@@ -64,6 +65,7 @@ BEGIN
  RETURN p_run;
 END $$;
 REVOKE ALL ON TABLE linear_bridge.jarvis_engineering_runs FROM PUBLIC;
+REVOKE ALL ON SEQUENCE linear_bridge.jarvis_engineering_runs_sequence_seq FROM PUBLIC;
 REVOKE ALL ON FUNCTION linear_bridge.jarvis_engineering_run_bind(text,uuid) FROM PUBLIC;
 CREATE TABLE linear_bridge.jarvis_engineering_checkpoints (
  sequence bigserial PRIMARY KEY,id uuid UNIQUE NOT NULL,run_id text NOT NULL REFERENCES linear_bridge.jarvis_engineering_runs(run_id),

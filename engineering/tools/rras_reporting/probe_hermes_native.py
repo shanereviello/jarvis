@@ -29,8 +29,10 @@ def inside():
     try:local('hermes_native_context').actual()
     except ValueError:pass
     else:raise ValueError('unbound environment fallback was accepted')
-    tokens=session_context.set_session_vars(platform='api_server',session_id=alias,session_key=run)
-    try:assert local('hermes_native_context').actual()==dict(organization_id=org,session_id=session,hermes_session_id=alias,run_id=run)
+    tokens=session_context.set_session_vars(platform='api_server',chat_id=alias,session_id='selected-compression-tip',session_key=run)
+    try:
+        assert local('hermes_native_context').actual()==dict(organization_id=org,session_id=session,hermes_session_id=alias,run_id=run)
+        assert local('hermes_native_context').capture_identity()['native_session_id']=='selected-compression-tip'
     finally:session_context.clear_session_vars(tokens)
     path=root/'state.db';db=SessionDB(db_path=path)
     try:
@@ -57,7 +59,7 @@ def inside():
     except ValueError:pass
     else:raise ValueError('prefix selection was accepted')
     print(json.dumps(dict(installed_native_reader=True,read_only_source_bytes_preserved=True,
-        native_context_bound=True,environment_fallback_denied=True,exact_linear_alias=True,compression_lineage=True,
+        native_context_bound=True,environment_fallback_denied=True,exact_linear_alias=True,compression_lineage=True,rotated_native_id_distinguished=True,
         unrelated_session_excluded=True,reasoning_excluded=True,native_renderer=True,
         real_sessions_exported=0,models_started=0,production_mounts=False)))
 

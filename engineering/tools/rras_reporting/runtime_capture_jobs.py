@@ -68,7 +68,10 @@ def selected(reporter,limit=32):
 
 def run_once(reporter,*,limit=32,send=None):
     jobs=selected(reporter,limit);results=[]
-    for job in jobs:results.append(capture_jobs.run_once(job,send=send))
+    config=reporter.configuration['capture'];collect=None
+    if 'source_socket' in config:
+        def collect(spool,**job):return reporting.local('native_source').collect(spool,job,config)
+    for job in jobs:results.append(capture_jobs.run_once(job,send=send,collect=collect))
     # Lifecycle and agent checkpoints still flush when no native file exists yet.
     if send is None:
         selected_config=reporter.configuration['capture'];unix=reporter.intake.local('unix')
@@ -81,8 +84,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--policy',required=True)
     parser.add_argument('--reporting-policy',required=True);args=parser.parse_args();runtime=reporting.local('codex_runtime')
     try:
-        policy=runtime.policy(json.loads(runtime.private(args.policy).read_bytes()))
-        reporter=reporting.Reporter(json.loads(runtime.private(args.reporting_policy).read_bytes()),policy)
+        protected=reporting.local('protected_config')
+        policy=runtime.policy(protected.decode(args.policy))
+        reporter=reporting.Reporter(protected.decode(args.reporting_policy),policy)
         print(json.dumps(run_once(reporter),allow_nan=False))
     except (ValueError,OSError,TypeError,KeyError):parser.exit(1,'Registered capture pass refused; retain native sources, registry and pending spool.\n')
 

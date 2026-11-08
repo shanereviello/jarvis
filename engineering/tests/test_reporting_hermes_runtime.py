@@ -70,3 +70,13 @@ def test_wrong_retained_binding_and_caller_identity_fields_are_refused(tmp_path,
     for field in ('work_item_id','session_id','approved','app_user_id'):
         with pytest.raises(ValidationError):adapter.record('checkpoint',dict(args('checkpoint'),**{field:'spoof'}))
     adapter.record('checkpoint',args('checkpoint'));assert adapter.flush()['pending']==1 and seen==['context']
+
+
+def test_exhausted_handoff_does_not_block_independent_checkpoint_delivery(tmp_path,projects,reporting):
+    config,native,context,queue=installed(tmp_path,projects);context.update(parent_handoff_id=uid(80),depth=4);posted=[]
+    def call(kind,value):
+        if kind=='context':return dict(context=context,execution_started=False)
+        posted.append(kind);return dict(staged=True,request_id=value['id'],execution_started=False)
+    adapter=hermes.Adapter(config,actual=lambda:native,call=call)
+    adapter.record('handoff',args('handoff'));adapter.record('checkpoint',args('checkpoint'))
+    assert adapter.flush()==dict(delivered=1,pending=1,models_started=0) and posted==['checkpoint']

@@ -3,6 +3,7 @@ import copy
 import os
 import sqlite3
 import sys
+from pathlib import Path
 import pytest
 from test_reporting_runtime_reporting import setup,m,projects,reporting,store
 from test_reporting_codex_runtime import m as native,Client,uid
@@ -91,8 +92,28 @@ def test_queue_loss_replays_original_admission_and_never_deletes(tmp_path):
 
 
 def test_native_tool_has_no_private_transport_configuration(tmp_path):
-    tool=m.local('runtime_checkpoint_mcp').BrokerLaunch(tmp_path/'broker.sock',os.getuid(),sys.executable,handoff=True)
+    # The isolated test virtualenv is deliberately user-writable and cannot
+    # stand in for the root-owned interpreter required on the production host.
+    module=m.local('runtime_checkpoint_mcp')
+    with pytest.raises(ValueError,match='trusted installed MCP Python'):
+        module.BrokerLaunch(tmp_path/'broker.sock',os.getuid(),sys.executable,handoff=True)
+    # Exercise only the public MCP configuration shape without pretending the
+    # test interpreter passed the production trust check.
+    tool=module.BrokerLaunch.__new__(module.BrokerLaunch)
+    tool.socket=tmp_path/'broker.sock';tool.service_uid=os.getuid();tool.python=Path('/usr/bin/python3');tool.handoff_enabled=True
     params=tool.parameters(uid(5),uid(4));entry=params['config']['mcp_servers']['engineering_checkpoint']
     assert entry['enabled_tools']==['engineering_checkpoint','engineering_handoff']
     assert '--handoff' in entry['args']
     assert all(word not in str(params) for word in ('token_file','OAuth','handoffs.sqlite3'))
+
+
+def test_independent_delivery_remains_fair_past_a_full_page_of_blocked_reports(tmp_path):
+    queue=handoff.Queue(tmp_path/'queue',create=True)
+    for number in range(40):queue.stage(dict(id=uid(number+100),fixture=True))
+    seen=[]
+    def send(value):
+        seen.append(value['id'])
+        if value['id']!=uid(139):raise ValueError('synthetic pending context')
+        return dict(staged=True,request_id=value['id'],execution_started=False)
+    assert queue.flush(send,independent=True)['delivered']==0
+    assert queue.flush(send,independent=True)['delivered']==1 and uid(139) in seen

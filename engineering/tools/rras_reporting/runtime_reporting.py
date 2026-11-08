@@ -48,7 +48,9 @@ class Reporter:
             raise ValueError('exact public OAuth client ID or unknown required')
         capture=configuration['capture']
         if capture is not None:
-            if type(capture) is not dict or set(capture)!={'binary','native_root','jobs','authorization_reference','service_socket','service_uid'}:
+            required_capture={'binary','native_root','jobs','authorization_reference','service_socket','service_uid'}
+            if (type(capture) is not dict or not required_capture<=set(capture) or
+                    set(capture)-required_capture not in (set(),{'source_socket','source_peer_uid'})):
                 raise ValueError('exact selected capture registration policy required')
             local('capture_collectors').authorization(capture['authorization_reference'])
             for key in ('binary','native_root','jobs','service_socket'):
@@ -56,6 +58,10 @@ class Reporter:
                 if not p.is_absolute() or p.resolve()!=p:raise ValueError('canonical capture registration paths required')
             intake.private(capture['jobs'],True)
             if type(capture['service_uid']) is not int or capture['service_uid']<0:raise ValueError('exact history service UID required')
+            if 'source_socket' in capture:
+                local('codex_runtime').history_unix().endpoint(capture['source_socket'])
+                if type(capture['source_peer_uid']) is not int or not 0<=capture['source_peer_uid']<2**32-1:
+                    raise ValueError('exact native source listener UID required')
         self.task_contexts={}
         if 'handoff' in configuration:
             selected=configuration['handoff']

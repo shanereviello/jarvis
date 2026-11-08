@@ -75,6 +75,7 @@ class Adapter:
             raise ValueError('actual native source differs')
         if native['organization_id']!=self.policy['organization_id']:raise ValueError('actual native organization differs')
         clean,_=self.intake.redact_object(arguments)
+        if len(self.c.encoded(clean))>24000:raise ValueError('bounded checkpoint/handoff prose required; retain full source separately')
         identity=dict(native=native,operation=operation,key=clean['key'])
         frame=dict(contract='hermes-native-tool-report.v1',id=self.native.stable_uuid(identity),native=native,operation=operation,arguments=clean)
         result=self.queue.stage(frame)
@@ -106,14 +107,14 @@ class Adapter:
             body={k:args.get(k,[]) for k in ('observations','alternatives_and_reasons','changes','validation','open_questions','references')}
             # The passive lifecycle importer derives this same attempt from the
             # retained run. Source binding must be staged before its checkpoint.
-            aid=local('runtime_reporting').ident('att_','hermes-runtime:'+self.policy['organization_id']+':'+self.policy['agents']['jarvis']+':'+n['run_id'])
+            aid=local('runtime_reporting').ident('att_','hermes-runtime:'+self.policy['organization_id']+':'+self.policy['agents']['jarvis']+':'+ctx['delivery_id'])
             body.update(report_id=local('runtime_reporting').ident('rpt_','hermes-checkpoint:'+identity),attempt_id=aid,next_step=args['next_step'])
             request=self.contract.validate(self.report(ctx['issue_id'],'checkpoint.report',body,identity,n['run_id']))
             ack=self.call('checkpoint',dict(id=frame['id'],native=n,report=request))
             if ack!=dict(staged=True,request_id=frame['id'],execution_started=False):raise ValueError('native checkpoint admission unconfirmed')
         return dict(staged=True,request_id=frame['id'],execution_started=False)
 
-    def flush(self):return self.queue.flush(self.deliver)
+    def flush(self):return self.queue.flush(self.deliver,independent=True)
 
 
 def register(ctx,configuration_path):

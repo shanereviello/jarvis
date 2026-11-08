@@ -34,11 +34,18 @@ def selected_source(path, session):
                 info.st_mode & 0o002 or not 1 <= info.st_size <= MAX_SOURCE):
             raise ValueError('bounded caller-owned, non-world-writable source required')
         raw = stream.read(info.st_size)
+    return source_bytes(raw,session)
+
+
+def source_bytes(raw,session):
+    if type(session) is not str or str(uuid.UUID(session))!=session:raise ValueError('exact session UUID required')
+    if type(raw) is not bytes or not 1<=len(raw)<=MAX_SOURCE:raise ValueError('bounded native source bytes required')
     # Snapshot the initial complete-line prefix; appends may continue in the app.
     raw = raw[:raw.rfind(b'\n') + 1]
     rows = [json.loads(line) for line in raw.splitlines()]
+    if any(type(row) is not dict for row in rows):raise ValueError('native JSONL objects required')
     meta = [x['payload'] for x in rows if x.get('type') == 'session_meta']
-    if len(meta) != 1 or meta[0].get('id') != session:
+    if len(meta) != 1 or type(meta[0]) is not dict or meta[0].get('id') != session:
         raise ValueError('source does not match the explicitly authorized session')
     return raw, rows
 

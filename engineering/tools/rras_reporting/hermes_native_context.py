@@ -23,7 +23,9 @@ def actual():
     if hashlib.sha256(Path(native.__file__).read_bytes()).hexdigest()!=SESSION_CONTEXT_SHA256:
         raise ValueError('native session context changed; review compatibility')
     values=[]
-    for key in ('HERMES_SESSION_PLATFORM','HERMES_SESSION_ID','HERMES_SESSION_KEY'):
+    # API chat_id is the original client session key. The durable native ID can
+    # rotate after compression and must not replace that Linear alias.
+    for key in ('HERMES_SESSION_PLATFORM','HERMES_SESSION_CHAT_ID','HERMES_SESSION_KEY'):
         variable=native._VAR_MAP.get(key)
         if variable is None:raise ValueError('native bound context unavailable')
         value=variable.get()
@@ -32,3 +34,12 @@ def actual():
         if value is native._UNSET:raise ValueError('actual native context is not bound')
         values.append(value)
     return parse(*values)
+
+
+def capture_identity():
+    value=actual()
+    from gateway import session_context as native
+    identifier=native._VAR_MAP['HERMES_SESSION_ID'].get()
+    if type(identifier) is not str or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_:-]{0,199}',identifier):
+        raise ValueError('actual durable native session ID required')
+    return dict(value,native_session_id=identifier)

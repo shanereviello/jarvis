@@ -48,7 +48,7 @@ def configuration(path):
     return value
 
 
-def run_once(value,*,send=None):
+def run_once(value,*,send=None,collect=None):
     spool=intake.Spool(value['spool']);lock=spool.root/'collector.lock'
     fd=os.open(lock,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
     try:
@@ -57,9 +57,10 @@ def run_once(value,*,send=None):
             unix=intake.local('unix')
             send=lambda message:unix.call(value['service_socket'],value['service_uid'],message)
         results=[]
+        if collect is None:collect=collectors.collect_codex
         for job in value['jobs']:
             try:
-                result=collectors.collect_codex(spool,**{k:v for k,v in job.items() if k!='id'})
+                result=collect(spool,**{k:v for k,v in job.items() if k!='id'})
                 with spool.connection() as db:
                     latest=db.execute("SELECT request,receipt FROM items WHERE kind='artifact' AND artifact=? ORDER BY sequence DESC LIMIT 1",(result.get('artifact_id',result.get('staged',{}).get('artifact_id')),)).fetchone()
                 if latest:

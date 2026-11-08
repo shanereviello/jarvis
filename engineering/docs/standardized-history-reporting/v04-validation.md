@@ -147,3 +147,46 @@ key, allowing a later confirmed terminal result to be delivered without rewritin
 or resending an earlier activity. A stop request does not duplicate its target
 turn's cancellation result. These are synthetic engine/runtime results, not live
 Linear cancellation, native handoff or paid execution acceptance.
+
+## Selected native capture and admission behavior — November 8
+
+The current branch adds a project-scoped, passive Hermes history reader and the
+existing-Jarvis admission/context/checkpoint workflows. The renderer produces
+inactive n8n definitions; the disposable engine probe imports and exercises
+them against synthetic PostgreSQL rows. The latest probe covers 16 workflow
+definitions, both explicit handoff directions, exact native session/run binding,
+source quiescence, echo refusal, checkpoint intake, a read-only private-history
+projection and preservation of an unselected Jarvis request. It reports
+`production_mounts=false`, `real_credentials=false` and `paid_model_calls=0`.
+
+The native Hermes acceptance runs the installed reader against a synthetic
+database. It confirms exact Linear-alias selection, compression lineage, rotated
+native session identity, reasoning exclusion, source-byte preservation and zero
+real exports or model calls. The passive importer writes only through the owned
+history API queue, preserving each retained work/architecture pin and marking
+admission, bridge run status and agent checkpoints as distinct evidence. It
+does not infer that a run executed from admission alone, nor that assistant
+completion accepted engineering work.
+
+Native Codex source collection now reads only a registered JSONL file through a
+separate credential-free App Server socket. The read is limited to one file
+under the configured native root, rejects symlinks and overlarge files, and
+passes the bytes through the pinned normalizer in a private temporary directory.
+The native account is not given the adapter's history spool or bridge token.
+Before SpecStory rendering, explicit system/developer/analysis/reasoning records
+and known private instruction/reasoning fields are excluded. This remains
+selected-file capture; it does not claim complete tool/media history or cover
+other sessions.
+
+The new focused reporting suite passes **28 tests**. The isolated current n8n
+engine probe passes its admission-refusal case before generation and all Jarvis,
+handoff and private-reader cases listed above. The broad legacy repository suite
+was also attempted, but its test virtualenv lacks the pinned PyYAML dependency
+and host-integration tests rely on installed services/paths unavailable in this
+workspace sandbox; those failures are not represented as passing. No production
+workflow, migration, service, account, credential or timer was installed.
+
+The operator confirmed that the existing engineering API setup should serve the
+native Codex runtime and that coding history resides on server01. This guides
+the deployment package; provider authentication and unit permissions still need
+model-free host acceptance before any separately authorized paid interaction.

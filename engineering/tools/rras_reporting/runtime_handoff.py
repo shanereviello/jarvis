@@ -49,7 +49,7 @@ class Queue:
             fd=os.open(self.db,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600);os.close(fd)
             with self.connection() as db:
                 db.executescript('''CREATE TABLE handoffs(sequence INTEGER PRIMARY KEY,id TEXT UNIQUE NOT NULL,
-                    intent BLOB NOT NULL,digest TEXT NOT NULL,receipt BLOB);
+                    intent BLOB NOT NULL,digest TEXT NOT NULL,receipt BLOB,last_attempt INTEGER NOT NULL DEFAULT 0);
                     CREATE TRIGGER immutable_intent BEFORE UPDATE OF sequence,id,intent,digest ON handoffs
                         BEGIN SELECT RAISE(ABORT,'immutable handoff intent'); END;
                     CREATE TRIGGER immutable_receipt BEFORE UPDATE OF receipt ON handoffs WHEN OLD.receipt IS NOT NULL
@@ -83,16 +83,25 @@ class Queue:
         self.i.sync(self.path)
         return dict(staged=True,replayed=False,handoff_id=intent['id'],execution_started=False)
 
-    def flush(self,send):
+    def flush(self,send,*,independent=False):
+        if type(independent) is not bool:raise ValueError('explicit delivery ordering required')
         delivered=0
-        with self.connection() as db:rows=db.execute('SELECT * FROM handoffs WHERE receipt IS NULL ORDER BY sequence LIMIT 32').fetchall()
+        order='last_attempt,sequence' if independent else 'sequence'
+        with self.connection() as db:rows=db.execute('SELECT * FROM handoffs WHERE receipt IS NULL ORDER BY '+order+' LIMIT 32').fetchall()
         for row in rows:
             c=self.i.local('contract')
             if c.digest(row['intent'])!=row['digest']:raise ValueError('frozen handoff digest differs')
+            if independent:
+                with self.connection() as db:
+                    counter=db.execute('SELECT coalesce(max(last_attempt),0)+1 FROM handoffs').fetchone()[0]
+                    if counter>=2**53:raise ValueError('delivery cursor exhausted; retain queue')
+                    db.execute('UPDATE handoffs SET last_attempt=? WHERE id=?',(counter,row['id']))
             try:
                 result=send(c.decode(row['intent']))
                 if result!=dict(staged=True,request_id=row['id'],execution_started=False):raise ValueError('exact handoff admission unconfirmed')
-            except (ValueError,OSError,http.client.HTTPException):break
+            except (ValueError,OSError,http.client.HTTPException):
+                if independent:continue
+                break
             with self.connection() as db:
                 db.execute('UPDATE handoffs SET receipt=? WHERE id=? AND receipt IS NULL',(c.encoded(result),row['id']))
             delivered+=1

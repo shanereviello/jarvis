@@ -121,6 +121,9 @@ def main():
     if reporter is None or checkpoint is None:raise ValueError('installed automatic reporting and scoped recorder required')
     if set(reporter.task_contexts)!=set(selected['issues']) or reporter.configuration['capture'] is None:
         raise ValueError('exact retained task contracts and selected capture installation required')
+    if (not {'source_socket','source_peer_uid'}<=set(reporter.configuration['capture']) or
+            str(args.native_socket)==reporter.configuration['capture']['source_socket']):
+        raise ValueError('separate credential-free native source reader required')
     runtime = m.Runtime(args.state, selected,reporter=reporter,checkpoint_tool=checkpoint,
         client_factory=lambda executable,cwd:m.SocketAppServer(args.native_socket,args.native_peer_uid))
     http = server(runtime, token, (args.bind, args.port))
