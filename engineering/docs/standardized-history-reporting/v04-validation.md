@@ -213,7 +213,7 @@ the same temporary-directory ACL test passes with the host UID mapping, and the
 two tests that needed the pinned PyYAML package pass separately (**6 passed**).
 No production host acceptance or activation has occurred.
 
-## Operator-reported inactive host staging — November 8
+## Operator-reported Codex runtime staging — November 8
 
 The operator subsequently installed the immutable Codex runtime release at
 `/opt/rras-engineering/releases/standardized-history-9e7954c07fdb`; the reported
@@ -223,29 +223,70 @@ offline Python import check succeeded. The installed Codex executable reports
 version `0.159.0` and matches the packaged SHA-256
 `d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f`.
 
-The operator reports creation of the separate `rras-codex-adapter` (UID 992)
-and `rras-codex-native` (UID 991) system identities, installation and loading
-of candidate unit files, and preparation of the existing engineering API key
-as `/etc/rras-engineering/codex-runtime/openai-api-key` (root-owned, mode 0400).
-The parent config directory is root-owned by the adapter group, mode 0750. The
-credential-preparation helper reported zero model starts and API calls and did
-not print the secret. Candidate Codex sockets/timers remained inactive and
-disabled; no `host-runtime-enabled` marker was reported. No Codex service or
-timer has been started.
+The operator installed the immutable runtime release and reported creation of
+the separate `rras-codex-adapter` (UID 992) and `rras-codex-native` (UID 991)
+identities, plus installation/loading of candidate unit files. The existing
+engineering API key was prepared at
+`/etc/rras-engineering/codex-runtime/openai-api-key` (root-owned, mode 0400);
+the parent config directory is root-owned by the adapter group, mode 0750. The
+credential helper reported zero model starts and API calls and did not print
+the secret. Candidate Codex sockets/timers remained inactive and disabled; no
+Codex service or timer was started.
 
-The existing history service is active as `rras-history` from the
-`native-10` release. Its scoped project read confirmed the Standardized
-History Reporting Format and Rules project, governing architecture v4, and all
-eight REV-46–REV-53 work assignments with exact revision hashes. The Codex
-binary and clean worktree were also confirmed on branch
-`codex/standardized-history-reporting-20261107`.
+## Operator-reported schema-v5 history upgrade — November 8
 
-A read-only owner-run reporting migration plan passed integrity validation for
-the current schema-3 store. It reports 154 legacy records and fingerprint
-`a8f9e145bc5c9d7c4c0fc04f8e9be8983ea2a5a9956b034b638e45374605d331` for the
-additive schema 3 → 4 reporting migration. No migration has been applied and
-the live service remains running. The repository records an earlier operator
-decision to defer backup setup; the applicable backup boundary for this
-migration is awaiting operator direction. Accordingly, no backup or migration
-command has been run, and no history writer grant, evidence migration, or
-Codex runtime policy has been installed.
+The operator approved one root-private, same-server snapshot for the v3 → v4
+history upgrade. The final quiescent snapshot was schema 3, passed SQLite
+`quick_check`, and had SHA-256
+`085e488b29a3cf42481f40d77dabd08820ac798175bcef250aa5b04cba4452cd`. The
+owner-only reporting migration matched fingerprint
+`a8f9e145bc5c9d7c4c0fc04f8e9be8983ea2a5a9956b034b638e45374605d331` and added
+the reporting metadata stream while preserving 154 legacy records. The
+subsequent schema-v4 evidence plan matched
+`38ea9a4f930be8aee14083e4a06c90e2e640d1797c419f5951159cca69b55b65`.
+
+After separate operator approval, the stopped schema-v4 store was snapshotted
+to `/root/rras-engineering-history-migration-20261108-v5/history.sqlite3`.
+That snapshot is root-private, schema 4, passed `quick_check`, and has SHA-256
+`ba8f480bebb827673eebea9822c7d50ba02933f806ee039d83d5483fbb7d49f9`. The
+explicit v4 → v5 migration succeeded. The operator verified schema 5, SQLite
+`quick_check`, the immutable evidence tables/triggers, and service-owned mode
+0700 evidence directories. No evidence chunks or capture records were seeded.
+
+The history unit now uses the verified `standardized-history-9e7954c07fdb`
+release through a systemd drop-in; the existing unit hardening remains in
+place. The operator added only the `rras-codex-adapter` UID 992 grant for
+`private_read=["jarvis"]` and `write=["jarvis"]`. Existing operator UID 1000
+and dashboard UID 993 grants remain unchanged. The service is active. Read-only
+`workspace_scopes` calls confirmed Codex sees only `jarvis`, while the
+dashboard retains `jarvis` and `jarvis-non-git`; the live socket ACL retains
+both existing readers and includes the adapter. No model starts or provider
+API calls occurred. Codex runtime sockets and timers remain inactive; no
+selected session capture has been enabled.
+
+## Operator-reported Linear/work mapping acceptance — November 8
+
+The operator used the scoped reporting API as `rras-codex-adapter` to append
+one Linear project mapping and eight execution mappings. Each request pins the
+governing architecture document
+`doc_046e9a960b67530c8d00cff938cbf6f5`, version 4, SHA-256
+`4ed76e0a493a5ae45bcc6154cb57fac3f1551644b1e823d5c96b1e2713365329`, plus
+the current work revision and project-assignment digests. All nine submissions
+returned `inserted: true`. A subsequent scoped read returned exactly nine
+mapping records and verified the issue/plan/work relationships and digests.
+
+| Reporting sequence | Linear item | Plan | Work ID |
+|---:|---|---|---|
+| 1 | P-REV-16 | — | — |
+| 2 | REV-46 | SHRR-01 | `wrk_28f080952751501eac0180baeab700f8` |
+| 3 | REV-47 | SHRR-02 | `wrk_c4889e15c1c55bab9ac8a5e0cdcf4f3f` |
+| 4 | REV-48 | SHRR-03 | `wrk_14ff1467bda65b4e9f44580d422d307a` |
+| 5 | REV-49 | SHRR-04 | `wrk_a144e049739e5b489ba3dfb3fe787b90` |
+| 6 | REV-50 | SHRR-05 | `wrk_4cdac1cbb3a65fe4bc716b00d4004b99` |
+| 7 | REV-51 | SHRR-06 | `wrk_d967fd95401b5c68ac7b3ace7354fbaa` |
+| 8 | REV-52 | SHRR-07 | `wrk_a75752070f3b59949cf71c401d15ddef` |
+| 9 | REV-53 | SHRR-08 | `wrk_c4f72ca05fe159c6b3ee4a98a35c14d2` |
+
+These records add private, immutable history relationships; they did not change
+Linear issues or existing work records. Codex runtime sockets/timers remain
+inactive. No session capture, model call or artifact export was started.
