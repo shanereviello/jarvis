@@ -97,6 +97,23 @@ def test_execution_authority_cannot_come_from_webhook(tmp_path,policy):
     value.close()
 
 
+def test_http_distinguishes_pre_dispatch_refusal_from_uncertain_execution(tmp_path,policy):
+    policy['execution_authorized']=False;client=Client()
+    value=m.Runtime(tmp_path/'disarmed-http',policy,create=True,client_factory=lambda *a:client)
+    http=module('codex_runtime_http').server(value,b'synthetic-bridge-credential-32-bytes',('127.0.0.1',0))
+    thread=threading.Thread(target=http.serve_forever,daemon=True);thread.start()
+    try:
+        req=urllib.request.Request('http://127.0.0.1:'+str(http.server_port)+'/v1/dispatch',
+            data=m.encoded(request(policy)),headers={'Content-Type':'application/json',
+                'Authorization':'Bearer synthetic-bridge-credential-32-bytes'})
+        with pytest.raises(urllib.error.HTTPError) as error:urllib.request.urlopen(req,timeout=3)
+        assert error.value.code==403
+        assert json.load(error.value)==dict(contract='codex-admission-refusal.v1',dispatch=uid(4),state='failed',reason='execution_not_authorized')
+        assert client.calls==[]
+        with value.connection() as db:assert db.execute('SELECT count(*) FROM turns').fetchone()[0]==0
+    finally:http.shutdown();http.server_close();thread.join(3);value.close()
+
+
 def test_runtime_journal_excludes_reasoning_deltas_and_nested_private_fields(runtime,policy):
     value,client=runtime;value.dispatch(request(policy))
     client.waiting=[dict(method='item/reasoning/textDelta',params=dict(delta='EXCLUDED-REASONING')),

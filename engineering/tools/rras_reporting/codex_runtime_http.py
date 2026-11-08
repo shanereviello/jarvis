@@ -72,9 +72,11 @@ def server(runtime, token, address=('127.0.0.1', 8766)):
                 elif self.path == '/v1/interrupt' and type(value) is dict and set(value) == {'dispatch_id'}:
                     self.reply(200, runtime.interrupt(value['dispatch_id']))
                 else: raise ValueError('unknown route')
-            except (ValueError, TypeError, KeyError, OSError, RecursionError):
+            except (ValueError, TypeError, KeyError, OSError, RecursionError) as error:
                 self.close_connection = True
-                self.reply(409, dict(error='runtime request refused or uncertain; retain dispatch identity'))
+                if getattr(error,'code',None)=='execution_not_authorized_before_dispatch':
+                    self.reply(403,dict(contract='codex-admission-refusal.v1',dispatch=value['dispatch_id'],state='failed',reason='execution_not_authorized'))
+                else:self.reply(409, dict(error='runtime request refused or uncertain; retain dispatch identity'))
     return ThreadingHTTPServer(address, Handler)
 
 

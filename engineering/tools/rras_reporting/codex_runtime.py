@@ -23,13 +23,17 @@ MAX_MESSAGE = 64 * 1024
 MAX_FRAME = 1024 * 1024
 
 
+class ExecutionNotAuthorized(ValueError):
+    code='execution_not_authorized_before_dispatch'
+
+
 def encoded(value):
     return (json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False,
                        separators=(',', ':')) + '\n').encode()
 
 
 def identifier(value):
-    if not isinstance(value, str) or str(uuid.UUID(value)) != value:
+    if type(value) is not str or str(uuid.UUID(value)) != value:
         raise ValueError('canonical UUID required')
     return value
 
@@ -65,6 +69,19 @@ def journal_event(event):
     if type(event) is not dict:return None
     method=event.get('method');params=event.get('params') or {}
     if type(params) is not dict:return None
+    if method=='thread/tokenUsage/updated':
+        value=params.get('tokenUsage');counters={}
+        if type(value) is not dict:return None
+        for name in ('threadId','turnId'):
+            if type(params.get(name)) is not str or not 1<=len(params[name])<=256:return None
+        names=('inputTokens','outputTokens','cachedInputTokens','cacheWriteInputTokens','reasoningOutputTokens','totalTokens')
+        for label in ('total','last'):
+            raw=value.get(label)
+            if type(raw) is not dict or not {'inputTokens','outputTokens','cachedInputTokens'}<=set(raw):return None
+            clean={key:raw[key] for key in names if key in raw}
+            if any(type(number) is not int or not 0<=number<2**53 for number in clean.values()):return None
+            counters[label]=clean
+        return dict(method=method,params=dict(threadId=params['threadId'],turnId=params['turnId'],tokenUsage=counters))
     if method=='adapter/approvalRequired':
         return dict(method=method,params={k:params[k] for k in ('method','request_id') if k in params})
     if method=='item/completed' and visible_message(params.get('item')):
@@ -351,7 +368,7 @@ class Runtime:
             raise ValueError('wrong app, organization, issue or architecture context')
         bounded(value['message'])
         if not self.policy['execution_authorized']:
-            raise ValueError('runtime execution not authorized by installed operator policy')
+            raise ExecutionNotAuthorized('runtime execution not authorized by installed operator policy')
         return json.loads(encoded(value))
 
     def dispatch(self, value):
@@ -382,18 +399,22 @@ class Runtime:
                     instructions=self.reporter.task_instructions(issue)
                     if instructions:checkpoint_parameters['developerInstructions']=checkpoint_parameters.get('developerInstructions','')+instructions
                 if prior and prior['thread']:
-                    info = client.call('thread/resume', dict(threadId=prior['thread'],
-                        cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))['thread']
+                    opened = client.call('thread/resume', dict(threadId=prior['thread'],
+                        cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))
+                    info=opened['thread']
                     if info['id'] != prior['thread']: raise ValueError('runtime thread changed')
                 else:
-                    info = client.call('thread/start', dict(cwd=self.policy['cwd'],
-                        sandbox=self.policy['sandbox'], approvalPolicy='on-request', ephemeral=False,**checkpoint_parameters))['thread']
+                    opened = client.call('thread/start', dict(cwd=self.policy['cwd'],
+                        sandbox=self.policy['sandbox'], approvalPolicy='on-request', ephemeral=False,**checkpoint_parameters))
+                    info=opened['thread']
                 thread = bounded(info['id'], 256); lineage = bounded(info['sessionId'],256) if info.get('sessionId') else None
                 if info.get('cwd') is not None and info['cwd']!=self.policy['cwd']:raise ValueError('native workspace differs')
                 with self.connection() as db:
                     db.execute('UPDATE sessions SET thread=?,lineage=? WHERE session=?', (thread,lineage,session))
                     db.execute('UPDATE turns SET thread=? WHERE dispatch=?', (thread,dispatch))
                     metadata={k:info[k] for k in ('id','sessionId','parentThreadId','forkedFromId','path','cwd','cliVersion','model','modelProvider','gitInfo','createdAt','updatedAt') if k in info}
+                    for field in ('model','modelProvider'):
+                        if type(opened.get(field)) is str:metadata[field]=opened[field]
                     raw_metadata=encoded(dict(method='adapter/threadMetadata',params=metadata))
                     if len(raw_metadata)<=16384:db.execute('INSERT INTO events(dispatch,body) VALUES(?,?)',(dispatch,raw_metadata))
                 self._report(dispatch)

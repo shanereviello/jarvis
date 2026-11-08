@@ -158,6 +158,8 @@ const reply=$input.first().json, body=reply.body||{};
 const states=['running','completed','failed','interrupted','uncertain','interrupt_requested'];
 let result=(reply.statusCode>=200 && reply.statusCode<300 && body.dispatch===source.target_dispatch
  && states.includes(body.state))?body:{state:'uncertain',reason:'Runtime outcome unconfirmed; retain dispatch identity.'};
+if(reply.statusCode===403 && body.contract==='codex-admission-refusal.v1' && body.dispatch===source.target_dispatch
+ && body.state==='failed' && body.reason==='execution_not_authorized' && source.request?.contract==='codex-dispatch.v1')result=body;
 if(result.state==='interrupt_requested')result={...result,state:'running'};
 return [{json:{event_id:source.event_id,runtime_result:result}}];"""
     finish=f"""WITH updated AS (
@@ -168,6 +170,7 @@ return [{json:{event_id:source.event_id,runtime_result:result}}];"""
  jsonb_build_object('type',CASE WHEN state='completed' THEN 'response' WHEN state='uncertain' THEN 'thought' ELSE 'error' END,'body',
  CASE WHEN state='completed' THEN left(coalesce(runtime_result->>'result','Completed without a captured final response; inspect retained runtime evidence.'),10000)
  WHEN state='interrupted' THEN 'Codex turn interrupted.' WHEN state='uncertain' THEN 'Codex runtime outcome is uncertain; retained state needs reconciliation. Work has not been automatically rerun.'
+ WHEN runtime_result->>'reason'='execution_not_authorized' THEN 'Codex execution is not enabled by the installed operator policy. No model turn was started for this request.'
  ELSE 'Codex runtime failed; inspect retained evidence.' END)
  FROM updated WHERE state IN ('completed','failed','interrupted','uncertain')
  AND (coalesce(envelope->>'signal','')<>'stop' OR state='uncertain')

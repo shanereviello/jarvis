@@ -43,7 +43,10 @@ function reportingRecord(item) {
     field(card, 'Native session tree', b.native_session_tree_id); field(card, 'Parent / fork source', (b.parent_native_thread_id || 'Unknown') + ' / ' + (b.forked_from_native_thread_id || 'Unknown'));
     field(card, 'Host / workspace', (b.host_identity || 'Unknown') + ' / ' + (b.workspace_identity || 'Unknown'));
     field(card, 'Source version', b.source_version); field(card, 'Model observation', (b.model || 'Unknown') + ' · ' + b.model_basis);
-    field(card, 'Recorded tokens / cost', b.tokens === null ? 'Unknown' : JSON.stringify(b.tokens)); field(card, 'Cost USD', b.cost_usd === null ? 'Unknown' : String(b.cost_usd));
+    field(card, 'Thread token total', b.tokens === null ? 'Unknown' : JSON.stringify(b.tokens)); field(card, 'Cost USD', b.cost_usd === null ? 'Unknown' : String(b.cost_usd));
+    if (b.tokens_basis) field(card, 'Usage scope', b.tokens_basis === 'native_thread_summary' ? 'Native thread total and last report; no per-turn billing allocation' : 'Unknown');
+    if (b.last_reported_tokens) field(card, 'Last native token report', JSON.stringify(b.last_reported_tokens));
+    if (b.usage_native_turn_id) field(card, 'Native turn of usage observation', b.usage_native_turn_id);
     for (const limit of b.limitations) field(card, 'Provenance limitation', limit);
   } else if (r.operation === 'session.relate') {
     field(card, 'Session relationship', b.relationship + ' · ' + b.session.namespace + ':' + b.session.id);

@@ -159,6 +159,7 @@ if(req.url==='/fixture/uncertain'){state.uncertain=true;return reply(200,{ok:tru
 if(req.url==='/fixture/lose-publication'){state.losePublication=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/wrong-actor'){state.wrongActor=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/clear-wrong-actor'){state.wrongActor=false;return reply(200,{ok:true});}
+if(req.url==='/fixture/deny-execution'){state.denyExecution=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/lose-handoff-comment'){state.loseHandoffComment=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/lose-handoff-session'){state.loseHandoffSession=true;return reply(200,{ok:true});}
 if(req.url==='/graphql'){
@@ -181,7 +182,7 @@ if(b.query.startsWith('query '))return reply(200,{data:{viewer}});
 state.activities.push(b.variables.input);if(state.losePublication){state.losePublication=false;return res.destroy();}
 return reply(200,{data:{agentActivityCreate:{success:true,agentActivity:{id:b.variables.input.id}}}});}
 if(req.headers.authorization!=='Bearer synthetic-runtime-bridge')return reply(403,{error:'fixture runtime denied'});
-if(req.url==='/runtime/v1/dispatch'){state.calls.push(b);state.active=b.dispatch_id;state.complete=false;state.uncertain=false;return reply(202,{dispatch:b.dispatch_id,state:'running',thread:'fixture-thread',turn:'fixture-turn'});}
+if(req.url==='/runtime/v1/dispatch'){if(state.denyExecution)return reply(403,{contract:'codex-admission-refusal.v1',dispatch:b.dispatch_id,state:'failed',reason:'execution_not_authorized'});state.calls.push(b);state.active=b.dispatch_id;state.complete=false;state.uncertain=false;return reply(202,{dispatch:b.dispatch_id,state:'running',thread:'fixture-thread',turn:'fixture-turn'});}
 if(req.url==='/runtime/v1/interrupt'){state.interrupts.push(b.dispatch_id);return reply(200,{dispatch:b.dispatch_id,state:'interrupted'});}
 if(req.url.startsWith('/runtime/v1/runs/')){const id=req.url.split('/').pop();return reply(200,{dispatch:id,state:state.interrupts.includes(id)?'interrupted':state.complete?'completed':state.uncertain?'uncertain':'running',result:'Synthetic final result',thread:'fixture-thread',turn:'fixture-turn'});}
 reply(404,{error:'unknown fixture route'});
@@ -373,10 +374,16 @@ reply(404,{error:'unknown fixture route'});
             with spool.connection() as db:records=[spool.c.decode(x[0]) for x in db.execute("SELECT request FROM items WHERE kind='native_handoff' ORDER BY sequence")]
             assert [r['body']['state'] for r in records]==['requested','acknowledged','completed']*2
             assert all(r['context']==history_context and r['source']['kind']=='imported' for r in records)
+        request('/fixture/deny-execution',{},port=8899)
+        before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
+        denied=deliver(800,801);execute('dispatch')
+        assert sql("SELECT state FROM linear_bridge.codex_events WHERE id='"+denied+"';").strip()=='failed'
+        assert len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])==before
+        assert 'No model turn was started' in sql("SELECT content->>'body' FROM linear_bridge.codex_outbox WHERE source_key='result:"+denied+":failed';")
         print(json.dumps(dict(n8n_version='2.28.3',actual_import=True,actual_http_webhook=True,header_denial=True,durable_receipt=True,duplicate_receipt=True,initial_activity=True,exact_single_dispatch=True,runtime_reconcile=True,uncertain_then_final=True,follow_up_serialized=True,matching_turn_stop=True,one_cancellation_result=True,lost_publication_no_resend=True,wrong_oauth_actor_refused=True,final_activity=True,role_grants=True,jarvis_sentinel_preserved=True,
             handoff_private_intake=True,handoff_actual_engine_both_publish_directions=True,handoff_source_quiescence=True,handoff_lost_comment_and_session_response_reconciled=True,
             handoff_separate_oauth_actors=True,handoff_correlated_codex_dispatch_once=True,handoff_ack_and_terminal=True,
-            handoff_history_read_only_endpoint=True,handoff_history_scope_denial=True,handoff_history_exact_typed_projection=True,hermes_execution='synthetic_bridge_rows_only',
+            handoff_history_read_only_endpoint=True,handoff_history_scope_denial=True,handoff_history_exact_typed_projection=True,pre_dispatch_execution_refusal=True,hermes_execution='synthetic_bridge_rows_only',
             network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:
         for name in reversed(created):

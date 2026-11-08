@@ -38,6 +38,9 @@ SESSION = obj(namespace=NAME, id=text(512))
 ACTOR = obj(role=choices('jarvis', 'codex', 'human', 'system', 'unknown'),
             runtime=NAME, source_actor_id=nullable(UUID))
 REVISION = dict(version=VERSION, previous_sha256=nullable(SHA))
+TOKEN_COUNT=dict(type='integer',minimum=0,maximum=2**53-1)
+TOKENS=obj(input=TOKEN_COUNT,output=TOKEN_COUNT,cached_input=nullable(TOKEN_COUNT))
+TOKENS['properties'].update(cache_write_input=TOKEN_COUNT,reasoning_output=TOKEN_COUNT,total=TOKEN_COUNT)
 
 DEFS = dict(
     source=obj(kind=choices('agent_reported', 'human_reported', 'imported'), namespace=NAME, id=nullable(text(512))),
@@ -61,7 +64,7 @@ DEFS = dict(
         native_session_tree_id=nullable(text(512)),parent_native_thread_id=nullable(text(512)),forked_from_native_thread_id=nullable(text(512)),
         host_identity=nullable(text(256)),workspace_identity=nullable(text(4096)),source_version=nullable(text(128)),
         model=nullable(text(128)),model_basis=choices('configured_thread','unknown'),
-        tokens=nullable(obj(input=dict(type='integer',minimum=0),output=dict(type='integer',minimum=0),cached_input=nullable(dict(type='integer',minimum=0)))),
+        tokens=nullable(TOKENS),
         cost_usd=nullable(dict(type='number',minimum=0)),limitations=array(text())),
     report=obj(report_id=pattern('rpt_[0-9a-f]{32}'), attempt_id=nullable(pattern('att_[0-9a-f]{32}')),
         observations=array(text()), alternatives_and_reasons=array(text()), changes=array(text()),
@@ -111,6 +114,8 @@ DEFS['report']['properties']['validation']['items']['properties'].update(
 DEFS['attempt']['properties'].update(previous_attempt_id=nullable(pattern('att_[0-9a-f]{32}')),
     managed_task_id=nullable(text(256)),managed_run_id=nullable(text(256)),branch=nullable(text(256)),
     worktree_identity=nullable(text(4096)),started_at=nullable(UTC),ended_at=nullable(UTC))
+DEFS['session_metadata']['properties'].update(tokens_basis=choices('native_thread_summary','unknown'),
+    last_reported_tokens=nullable(TOKENS),usage_native_turn_id=nullable(text(512)))
 
 SCHEMA = dict(obj(contract=dict(const='engineering-reporting.v1'), operation=choices(*OPERATIONS),
     client_event_key=text(128), expected_head=nullable(SHA), scope=ref('scope'), context=nullable(ref('context')),
@@ -159,6 +164,8 @@ def validate(value):
         raise ValueError('lineage names its actual related session')
     if op=='session.describe' and ((body['model'] is None)!=(body['model_basis']=='unknown')):
         raise ValueError('known configured model or explicit unknown required')
+    if op=='session.describe' and 'tokens_basis' in body and ((body['tokens'] is None)!=(body['tokens_basis']=='unknown')):
+        raise ValueError('known native thread summary or explicit unknown required')
     if op == 'attempt.record' and value['scope']['kind'] == 'non_git' and body['baseline_commit'] is not None:
         raise ValueError('non-Git attempt has no Git baseline')
     if op == 'artifact.record':

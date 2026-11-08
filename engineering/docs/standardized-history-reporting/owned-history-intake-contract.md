@@ -21,6 +21,7 @@ owned records; shape validation alone does not prove that those objects exist.
 | `mapping.record` | Versioned Linear organization/team/project/issue UUIDs and display references; execution plan ID versus project/decision/grouping identity. Only execution mappings carry a work context. |
 | `attempt.record` | Versioned run phase, actual actor/runtime, optional coordinator, sessions, Git baseline and result; attempt completion is not a work outcome. |
 | `session.relate` | Exact named session plus explicit attachment, resume, compression, continuation or coordination relationship. |
+| `session.describe` | Versioned actual runtime identity, native lineage, configured model, workspace/host, source version and observed native token summaries; unknown cost remains null. |
 | `checkpoint.report` | Observations, alternatives/reasons, changes, validation with evidence references, open questions and next step. |
 | `linear.observe` | Exact bounded object snapshot, digest, source-update time and selected workspace/team/project IDs. |
 | `handoff.record` | Distinct Jarvis/Codex sender and recipient, source/recipient sessions, correlated issue, requested action and truthful request/acknowledgment/result. |
@@ -64,12 +65,13 @@ reporting unavailable. Current and closeout project/work views never join later
 reporting records. Paging, summaries and counts use only the admitted scope and
 the selected signed boundary.
 
-Private chunk staging/finalization/quotas remain unimplemented. The service
-therefore refuses `artifact.record` and `artifact.associate` rather than accepting
-a manifest without verified retained bytes. Private evidence files and database
-must eventually be backed up together; this source does not complete the earlier
-deferred backup/restore work.
+The separate [evidence custody implementation](evidence-custody.md) adds the
+explicit schema-v5 upgrade, private chunk staging/finalization, digest checks and
+quotas. Artifact metadata is accepted only with verified retained bytes. The
+database and private evidence files must be backed up together; production
+upgrade and joint recovery acceptance remain installation work.
 
-There is no direct SQL production insertion or inferred deployment authority in
-this source. Artifact intake, automatic observation/capture delivery,
-reference UI and curated retrieval remain separate unfinished build capabilities.
+The [runtime reporting adapter](runtime-reporting.md), selected capture intake,
+reference UI and curated retrieval use this contract. Their source and fixture
+acceptance do not establish production installation. There is no direct SQL
+production insertion or inferred deployment authority.

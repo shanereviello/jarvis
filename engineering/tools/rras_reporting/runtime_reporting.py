@@ -109,6 +109,31 @@ class Reporter:
         self.append(db,self.request(row,'attempt.record',body,expected=body['previous_sha256']),aid)
         return aid
 
+    def describe(self,db,row,actor,metadata,usage):
+        sid=ident('ses_','codex-native:'+self.policy['app_user_id']+':'+row['thread'])
+        prior=db.execute("SELECT request,request_sha256 FROM items WHERE artifact=? AND kind='runtime' ORDER BY sequence DESC LIMIT 1",(sid,)).fetchone()
+        old=self.c.decode(prior['request']) if prior else None
+        model=metadata.get('model');model=model if type(model) is str and model.strip() else None
+        tokens=old['body']['tokens'] if old else None
+        last=old['body'].get('last_reported_tokens') if old else None
+        usage_turn=old['body'].get('usage_native_turn_id') if old else None
+        if usage:
+            mapping=dict(inputTokens='input',outputTokens='output',cachedInputTokens='cached_input',
+                cacheWriteInputTokens='cache_write_input',reasoningOutputTokens='reasoning_output',totalTokens='total')
+            convert=lambda raw:{target:raw[key] for key,target in mapping.items() if key in raw}
+            tokens=convert(usage['tokenUsage']['total']);last=convert(usage['tokenUsage']['last']);usage_turn=usage['turnId']
+        body=dict(session_record_id=sid,version=old['body']['version']+1 if old else 1,previous_sha256=prior['request_sha256'] if prior else None,
+            session=dict(namespace='codex',id=row['thread']),actor=actor,linear_agent_session_id=row['session'],linear_agent_activity_id=None,
+            oauth_client_id=self.configuration['oauth_client_id'],native_session_tree_id=metadata.get('sessionId'),parent_native_thread_id=metadata.get('parentThreadId'),
+            forked_from_native_thread_id=metadata.get('forkedFromId'),host_identity=self.configuration['host_identity'],workspace_identity=self.policy['cwd'],
+            source_version=metadata.get('cliVersion'),model=model,model_basis='configured_thread' if model else 'unknown',tokens=tokens,
+            tokens_basis='native_thread_summary' if tokens else 'unknown',last_reported_tokens=last,usage_native_turn_id=usage_turn,cost_usd=None,
+            limitations=['Thread model is configuration metadata, not per-turn model execution telemetry.',
+                'Tokens are the most recently observed native thread total and last report, not inferred per-turn totals or a work billing allocation.',
+                'Unobserved counters, cost and missing lineage remain unknown; receipt time is not native occurrence time.'])
+        comparable=lambda value:{k:v for k,v in value.items() if k not in ('version','previous_sha256')}
+        if old is None or comparable(body)!=comparable(old['body']):self.append(db,self.request(row,'session.describe',body,expected=body['previous_sha256']),sid)
+
     def register_capture(self,row,metadata):
         selected=self.configuration['capture']
         if selected is None or metadata.get('path') is None:return False
@@ -156,10 +181,13 @@ class Reporter:
         with runtime.connection() as native:
             row=native.execute('SELECT * FROM turns WHERE dispatch=?',(dispatch,)).fetchone()
             if row is None:raise ValueError('retained dispatch required')
-            metadata={}
+            metadata={};usage=None
             for value in native.execute('SELECT body FROM events WHERE dispatch=? ORDER BY sequence DESC',(dispatch,)):
                 event=self.c.decode(value[0])
-                if event.get('method')=='adapter/threadMetadata':metadata=event['params'];break
+                if event.get('method')=='adapter/threadMetadata' and not metadata:metadata=event['params']
+                if event.get('method')=='thread/tokenUsage/updated' and usage is None and event['params']['threadId']==row['thread']:
+                    usage=event['params']
+                if metadata and usage is not None:break
         if runtime.policy!=self.policy:raise ValueError('runtime reporting policy changed')
         actor=dict(role='codex',runtime='codex_app_server',source_actor_id=self.policy['app_user_id'])
         phase={'preparing':'started','running':'progress','uncertain':'paused','interrupt_requested':'paused',
@@ -171,19 +199,7 @@ class Reporter:
             if not exists:self.attempt(db,row,'started',actor,{})
             self.attempt(db,row,phase,actor,metadata)
             if row['thread']:
-                sid=ident('ses_','codex-native:'+self.policy['app_user_id']+':'+row['thread'])
-                exists=db.execute("SELECT 1 FROM items WHERE artifact=? AND kind='runtime'",(sid,)).fetchone()
-                if not exists:
-                    model=metadata.get('model');model=model if type(model) is str and model.strip() else None
-                    body=dict(session_record_id=sid,version=1,previous_sha256=None,session=dict(namespace='codex',id=row['thread']),actor=actor,
-                        linear_agent_session_id=row['session'],linear_agent_activity_id=None,oauth_client_id=self.configuration['oauth_client_id'],
-                        native_session_tree_id=metadata.get('sessionId'),parent_native_thread_id=metadata.get('parentThreadId'),
-                        forked_from_native_thread_id=metadata.get('forkedFromId'),host_identity=self.configuration['host_identity'],
-                        workspace_identity=self.policy['cwd'],source_version=metadata.get('cliVersion'),model=model,
-                        model_basis='configured_thread' if model else 'unknown',tokens=None,cost_usd=None,
-                        limitations=['Thread model is configuration metadata, not per-turn model execution telemetry.',
-                            'Tokens, cost and missing lineage remain unknown; receipt time is not native occurrence time.'])
-                    self.append(db,self.request(row,'session.describe',body),sid)
+                self.describe(db,row,actor,metadata,usage)
                 body=dict(session=dict(namespace='codex',id=row['thread']),relationship='attached',related_session=None,
                     attempt_id=aid,actor=actor,reason='Actual native thread is bound to this retained dispatch/Linear agent session; session-level context is not universal message attribution.')
                 self.append(db,self.request(row,'session.relate',body))

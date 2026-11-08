@@ -10,8 +10,12 @@ queue-capacity failure never starts another coding run. Staging failures leave a
 sanitized gap in the separate runtime journal.
 
 `session.describe` retains actual source identity and available lineage,
-configured model, workspace/host and source version. Unknown parent/fork IDs,
-token counts and cost stay null. A thread model is configuration metadata, not
+configured model, workspace/host and source version. Native token-usage
+notifications retain their numeric thread total, last report and native turn ID,
+including available cache and reasoning counters. Late usage can update session
+metadata after completion without reopening the attempt. These are observed
+native summaries; the adapter does not infer per-turn billing allocations.
+Unknown parent/fork IDs, token counts and cost stay null. A thread model is configuration metadata, not
 per-turn execution telemetry. A native thread Git SHA is labeled as thread
 metadata rather than a fresh checkout audit. Optional attempt and validation
 fields can retain managed task/run, worktree, command, criterion, environment,
@@ -49,6 +53,15 @@ the Unix stream. The adapter verifies the protected socket's owner and exact
 listener UID before sending context. Native authentication is provisioned
 separately by the operator. Initialization creates only the adapter journal and
 exits; it starts no listener, native process or model.
+
+An installed policy that has not authorized execution returns a typed admission
+refusal before creating a turn or opening a native client. n8n records the request
+as failed and explains that no model turn started. Other ambiguous transport
+failures retain their uncertain state and dispatch identity. The operator chose
+reuse of the existing engineering API setup on November 8, 2026; credentials
+remain private and that preference does not itself authorize paid execution.
+Coding history is on server01; a separate Mac source collector is outside the
+current installation target.
 
 The coder's MCP process is a thin client of a separate, write-only Unix broker.
 Kernel credentials restrict it to the configured native UID. A frozen session
