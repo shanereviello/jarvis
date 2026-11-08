@@ -4,6 +4,8 @@ Operator-approved architecture SHA-256:
 4ed76e0a493a5ae45bcc6154cb57fac3f1551644b1e823d5c96b1e2713365329.
 This is source and staged setup documentation, not a completed deployment.
 
+[Step-by-step Cloudflare/n8n setup, matched to the existing installation](cloudflare-n8n-setup.md).
+
 ## Responsibilities
 
 Preserve Jarvis's existing app, credential, ingress, restricted Hermes tools and
@@ -14,7 +16,10 @@ Jarvis grants were not inspected.
 
 The dedicated Worker verifies Codex HMAC over unchanged bytes, timestamp,
 organization and delivery. It forwards to the authenticated Codex-only n8n route.
-Use distinct secrets; do not replace the Jarvis Worker. Never export secret values.
+Use distinct secrets; do not replace the Jarvis Worker. Carry a dedicated Access
+service token as CF-Access-Client-Id and CF-Access-Client-Secret headers to the
+backend. Add the exact Codex path to the existing tunnel, with scoped Service Auth
+protection. Never export secret values.
 
 The private adapter owns only Codex runtime dispatch/result recovery. Shared
 ingress/n8n/PostgreSQL outages can affect both agents. Hermes downtime alone does

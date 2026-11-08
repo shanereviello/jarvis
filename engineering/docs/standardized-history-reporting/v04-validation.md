@@ -48,3 +48,14 @@ bidirectional handoffs, release packaging and separately authorized deployment/
 real interaction checks remain. Artifact byte intake, automatic capture and
 observation, reporting UI/curated retrieval and historical architecture closeout
 remain unfinished SHRR work. Do not mark the project or SHRR-03 complete.
+
+## Existing-installation correction
+
+The operator's Cloudflare screenshots showed an existing Jarvis-only tunnel path
+and Access service-token secret names. The initial undeployed Codex Worker omitted
+the Access headers. Source now forwards both required service headers and refuses
+missing Access credentials. The updated isolated probe passes those assertions
+as well as the previous HMAC/SQL checks. The actual Access policy and tunnel path
+are not tested by that synthetic probe. A separate step-by-step guide now makes
+Worker creation, path routing, Access protection, OAuth and activation explicit.
+No running Worker, tunnel route, Access policy or n8n setting was changed.

@@ -62,7 +62,8 @@ assert.equal(verified(viewer(uid(20)),source)[0].json.permitted,false);
 (async()=>{
  const worker=(await import('data:text/javascript;base64,'+Buffer.from(input.worker).toString('base64'))).default;
  const env={CODEX_WEBHOOK_SECRET:'synthetic-webhook-secret-at-least-24',CODEX_N8N_BRIDGE_SECRET:'synthetic-bridge-secret-at-least-32',
- CODEX_N8N_URL:'https://n8n.example.com/webhook/rras-codex-agent-events',CODEX_ORGANIZATION_ID:policy.organization_id};
+ CODEX_N8N_URL:'https://n8n.example.com/webhook/rras-codex-agent-events',CODEX_ORGANIZATION_ID:policy.organization_id,
+ CF_ACCESS_CLIENT_ID:'synthetic-access-client-id',CF_ACCESS_CLIENT_SECRET:'synthetic-access-client-secret'};
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.CODEX_WEBHOOK_SECRET),
    {name:'HMAC',hash:'SHA-256'},false,['sign']);
  const raw=JSON.stringify(body),bytes=new TextEncoder().encode(raw);
@@ -71,16 +72,21 @@ assert.equal(verified(viewer(uid(20)),source)[0].json.permitted,false);
  global.fetch=async(url,options)=>{
   forwards++;assert.equal(url,env.CODEX_N8N_URL);
   assert.equal(options.headers.get('X-RRAS-Codex-Bridge'),env.CODEX_N8N_BRIDGE_SECRET);
+  assert.equal(options.headers.get('CF-Access-Client-Id'),env.CF_ACCESS_CLIENT_ID);
+  assert.equal(options.headers.get('CF-Access-Client-Secret'),env.CF_ACCESS_CLIENT_SECRET);
   assert.equal(new TextDecoder().decode(options.body),raw);
   assert.equal(options.redirect,'error');return new Response('ok',{status:200});
  };
  const request=(text=raw,signature=sig)=>new Request('https://agents.example.com/webhooks/codex',
   {method:'POST',headers:{'linear-delivery':uid(7),'linear-signature':signature},body:text});
  assert.equal((await worker.fetch(request(),env)).status,200);assert.equal(forwards,1);
+ const missingAccess={...env};delete missingAccess.CF_ACCESS_CLIENT_SECRET;
+ assert.equal((await worker.fetch(request(),missingAccess)).status,503);assert.equal(forwards,1);
  assert.equal((await worker.fetch(request(raw+' '),env)).status,403);
  assert.equal((await worker.fetch(request(raw,'0'.repeat(64)),env)).status,403);assert.equal(forwards,1);
  console.log(JSON.stringify({admission:true,follow_up:true,stop:true,scope_refusals:9,
-   workflow_code_compiles:true,wrong_credential_refused:true,edge_hmac_forwarding:true,models_started:0}));
+   workflow_code_compiles:true,wrong_credential_refused:true,edge_hmac_forwarding:true,
+   access_service_headers:true,missing_access_refused:true,models_started:0}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """
 

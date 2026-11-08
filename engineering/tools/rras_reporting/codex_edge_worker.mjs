@@ -1,5 +1,7 @@
 // Dedicated Codex route; do not replace or edit the existing Jarvis Worker.
 // Bind CODEX_WEBHOOK_SECRET and CODEX_N8N_BRIDGE_SECRET as private Worker secrets.
+// Bind a dedicated CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET service token
+// admitted by the Access application protecting the Codex backend webhook path.
 // CODEX_N8N_URL is the fixed authenticated n8n production webhook, not caller input.
 export default {
   async fetch(request, env) {
@@ -10,6 +12,7 @@ export default {
     const declared = request.headers.get('content-length');
     if (declared && (!/^\d+$/.test(declared) || Number(declared) > maximum)) return deny(413);
     if (!env.CODEX_WEBHOOK_SECRET || !env.CODEX_N8N_BRIDGE_SECRET ||
+        !env.CF_ACCESS_CLIENT_ID || !env.CF_ACCESS_CLIENT_SECRET ||
         !env.CODEX_N8N_URL || env.CODEX_WEBHOOK_SECRET.length < 24 ||
         env.CODEX_N8N_BRIDGE_SECRET.length < 32) return deny(503);
     let target;
@@ -47,7 +50,9 @@ export default {
       'Linear-Delivery':delivery,
       'X-RRAS-Codex-Verified':'v1',
       'X-RRAS-Codex-Body-SHA256':digest,
-      'X-RRAS-Codex-Bridge':env.CODEX_N8N_BRIDGE_SECRET
+      'X-RRAS-Codex-Bridge':env.CODEX_N8N_BRIDGE_SECRET,
+      'CF-Access-Client-Id':env.CF_ACCESS_CLIENT_ID,
+      'CF-Access-Client-Secret':env.CF_ACCESS_CLIENT_SECRET
     });
     try {
       const response = await fetch(target.toString(),{method:'POST',headers,body:raw,
