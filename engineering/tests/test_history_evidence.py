@@ -146,6 +146,21 @@ def test_association_correction_is_append_only_and_exact(evidence,reporting,proj
             with pytest.raises(sqlite3.IntegrityError):db.execute('DELETE FROM '+table)
 
 
+def test_association_projection_obeys_snapshot_without_rewriting_import(evidence,reporting,projects):
+    value=manifest(projects,b'',context=False);saved=reporting.submit(value)
+    before=view(projects)['snapshot']
+    assoc=request(projects,'artifact.associate');assoc['body']['manifest_sha256']=saved['receipt']['request_sha256']
+    reporting.submit(assoc)
+    old=projects.read(REPO,dict(view='reporting',operation='artifact.record',unassigned=True,snapshot=before))
+    current=projects.read(REPO,dict(view='reporting',operation='artifact.record',project_id=P1))
+    assert old['total']==current['total']==1
+    assert current['items'][0]['submission']==value
+    assert current['items'][0]['effective_context']==assoc['context']
+    assert projects.read(REPO,dict(view='reporting',operation='artifact.record',unassigned=True))['total']==0
+    assert evidence.read(REPO,query(projects,value,snapshot=before))['association'] is None
+    assert evidence.read(REPO,query(projects,value))['effective_context']==assoc['context']
+
+
 def test_quota_retains_prior_evidence_and_replay_survives_lost_ack(evidence,monkeypatch):
     value=upload(b'keep');first=evidence.upload(value)
     monkeypatch.setattr(em,'SCOPE_BYTES',4)

@@ -71,7 +71,7 @@ class Boundary:
 
 def create_app(reader,access):
     assets=Path(__file__).with_name('assets')
-    payloads={name:(assets/name).read_bytes() for name in ('index.html','app.css','app.js')}
+    payloads={name:(assets/name).read_bytes() for name in ('index.html','app.css','app.js','reporting.js')}
     def query(request,allowed):
         items=list(request.query_params.multi_items())
         if len({k for k,v in items})!=len(items) or any(k not in allowed for k,v in items):raise ValueError()
@@ -86,7 +86,7 @@ def create_app(reader,access):
     async def index(request):return Response(payloads['index.html'],media_type='text/html')
     async def asset(request):
         name=request.path_params['name']
-        if name not in ('app.css','app.js'):return Response('Unavailable.',status_code=404)
+        if name not in ('app.css','app.js','reporting.js'):return Response('Unavailable.',status_code=404)
         return Response(payloads[name],media_type='text/css' if name.endswith('.css') else 'application/javascript')
     async def repos(request):
         if request.query_params:return Response('Unavailable.',status_code=400)
@@ -112,7 +112,7 @@ def create_app(reader,access):
     async def workspace(request):
         try:
             allowed={'scope_kind','scope_id','project_id','work_id','version','left','right','offset','limit','q','state',
-                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version','artifact_id','index'}
+                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version','artifact_id','index','operation'}
             q=query(request,allowed)
             selected={'kind':q.pop('scope_kind'),'id':q.pop('scope_id')}
             for name in ('version','left','right','offset','limit','closeout_sequence','architecture_version','index'):

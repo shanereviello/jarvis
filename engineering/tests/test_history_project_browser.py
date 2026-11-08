@@ -17,6 +17,64 @@ from test_history_web import web, key, access, client_call, ORIGIN
 pytestmark = pytest.mark.skipif(os.environ.get('RRAS_UI_BROWSER_TESTS') != '1', reason='opt-in installed Chromium test')
 
 
+def test_reporting_reference_and_verified_private_capture_browser(projects,project_reader,key,tmp_path):
+    import json
+    from test_history_reporting import request as report_request
+    from test_history_evidence import upload,manifest
+    playwright=pytest.importorskip('playwright.sync_api')
+    reporting=module('reporting').Reporting(projects.store);reporting.migrate(reporting.migration_plan()['expected_sha256'])
+    evidence=module('evidence').Evidence(projects.store);evidence.migrate(evidence.migration_plan()['expected_sha256'])
+    reporting.submit(report_request(projects,project_mapping=True));reporting.submit(report_request(projects))
+    checkpoint=report_request(projects,'checkpoint.report')
+    checkpoint['body']['observations']=['BROWSER-REFERENCE-FINDING <img src=x onerror="window.injected=true">']
+    reporting.submit(checkpoint)
+    reporting.submit(report_request(projects,'attempt.record'))
+    raw='VISIBLE-CAPTURE-RESULT\n<img src=x onerror="window.injected=true">\nUnicode: Ω\n'.encode()
+    evidence.upload(upload(raw));capture=manifest(projects,raw);reporting.submit(capture)
+    unmapped=manifest(projects,b'',context=False);unmapped['body']['artifact_id']='cap_'+'9'*32;reporting.submit(unmapped)
+    app=web('app').create_app(project_reader,access(key));errors=[];corrupt=[False]
+    with ThreadPoolExecutor(max_workers=1) as requests,playwright.sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page(viewport={'width':1440,'height':1100})
+        page.on('pageerror',lambda error:errors.append(str(error)))
+        def fulfill(route):
+            path=route.request.url.removeprefix(ORIGIN)
+            response=requests.submit(client_call,app,key,path,route.request.method).result(timeout=12)
+            body=response.content
+            if corrupt[0] and path.startswith('/api/workspace/artifact') and 'index=' in path:
+                value=response.json();value['chunk']['data_base64']='Y29ycnVwdA=='
+                body=json.dumps(value).encode()
+            route.fulfill(status=response.status_code,headers=dict(response.headers),body=body)
+        page.route(ORIGIN+'/**',fulfill);page.goto(ORIGIN)
+        page.locator('#work-list .work-card').click()
+        page.get_by_role('heading',name='Engineering reporting',exact=True).wait_for()
+        playwright.expect(page.locator('#detail')).to_contain_text('BROWSER-REFERENCE-FINDING')
+        page.get_by_role('tab',name='Work',exact=True).click()
+        page.locator('#detail .doc-card').click()
+        page.get_by_role('tab',name='Timeline',exact=True).click()
+        playwright.expect(page.locator('#detail')).to_contain_text('BROWSER-REFERENCE-FINDING')
+        assert page.locator('#detail img').count()==0
+        page.get_by_role('tab',name='Evidence',exact=True).click()
+        page.get_by_role('button',name='Inspect captured evidence v1',exact=True).click()
+        page.get_by_role('heading',name='Captured engineering evidence',exact=True).wait_for()
+        page.get_by_role('button',name='Preview captured text',exact=True).click()
+        playwright.expect(page.locator('#detail pre')).to_contain_text('VISIBLE-CAPTURE-RESULT')
+        playwright.expect(page.locator('#detail')).to_contain_text('Exact full artifact verified')
+        assert page.evaluate('window.injected') is None and page.locator('#detail img').count()==0
+        with page.expect_download() as download:
+            page.get_by_role('button',name='Download verified full export',exact=True).click()
+        path=tmp_path/'capture.md';download.value.save_as(path);assert path.read_bytes()==raw
+        corrupt[0]=True;page.get_by_role('button',name='Preview captured text',exact=True).click()
+        playwright.expect(page.locator('#notice')).to_contain_text('could not be read or verified')
+        assert 'VISIBLE-CAPTURE-RESULT' not in page.locator('#detail').inner_text()
+        corrupt[0]=False;page.get_by_role('button',name='Refresh',exact=True).click()
+        page.select_option('#repository','repository:jarvis')
+        page.get_by_role('button',name='Scope details and history',exact=True).click()
+        page.get_by_role('heading',name='Unmapped captured evidence',exact=True).wait_for()
+        playwright.expect(page.locator('#detail')).to_contain_text('Unmapped; explicit association required')
+        browser.close()
+    assert not errors
+
+
 def test_project_workspace_browser(projects, project_reader, key, tmp_path):
     playwright = pytest.importorskip('playwright.sync_api')
     save(projects, 2, '# Architecture\n\nRevised design.\n')

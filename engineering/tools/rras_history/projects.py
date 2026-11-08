@@ -411,11 +411,13 @@ class Projects:
     def read(self, selected_scope, query):
         selected_scope = scope(selected_scope)
         if type(query) is not dict or set(query) - {'view', 'project_id', 'work_id', 'version', 'left', 'right',
-                'offset', 'limit', 'q', 'state', 'archived', 'unassigned', 'snapshot', 'closeout_sequence', 'document_id', 'architecture_version'}:
+                'offset', 'limit', 'q', 'state', 'archived', 'unassigned', 'snapshot', 'closeout_sequence', 'document_id', 'architecture_version','operation'}:
             raise ValueError('bounded project query required')
         view = query.get('view')
         if view not in ('projects', 'project', 'works', 'work', 'architecture', 'compare', 'history', 'document', 'scope', 'reporting'):
             raise ValueError('unsupported project view')
+        if 'operation' in query and (view!='reporting' or query['operation'] not in local('reporting_contract').OPERATIONS):
+            raise ValueError('exact reporting operation filter required')
         offset = bounded(query.get('offset', 0))
         limit = bounded(query.get('limit', 20), 50)
         if not limit:
@@ -551,10 +553,17 @@ class Projects:
         if view == 'reporting':
             work_id = query.get('work_id')
             if work_id is not None and work_id not in works: raise ValueError('work unavailable')
-            selected = [(r, receipt) for r, receipt in reporting_events if
-                (project_id is None or (r['context'] or {}).get('project_id') == project_id) and
-                (work_id is None or ((r['context'] or {}).get('work') or {}).get('work_item_id') == work_id)]
-            result.update(page([dict(submission=r, receipt=receipt) for r, receipt in reversed(selected)]))
+            associations=reporting.associations(reporting_events)
+            selected=[]
+            for r,receipt in reporting_events:
+                context=reporting.context(r,associations)
+                if ((project_id is None or (context or {}).get('project_id')==project_id) and
+                        (work_id is None or ((context or {}).get('work') or {}).get('work_item_id')==work_id) and
+                        (not query.get('unassigned',False) or context is None) and
+                        ('architecture_version' not in query or (context or {}).get('architecture',{}).get('version')==query['architecture_version']) and
+                        ('operation' not in query or r['operation']==query['operation'])):
+                    selected.append(dict(submission=r,receipt=receipt,effective_context=context))
+            result.update(page(list(reversed(selected))))
             result['available'] = 'reporting_sequence' in token
         elif view == 'projects':
             values = [project_public(p) for p in projects.values() if

@@ -220,6 +220,10 @@ class Evidence:
         result=dict(manifest=body,manifest_sha256=receipt['request_sha256'],scope=selected,
             context=request['context'],source=request['source'],snapshot=query['snapshot'],
             audience='authorized_scope_private',authority_granted=False)
+        associations=local('reporting').Reporting.associations(events)
+        association=associations.get((query['artifact_id'],query['version']))
+        result['association']=dict(submission=association[0],receipt=association[1]) if association else None
+        result['effective_context']=association[0]['context'] if association else request['context']
         if 'index' in query:
             index=query['index']
             if type(index) is not int or not 0<=index<len(body['chunks']):raise ValueError('bounded artifact chunk required')

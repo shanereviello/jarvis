@@ -220,20 +220,51 @@ class Reporting:
         self.store.sync()
         return dict(inserted=True, receipt=receipt)
 
+    @staticmethod
+    def associations(events):
+        return {(r['body']['artifact_id'],r['body']['artifact_version']):(r,receipt) for r,receipt in events
+            if r['operation']=='artifact.associate'}
+
+    @staticmethod
+    def context(request,associations):
+        if request['operation']=='artifact.record':
+            key=(request['body']['artifact_id'],request['body']['version'])
+            if key in associations:return associations[key][0]['context']
+        return request['context']
+
     def summary(self, events, *, available, project_id=None, work_id=None):
-        selected = [(r, receipt) for r, receipt in events if
-            (project_id is None or (r['context'] or {}).get('project_id') == project_id) and
-            (work_id is None or ((r['context'] or {}).get('work') or {}).get('work_item_id') == work_id)]
+        associations=self.associations(events)
+        def matches(r):
+            context=self.context(r,associations) or {}
+            return ((project_id is None or context.get('project_id')==project_id) and
+                (work_id is None or (context.get('work') or {}).get('work_item_id')==work_id))
+        selected = [(r, receipt) for r, receipt in events if matches(r)]
         latest = {}
         for request, receipt in events:
             if self.entity(request): latest[self.entity(request)] = (request, receipt)
-        latest = {key: (r, receipt) for key, (r, receipt) in latest.items() if
-            (project_id is None or (r['context'] or {}).get('project_id') == project_id) and
-            (work_id is None or ((r['context'] or {}).get('work') or {}).get('work_item_id') == work_id)}
+        latest = {key: (r, receipt) for key, (r, receipt) in latest.items() if matches(r)}
         mappings = [(r, receipt) for r, receipt in latest.values() if r['operation'] == 'mapping.record']
+        attempts=[(r,receipt) for r,receipt in latest.values() if r['operation']=='attempt.record']
+        attempts.sort(key=lambda item:item[1]['sequence'])
+        freshness={}
+        for r,receipt in selected:
+            if r['operation']=='source.observe':freshness[(r['body']['source']['namespace'],r['body']['source']['id'])]=(r,receipt)
+        reports=[(r,receipt) for r,receipt in selected if r['operation']=='checkpoint.report']
+        def compact(r,receipt,fields):
+            return dict(body={k:r['body'][k] for k in fields},source=r['source'],receipt=receipt)
         return dict(available=available, record_count=len(selected),
             latest_recorded_at=selected[-1][1]['recorded_at'] if selected else None,
             execution_mapping_count=sum(r['body']['kind'] == 'execution' for r, _ in mappings),
             mappings=[dict(body=r['body'], context=r['context'], source=r['source'], receipt=receipt) for r, receipt in mappings[:20]],
+            mappings_has_more=len(mappings)>20,
+            latest_attempt=compact(*attempts[-1],('attempt_id','phase','actor','coordinator','sessions','baseline_commit')) if attempts else None,
+            latest_checkpoint=dict(report_id=reports[-1][0]['body']['report_id'],
+                observation=reports[-1][0]['body']['observations'][0][:512] if reports[-1][0]['body']['observations'] else None,
+                request_sha256=reports[-1][1]['request_sha256'],recorded_at=reports[-1][1]['recorded_at']) if reports else None,
+            source_count=len(freshness),freshness=[compact(r,receipt,('source','status','source_observed_at','cursor'))
+                for r,receipt in sorted(freshness.values(),key=lambda item:item[1]['sequence'])[-10:]],freshness_has_more=len(freshness)>10,
+            artifact_count=sum(r['operation']=='artifact.record' for r,_ in latest.values()),
+            handoff_count=sum(r['operation']=='handoff.record' for r,_ in latest.values()),
+            decision_count=sum(r['operation']=='decision.observe' for r,_ in latest.values()),
             reported_active_attempts=sum(r['operation'] == 'attempt.record' and r['body']['phase'] in ('started', 'progress', 'paused')
                                          for r, _ in latest.values()))

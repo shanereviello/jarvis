@@ -12,6 +12,8 @@ is a separate historical designation, not an edit to the document.
 - [Capture evaluation](capture-evaluation.md)
 - [Linear integration and remaining installation steps](linear-integration.md)
 - [Private evidence byte custody](evidence-custody.md)
+- [Selected-session capture and replay](capture-intake.md)
+- [Reporting reference UI](reference-ui.md)
 
 ## Approved v0.4 integration direction
 
@@ -44,8 +46,14 @@ and remaining acceptance.
 
 Private artifact byte custody is now implemented as an explicit schema 4 → 5
 upgrade, with scoped immutable chunks and signed historical reads. The combined
-evidence/reporting/dashboard/package fixtures pass 115 tests. Capture delivery,
-production migration and the reporting reference UI remain unfinished.
+evidence/reporting/dashboard/package fixtures passed 115 tests. Selected-source
+Codex/Hermes adapters, private redaction, durable export/request replay and bounded
+passive jobs are now implemented. The reporting reference UI exposes mapped work,
+attempts, checkpoints, handoffs, decisions, capture gaps and exact private exports;
+actual Chromium fixtures cover navigation, literal source text, verified Unicode
+downloads, corruption clearing and unmapped evidence. Production migration,
+collector activation, passive Linear observation, curated reporting publication,
+native handoff acceptance and final deployment remain unfinished.
 
 ## Earlier v0.3 source position (historical; see v0.4 direction above)
 
