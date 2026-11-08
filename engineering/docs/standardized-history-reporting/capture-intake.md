@@ -39,6 +39,22 @@ rendering, filters system/developer messages and explicit analysis/reasoning
 channels/fields, then applies the owned intake filter. This API has not been
 installed as a Hermes hook and does not grant Hermes private history access.
 
+The separate `hermes_readonly.py` entry can construct the inspected native
+`SessionDB(read_only=True)` inside the Hermes boundary. Its exact reader source
+is pinned; that native branch opens `mode=ro`, skips schema initialization,
+repair and writer startup, and closes without requesting a WAL checkpoint. One
+SQLite read snapshot covers the selected metadata, compression lineage and
+messages. It requires an initialized canonical database path and an exact ID;
+it never uses native prefix resolution. Native Linear aliases of the form
+`linear:<organization UUID>:<session UUID>` are supported as identities, not paths.
+
+`probe_hermes_native.py --isolated-containers` passes using the installed Hermes
+code in a disposable offline container. A newly created synthetic source retains
+visible messages across native compression, excludes another session and private
+reasoning, and leaves database bytes unchanged. The real native context bindings
+also pass; spoofed process environment variables do not substitute for a bound
+API run. No real Hermes history is exported and no models run in this probe.
+
 The owned `engineering-redaction-v1` profile removes recognized authorization,
 cookie, credential, provider-key, JWT and private-key patterns **before retained
 export writes**. It is not proof that arbitrary secrets are absent. Exports remain

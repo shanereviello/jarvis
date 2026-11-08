@@ -15,6 +15,7 @@ SPECSTORY_VERSION='2.17.0'
 SPECSTORY_SHA256='25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4'
 FLAGS=('--no-cloud-sync','--no-usage-analytics','--no-version-check','--no-telemetry-prompts','--no-stats')
 HERMES_EXPORTER_SHA256='750953cd48cd8cf7435a1c7427f5ff3e1c5d10fda9519cc7a4d3889e7d1b2ffa'
+HERMES_SESSION=r'[A-Za-z0-9][A-Za-z0-9_:-]{0,199}'
 
 
 def local(name):
@@ -42,13 +43,13 @@ def selected_hermes(existing_db,session,authorization_reference):
     This entry point belongs inside the existing Hermes trust boundary.
     """
     authorization(authorization_reference)
-    if type(session) is not str or not re.fullmatch('[A-Za-z0-9_-]{1,200}',session):
+    if type(session) is not str or not re.fullmatch(HERMES_SESSION,session):
         raise ValueError('exact native Hermes session required')
     first=existing_db.get_session(session)
     lineage=existing_db.get_compression_lineage(session) if first else []
     if (not first or type(lineage) is not list or not 1<=len(lineage)<=64 or
             session not in lineage or len(set(lineage))!=len(lineage) or
-            any(type(x) is not str or not re.fullmatch('[A-Za-z0-9_-]{1,200}',x) for x in lineage)):
+            any(type(x) is not str or not re.fullmatch(HERMES_SESSION,x) for x in lineage)):
         raise ValueError('bounded selected native compression lineage required')
     segments=[];count=0
     for identifier in lineage:
@@ -78,7 +79,7 @@ def collect_hermes(spool,*,snapshot,exporter,scope,context,authorization_referen
             info.st_uid not in (0,os.getuid()) or info.st_mode&0o022 or
             hashlib.sha256(exporter.read_bytes()).hexdigest()!=HERMES_EXPORTER_SHA256):
         raise ValueError('reviewed pinned Hermes exporter required')
-    if type(snapshot) is not dict or not re.fullmatch('[A-Za-z0-9_-]{1,200}',snapshot.get('id','')):
+    if type(snapshot) is not dict or type(snapshot.get('id')) is not str or not re.fullmatch(HERMES_SESSION,snapshot['id']):
         raise ValueError('one selected native session dictionary required')
     source=spool.c.encoded(snapshot)
     if len(source)>local('capture_intake').MAX_EXPORT:raise ValueError('bounded native source required')

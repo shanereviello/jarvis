@@ -88,6 +88,14 @@ def test_hermes_reader_is_selected_bounded_and_never_constructed():
     with pytest.raises(ValueError,match='lineage'):m.selected_hermes(db,'selected','fixture permission')
 
 
+def test_hermes_linear_alias_is_exact_and_never_a_path_or_prefix():
+    db=NativeReader();alias='linear:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000005'
+    assert m.selected_hermes(db,alias,'synthetic selected alias')['id']==alias
+    assert any(row[1]==alias for row in db.reads)
+    for identifier in ('../selected','/selected','selected*','selected?','selected\n',None):
+        with pytest.raises(ValueError):m.selected_hermes(db,identifier,'synthetic invalid selection')
+
+
 def test_hermes_native_redaction_then_owned_redaction_and_dedup(tmp_path,monkeypatch):
     spool=intake.Spool(tmp_path/'spool',create=True);source=tmp_path/'native.py'
     source.write_text('# synthetic reviewed exporter fixture');source.chmod(0o600)
