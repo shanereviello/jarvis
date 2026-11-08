@@ -1,5 +1,6 @@
 """Bounded repository-authorized reads only; never opens SQLite or submits notes."""
 import hashlib
+import base64
 import importlib.util
 import json
 from functools import lru_cache
@@ -62,10 +63,25 @@ class Reader:
     def workspace(self,selected,query):
         configured=[{'kind':'repository','id':v} for v in self.repositories]+[{'kind':'non_git','id':v} for v in self.categories]
         if selected not in configured:raise ValueError('unavailable')
-        answer=self.call({'method':'project_read','scope':selected,'query':query})
+        if query['view']=='artifact':
+            answer=self.call({'method':'evidence_read','scope':selected,'query':{k:v for k,v in query.items() if k!='view'}})
+        else:answer=self.call({'method':'project_read','scope':selected,'query':query})
         if (type(answer) is not dict or answer.get('scope')!=selected or
                 answer.get('audience')!='authorized_scope_private' or answer.get('authority_granted') is not False):
             raise ValueError('unavailable')
+        if query['view']=='artifact':
+            manifest=answer.get('manifest',{})
+            if manifest.get('artifact_id')!=query.get('artifact_id') or manifest.get('version')!=query.get('version'):
+                raise ValueError('unavailable')
+            if 'index' in query:
+                chunk=answer.get('chunk',{});index=query['index']
+                if type(index) is not int or not 0<=index<len(manifest.get('chunks',[])):
+                    raise ValueError('unavailable')
+                expected=manifest['chunks'][index]
+                raw=base64.b64decode(chunk.get('data_base64',''),validate=True)
+                if ({k:chunk.get(k) for k in ('index','sha256','byte_length')}!=expected or
+                        len(raw)!=expected['byte_length'] or hashlib.sha256(raw).hexdigest()!=expected['sha256']):
+                    raise ValueError('unavailable')
         if query['view']=='architecture':
             doc=answer.get('document',{})
             if (type(doc.get('markdown')) is not str or len(doc['markdown'].encode())>128*1024 or

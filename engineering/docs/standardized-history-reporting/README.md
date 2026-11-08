@@ -11,6 +11,7 @@ is a separate historical designation, not an edit to the document.
 - [Linear work and decision templates](linear-templates.md)
 - [Capture evaluation](capture-evaluation.md)
 - [Linear integration and remaining installation steps](linear-integration.md)
+- [Private evidence byte custody](evidence-custody.md)
 
 ## Approved v0.4 integration direction
 
@@ -40,6 +41,11 @@ a GraphQL expression defect now corrected in source. The transport workflows,
 SQL migration and coding runtime are not deployed. The sections below retain
 earlier source history; [v0.4 validation](v04-validation.md) gives current evidence
 and remaining acceptance.
+
+Private artifact byte custody is now implemented as an explicit schema 4 → 5
+upgrade, with scoped immutable chunks and signed historical reads. The combined
+evidence/reporting/dashboard/package fixtures pass 115 tests. Capture delivery,
+production migration and the reporting reference UI remain unfinished.
 
 ## Earlier v0.3 source position (historical; see v0.4 direction above)
 

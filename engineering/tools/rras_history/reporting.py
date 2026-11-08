@@ -1,6 +1,6 @@
 """Explicit v3-to-v4 reporting metadata stream; private, immutable and passive.
 
-Artifact finalization is refused until private byte custody is implemented.
+Artifact finalization requires the explicitly migrated private byte custodian.
 This module never contacts Linear, launches a worker or designates architecture.
 """
 from datetime import datetime, timezone
@@ -181,9 +181,15 @@ class Reporting:
                         (linear['organization_id'], linear['issue_id']) == (current['organization_id'], current['issue_id'])):
                     raise ValueError('execution work/issue already has a stable mapping identity')
         if request['operation'] == 'artifact.record':
-            raise ValueError('private evidence byte intake/finalization is not implemented; do not accept an unverified manifest')
+            if previous and any(body[k]!=previous[-1][0]['body'][k] for k in ('session','collector')):
+                raise ValueError('artifact source identity cannot change across revisions')
         if request['operation'] == 'artifact.associate':
-            raise ValueError('retained private artifact required; byte intake is not implemented')
+            if not any(r['operation']=='artifact.record' and r['scope']==request['scope'] and
+                       r['body']['artifact_id']==body['artifact_id'] and r['body']['version']==body['artifact_version'] and
+                       receipt['request_sha256']==body['manifest_sha256'] for r,receipt in events):
+                raise ValueError('exact retained artifact manifest required')
+            if request['expected_head']!=(previous[-1][1]['request_sha256'] if previous else None):
+                raise ValueError('exact previous artifact association required')
 
     def submit(self, value, *, peer_uid=None):
         request = local('reporting_contract').validate(value); raw = self.c.encoded(request); digest = self.c.digest(raw)
@@ -191,7 +197,7 @@ class Reporting:
         principal = os.getuid() if peer_uid is None else -peer_uid
         with self.store.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0] != 4: raise ValueError('explicit reporting upgrade required')
+            if db.execute('PRAGMA user_version').fetchone()[0] not in (4,5): raise ValueError('explicit reporting upgrade required')
             duplicate = db.execute('SELECT request,receipt FROM reporting_submissions WHERE principal=? AND operation=? AND client_key=?',
                                    (principal, request['operation'], request['client_event_key'])).fetchone()
             if duplicate:
@@ -200,6 +206,8 @@ class Reporting:
             events = self.events(db)
             if len(events) >= MAX_EVENTS: raise ValueError('reporting event capacity reached; retain pending delivery')
             self.check_context(db, request); self.check_entity(request, events)
+            if request['operation']=='artifact.record':
+                local('evidence').Evidence(self.store).verify_manifest(db,request['scope'],request['body'])
             stamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             receipt = dict(contract='engineering-reporting-receipt.v1', receipt_id='rcp_' + uuid.uuid4().hex,
                 sequence=len(events) + 1, request_sha256=digest, scope=request['scope'], context=request['context'],

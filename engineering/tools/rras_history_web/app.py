@@ -29,8 +29,9 @@ def snapshot_token(raw):
     if len(raw)>256:raise ValueError('bounded snapshot required')
     value=json.loads(raw,object_pairs_hook=unique)
     fields={'work_sequence','project_sequence'}
-    if type(value) is not dict or set(value) not in (fields,fields|{'sha256'},fields|{'scope_sequence','sha256'}):raise ValueError('exact snapshot fields required')
-    for name in fields|({'scope_sequence'} if 'scope_sequence' in value else set()):
+    if type(value) is not dict or set(value) not in (fields,fields|{'sha256'},fields|{'scope_sequence','sha256'},
+            fields|{'scope_sequence','reporting_sequence','sha256'}):raise ValueError('exact snapshot fields required')
+    for name in fields|({'scope_sequence'} if 'scope_sequence' in value else set())|({'reporting_sequence'} if 'reporting_sequence' in value else set()):
         if type(value[name]) is not int or not 0<=value[name]<=10000:raise ValueError('bounded snapshot sequence required')
     if 'sha256' in value and (type(value['sha256']) is not str or not re.fullmatch('[0-9a-f]{64}',value['sha256'])):
         raise ValueError('exact snapshot MAC required')
@@ -111,10 +112,10 @@ def create_app(reader,access):
     async def workspace(request):
         try:
             allowed={'scope_kind','scope_id','project_id','work_id','version','left','right','offset','limit','q','state',
-                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version'}
+                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version','artifact_id','index'}
             q=query(request,allowed)
             selected={'kind':q.pop('scope_kind'),'id':q.pop('scope_id')}
-            for name in ('version','left','right','offset','limit','closeout_sequence','architecture_version'):
+            for name in ('version','left','right','offset','limit','closeout_sequence','architecture_version','index'):
                 if name in q:q[name]=number(q[name],None)
             for name in ('archived','unassigned'):
                 if name in q:

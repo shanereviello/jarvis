@@ -86,6 +86,14 @@ class Access:
             request = local('reporting_contract').validate(copy.deepcopy(message['request']))
             if not self.allowed(grant, request['scope'], write=True): raise ValueError('access refused')
             return local('reporting').Reporting(self.store).submit(request, peer_uid=peer_uid)
+        if method=='evidence_upload' and set(message)=={'method','request'}:
+            request,raw=local('evidence').validate(copy.deepcopy(message['request']))
+            if not self.allowed(grant,request['scope'],write=True):raise ValueError('access refused')
+            return local('evidence').Evidence(self.store).upload(request,peer_uid=peer_uid)
+        if method=='evidence_read' and set(message)=={'method','scope','query'}:
+            selected=local('projects').scope(message['scope'])
+            if not self.allowed(grant,selected):raise ValueError('access refused')
+            return local('evidence').Evidence(self.store).read(selected,message['query'])
         if method == 'submit' and set(message) == {'method', 'request'}:
             request = local('contract').validate(copy.deepcopy(message['request']))
             body = request['body']

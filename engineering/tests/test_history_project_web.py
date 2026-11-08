@@ -55,6 +55,26 @@ def test_scopes_and_complete_project_reader_path(project_reader, key):
     assert set(c['method'] for c in project_reader.calls) == {'workspace_scopes', 'project_read'}
 
 
+def test_reporting_snapshots_and_private_artifact_chunks(project_reader,projects,key):
+    from test_history_evidence import upload,manifest
+    reporting=module('reporting').Reporting(projects.store)
+    reporting.migrate(reporting.migration_plan()['expected_sha256'])
+    custody=module('evidence').Evidence(projects.store);custody.migrate(custody.migration_plan()['expected_sha256'])
+    raw=b'<script>plain private evidence</script>';custody.upload(upload(raw))
+    value=manifest(projects,raw);reporting.submit(value)
+    app=web('app').create_app(project_reader,access(key))
+    snapshot=client_call(app,key,url('project',project_id=P1)).json()['snapshot']
+    assert snapshot['reporting_sequence']==1
+    token=json.dumps(snapshot,separators=(',',':'))
+    assert client_call(app,key,url('works',project_id=P1,snapshot=token)).status_code==200
+    got=client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,snapshot=token))
+    assert got.status_code==200 and got.json()['chunk']['sha256']==value['body']['content_sha256']
+    assert any(call['method']=='evidence_read' for call in project_reader.calls)
+    wrong=client_call(app,key,url('artifact',artifact_id='cap_'+'9'*32,version=1,index=0,snapshot=token))
+    assert wrong.status_code==503 and 'plain private evidence' not in wrong.text
+    assert client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=-1,snapshot=token)).status_code==400
+
+
 @pytest.mark.parametrize('view,query', [
     ('works', {'project_id': P1}),
     ('architecture', {'project_id': P1, 'version': 1}),

@@ -79,7 +79,7 @@ class Store:
         try:
             db.execute('PRAGMA trusted_schema=OFF')
             db.execute('PRAGMA foreign_keys=ON')
-            if not initializing and db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2, 3, 4):
+            if not initializing and db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2, 3, 4, 5):
                 raise ValueError('unsupported local store version')
             db.execute('PRAGMA journal_mode=DELETE')
             db.execute('PRAGMA synchronous=FULL')
