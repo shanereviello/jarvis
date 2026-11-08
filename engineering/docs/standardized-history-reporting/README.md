@@ -30,6 +30,17 @@ versions and original work identities remain. No service upgrade occurred.
 [Current integration design and runbook](linear-integration.md) describes the
 remaining registration, deployment and live acceptance boundaries.
 
+The native Codex app is now registered and its n8n OAuth viewer has been verified
+as Codex in Reviello Robotics. A single unpublished identity diagnostic was
+created/executed through code, preserving all six previous workflow records.
+Four inactive transport workflow files pin the verified actor and current v0.4
+work revisions. Actual isolated n8n engine tests cover normal intake, duplicate
+handling, initial reply, one dispatch, reconciliation and final reply, and caught
+a GraphQL expression defect now corrected in source. The transport workflows,
+SQL migration and coding runtime are not deployed. The sections below retain
+earlier source history; [v0.4 validation](v04-validation.md) gives current evidence
+and remaining acceptance.
+
 ## Earlier v0.3 source position (historical; see v0.4 direction above)
 
 This first source slice retains the approved design, a repeatable model-free

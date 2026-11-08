@@ -41,9 +41,9 @@ service was installed or activated by this validation.
 
 ## Remaining
 
-The admin must create the distinct Codex app and keep secrets private. Its actual
-client/actor/credential IDs are not fabricated. Actual isolated n8n import and
-workflow execution, credential renewal, runtime recovery/permissions, native
+The distinct Codex app and credentials now exist, and its actual n8n OAuth viewer
+and organization have been verified. Isolated n8n import and normal-path engine
+execution now pass as described below. Credential renewal, runtime recovery/permissions, native
 bidirectional handoffs, release packaging and separately authorized deployment/
 real interaction checks remain. Artifact byte intake, automatic capture and
 observation, reporting UI/curated retrieval and historical architecture closeout
@@ -77,5 +77,52 @@ focused n8n suite passes **20 tests**, and the disposable transport probe passes
 with a synthetic 32-character client ID, including exact incoming comparison,
 wrong-client refusal, Worker signing/forwarding and PostgreSQL replay checks.
 No live workflow, SQL migration, OAuth grant or runtime was activated by these
-checks. Native actor binding and the separate runtime Header Auth credential
-remain pending.
+checks. Subsequent identity binding and runtime credential preparation are
+described below.
+
+## Verified native identity and n8n engine acceptance
+
+Created only the unpublished, manually triggered Codex Identity Check workflow
+using the installed n8n CLI, then executed its read-only viewer query using the
+saved Codex OAuth credential. The actual actor is Codex in Reviello Robotics;
+its identity matches the independently connected Linear user record. Credential
+values were not exported. Hashes of all six pre-existing workflow records were
+unchanged across import. The separate runtime Header Auth reference is also
+present. This diagnostic is not activation of the transport or coding runtime.
+
+The source-retained opt-in probe is:
+
+```bash
+python engineering/tools/rras_reporting/probe_n8n_engine.py --isolated-containers
+```
+
+It starts disposable n8n 2.28.3 and PostgreSQL 18 containers in one network
+namespace without outside connectivity or production mounts. It creates only a
+synthetic fixture owner and credentials, imports all four workflows through the
+fixture editor API, and publishes only its fixture webhook. Actual engine tests
+pass header denial, committed receipt before response, duplicate receipt, initial
+activity, exactly one runtime dispatch, completion reconciliation and final
+activity. A restricted fixture transport role executes the source SQL function
+and workflow queries; a Jarvis sentinel remains unchanged and unreadable by that
+role. Containers, credentials and database are discarded afterward.
+
+This test exposed an **invalid expression** in the generated GraphQL HTTP body,
+missed by the earlier Code-node compilation and SQL-only probe. The actor query
+is now literal JSON. The mutation body is constructed in Code and serialized from
+a field, keeping GraphQL closing braces out of expression templates. The actual
+engine test and **21 focused n8n tests** pass after correction.
+
+The fixture manually triggers the scheduled workflows, redirects Linear/runtime
+HTTP nodes to synthetic local endpoints, and enables fixture-only execution
+retention for diagnostics. Thus production schedule timing, retention settings,
+token renewal, live AgentActivity publication, cancellation, uncertain delivery,
+handoffs, the actual App Server and host permissions still need their respective
+acceptance. Isolated startup required temporary writable n8n cache/state paths;
+concurrent CLI/server startup exceeded the initial fixture resource envelope, so
+the reproducible probe uses one server process and a bounded Node heap.
+
+Private staged workflow files now pin the verified actor, actual credential
+references and all eight current work revisions under governing version 4. Their
+runtime address is explicitly provisional, PostgreSQL credential grants remain
+unverified in production, and none of these four workflows has been imported or
+activated there. No production SQL migration or runtime installation occurred.

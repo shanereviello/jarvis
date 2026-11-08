@@ -94,6 +94,15 @@ It tests real JS admission, generated node compilation, credential refusal,
 Worker signatures/unchanged forwarding, SQL replay/conflict and query preparation.
 It removes the fixture container and never executes live n8n workflows.
 
+**probe_n8n_engine.py --isolated-containers** adds actual four-workflow creation
+and normal-path execution in a disposable n8n 2.28.3 server with a PostgreSQL 18
+fixture and synthetic OAuth/runtime endpoints. It tests committed/deduplicated
+webhook intake, initial reply, single dispatch, reconciliation and final reply.
+Poll triggers are invoked manually and fixture-only execution retention is
+enabled for diagnosis; this does not prove production schedule timing, renewal,
+cancellation or native messaging. No production mounts or outside connectivity
+are available. See [current validation and limits](v04-validation.md).
+
 Before activation, finish:
 
 1. Admin Codex registration and separate n8n OAuth2 configuration; verify complete

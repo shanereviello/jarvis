@@ -168,15 +168,18 @@ return [{json:{event_id:source.event_id,runtime_result:result}}];"""
  ORDER BY CASE WHEN source_key LIKE 'initial:%' THEN 0 ELSE 1 END,created_at LIMIT 1 FOR UPDATE SKIP LOCKED)
  UPDATE linear_bridge.codex_outbox o SET state='uncertain',reason='publication intent; remote outcome not yet confirmed',updated_at=now()
  FROM candidate WHERE o.id=candidate.id RETURNING o.*"""
+    mutation='mutation CodexActivity($input:AgentActivityCreateInput!){agentActivityCreate(input:$input){success agentActivity{id}}}'
     check=f"""const row=$('Claim Codex reply').first().json, reply=$input.first().json;
 const viewer=reply.body?.data?.viewer;
 const permitted=reply.statusCode===200 && !reply.body?.errors && viewer?.id==={json.dumps(app)}
  && viewer?.organization?.id==={json.dumps(org)};
-return [{{json:{{...row,permitted,publication_state:'dead_letter',reason:'Codex credential identity could not be verified'}}}}];"""
+const publication_request={{query:{json.dumps(mutation)},variables:{{input:{{id:row.id,agentSessionId:row.session_id,content:row.content}}}}}};
+return [{{json:{{...row,permitted,publication_request,publication_state:'dead_letter',reason:'Codex credential identity could not be verified'}}}}];"""
     # A UUID is frozen by the SQL row before publication. Lost HTTP results are
     # left uncertain; this workflow does not automatically resend them.
-    mutation='mutation CodexActivity($input:AgentActivityCreateInput!){agentActivityCreate(input:$input){success agentActivity{id}}}'
-    publish_body='={{ JSON.stringify({query:'+json.dumps(mutation)+",variables:{input:{id:$json.id,agentSessionId:$json.session_id,content:$json.content}}}) }}"
+    # Keep GraphQL's adjacent closing braces out of n8n expression strings.
+    # Construct the publication object in Code, then serialize only that field.
+    publish_body='={{ JSON.stringify($json.publication_request) }}'
     outcome="""const row=$('Verify Codex actor').first().json, r=$input.first().json;
 const data=r.body?.data?.agentActivityCreate;
 const sent=r.statusCode===200 && !r.body?.errors && data?.success===true && data?.agentActivity?.id===row.id;
@@ -187,7 +190,7 @@ reason:sent?null:unavailable?'session_unavailable':'publication outcome unconfir
     complete=f"UPDATE linear_bridge.codex_outbox SET state=$2,reason=$3,updated_at=now() WHERE {select} AND id=$1::uuid AND state='uncertain'"
     out_nodes=[schedule(),pg('Claim Codex reply',claim_out),
         http('Read Codex actor','https://api.linear.app/graphql',
-             '={{ JSON.stringify({query:\"query CodexViewer {viewer{id organization{id}}}\"}) }}',True),
+             json.dumps(dict(query='query CodexViewer {viewer{id organization{id}}}')),True),
         code('Verify Codex actor',check),
         node('Correct Codex identity','if',dict(conditions=dict(options=dict(typeValidation='strict'),
             conditions=[dict(id='identity',leftValue='={{ $json.permitted }}',rightValue=True,

@@ -80,6 +80,16 @@ def test_linear_hex_client_id_is_preserved_without_uuid_conversion(config):
     assert '01234567-89ab-cdef-0123-456789abcdef' not in admission
 
 
+def test_graphql_documents_are_kept_out_of_n8n_expression_templates(config):
+    nodes={n['name']:n for n in m.render(config)['workflows']['outbound']['nodes']}
+    viewer=json.loads(nodes['Read Codex actor']['parameters']['body'])
+    assert viewer['query'].startswith('query CodexViewer ')
+    assert nodes['Publish Codex activity']['parameters']['body']=='={{ JSON.stringify($json.publication_request) }}'
+    construction=nodes['Verify Codex actor']['parameters']['jsCode']
+    assert 'AgentActivityCreateInput!' in construction
+    assert 'id:row.id,agentSessionId:row.session_id,content:row.content' in construction
+
+
 @pytest.mark.parametrize('client',[None,32,'', 'a'*31,'a'*33,'g'*32,'a'*32+'\n'])
 def test_invalid_linear_client_ids_are_refused(config,client):
     config['oauth_client_id']=client
