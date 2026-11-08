@@ -34,7 +34,9 @@ The exact v0.4 bytes are retained/designated as version 4 through the existing
 history service, eight work memberships now pin version 4, and SHRR-03/08 have
 explicit revised definitions. REV-46–53 are updated, REV-54 retains the new
 operator decision, and Linear has a separate v0.4 reading copy. Historical
-versions and original work identities remain. No service upgrade occurred.
+versions and original work identities remain. The owner-approved production
+store is now schema 5, and the history service uses the matching staged release.
+The Codex adapter has write access only to the `jarvis` repository scope.
 
 [Current integration design and runbook](linear-integration.md) describes the
 remaining registration, deployment and live acceptance boundaries.
@@ -45,10 +47,13 @@ created/executed through code, preserving all six previous workflow records.
 Four inactive transport workflow files pin the verified actor and current v0.4
 work revisions. Actual isolated n8n engine tests cover normal intake, duplicate
 handling, initial reply, one dispatch, reconciliation and final reply, and caught
-a GraphQL expression defect now corrected in source. The transport workflows,
-SQL migration and coding runtime are not deployed. The sections below retain
-earlier source history; [v0.4 validation](v04-validation.md) gives current evidence
-and remaining acceptance.
+a GraphQL expression defect now corrected in source. The n8n transport
+workflows, their PostgreSQL transport migration and the coding runtime are not
+deployed. The separate owned-history schema migration is deployed; its current
+Linear project and eight issue-to-work mappings have been written and read back
+through the scoped history API. The sections below retain earlier source history;
+[v0.4 validation](v04-validation.md) gives current evidence and remaining
+acceptance.
 
 Private artifact byte custody is now implemented as an explicit schema 4 → 5
 upgrade, with scoped immutable chunks and signed historical reads. The combined
@@ -57,9 +62,11 @@ Codex/Hermes adapters, private redaction, durable export/request replay and boun
 passive jobs are now implemented. The reporting reference UI exposes mapped work,
 attempts, checkpoints, handoffs, decisions, capture gaps and exact private exports;
 actual Chromium fixtures cover navigation, literal source text, verified Unicode
-downloads, corruption clearing and unmapped evidence. Production migration,
-collector activation, production Linear observation and curated-profile installation,
-native handoff acceptance and final deployment remain unfinished. Curated profiles
+downloads, corruption clearing and unmapped evidence. The operator applied the
+production migration and verified the active service plus distinct Codex/dashboard
+scopes; no production artifact bytes have been collected. Collector activation,
+production Linear observation and curated-profile installation, native handoff
+acceptance and final deployment remain unfinished. Curated profiles
 and actual offline MCP search/read with distinct Unix UIDs now pass synthetic
 acceptance; this does not publish private production history or enable a tool.
 
@@ -89,7 +96,7 @@ engineering API credential source, giving the native coding service only the
 OpenAI key. An exact-commit offline release packager now bundles the pinned
 Codex executable/resources and Python imports needed by isolated `-I` services;
 its rendered `.pth` binding and candidate systemd paths are tested. The server
-installation candidate remains inactive. Current focused reporting tests pass;
+Codex runtime candidate remains inactive. Current focused reporting tests pass;
 the broad legacy test suite is limited by missing test dependencies and
 host-only ACL/service checks in this workspace environment.
 
