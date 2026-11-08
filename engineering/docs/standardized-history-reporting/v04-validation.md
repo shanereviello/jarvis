@@ -179,12 +179,13 @@ selected-file capture; it does not claim complete tool/media history or cover
 other sessions.
 
 The new focused reporting suite passes **28 tests**. The isolated current n8n
-engine probe passes its admission-refusal case before generation and all Jarvis,
-handoff and private-reader cases listed above. The broad legacy repository suite
-was also attempted, but its test virtualenv lacks the pinned PyYAML dependency
-and host-integration tests rely on installed services/paths unavailable in this
-workspace sandbox; those failures are not represented as passing. No production
-workflow, migration, service, account, credential or timer was installed.
+engine probe passes all **16 workflow imports** and its admission-refusal case
+before generation, plus the Jarvis, handoff and private-reader cases listed
+above. The broader legacy repository suite was attempted; its test virtualenv
+lacks the pinned PyYAML dependency, and host-integration tests require installed
+services/paths not available in this workspace. Those failures are not
+represented as passing. No production workflow, migration, service, account,
+credential or timer was installed.
 
 The operator confirmed that the existing engineering API setup should serve the
 native Codex runtime and that coding history resides on server01. This guides
