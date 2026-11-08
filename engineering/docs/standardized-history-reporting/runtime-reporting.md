@@ -59,3 +59,11 @@ The configuration uses supported [App Server thread and MCP APIs](https://learn.
 and [stdio MCP settings](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 Compatibility is pinned to the reviewed local release; current documentation
 alone does not establish the installed binary's behavior.
+
+The opt-in `probe_native_checkpoint.py --isolated-containers --binary PATH`
+also passes with installed Codex **0.159.0**, executable SHA-256
+`d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f`.
+It creates a synthetic ephemeral native thread and discovers the actual scoped
+MCP recorder in a disposable nonroot container with only loopback, no credentials
+and no production mounts. It calls **no** `turn/start`. This checks native MCP
+configuration/initialization rather than model behavior or paid execution.
