@@ -155,8 +155,10 @@ def search(preview,reviewed_sha256,repository_id,query,*,offset=0,limit=20):
     entries=[x for x in preview['entries'] if x['repository_id']==repository_id and all(term in
         c.encoded(dict(context=x['context'],details=x['details'],operation=x['source_operation'])).decode().casefold() for term in terms)]
     page=entries[offset:offset+limit]
+    scoped_count=sum(x['repository_id']==repository_id for x in preview['entries'])
     return dict(entries=page,next_offset=offset+len(page),has_more=offset+len(page)<len(entries),preview_sha256=reviewed_sha256,
-        publication_authorized=False,authority_granted=False,source_freshness='not_polled',coverage=preview['coverage'])
+        publication_authorized=False,authority_granted=False,source_freshness='not_polled',
+        coverage=dict(returned_count=scoped_count,eligible_count=None,limit=100))
 
 
 def publish_profile(root,rows,profile,profile_sha256,expected_head,*,approve_profile=False):

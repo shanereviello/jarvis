@@ -105,3 +105,17 @@ def test_installed_profile_executes_through_bounded_writer_without_reapproval(pr
     # Unselected fields or a changed profile cannot be supplied in execution.
     with pytest.raises(ValueError):apply(dict(execution,profile=profile))
     with pytest.raises((ValueError,OSError)):apply(dict(execution,profile_sha256='0'*64))
+
+
+def test_scoped_reader_does_not_receive_other_repository_profile_counts(profile,reporting,projects):
+    checkpoint(reporting,projects);source=rows(reporting)
+    other=copy.deepcopy(source[0]);other['submission']['scope']['id']='other'
+    other['submission']['context']['project_id']='prj_'+'9'*32
+    other['receipt'].update(scope=other['submission']['scope'],context=other['submission']['context'],
+        request_sha256=c.digest(c.encoded(other['submission'])))
+    profile['projects'].append(dict(project_id='prj_'+'9'*32,repository_id='other'))
+    preview=m.build(source+[other],profile,sha(profile))
+    assert preview['coverage']['eligible_count']==2  # Operator-private preview.
+    answer=m.search(preview,c.digest(c.encoded(preview)),'jarvis','')
+    assert len(answer['entries'])==1 and answer['coverage']['returned_count']==1
+    assert answer['coverage']['eligible_count'] is None
