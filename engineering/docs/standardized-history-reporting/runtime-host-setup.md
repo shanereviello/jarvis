@@ -70,9 +70,34 @@ the server's systemd 249; it reports only expected missing executable paths
 because the candidate release is not installed. It also exposed and corrected
 the `Accept=yes` service-template naming for systemd 249.
 
+## Offline Python environment for the candidate release
+
+The release includes exact pinned Python imports under `vendor/site-packages`;
+it does not run pip or access the package index. After a separately approved
+release stage, create its venv using the already-installed pinned CPython 3.13.16
+and expose only that release's vendor directory with the packaged inert `.pth`
+file. For the release directory shown by its manifest:
+
+```bash
+RELEASE=/opt/rras-engineering/releases/standardized-history-<manifest-prefix>
+PYTHON=/opt/rras-engineering/releases/cpython-3.13.16-ae7041461525/bin/python3.13
+sudo "$PYTHON" -m venv --without-pip "$RELEASE/venv"
+sudo install -o root -g root -m 0444 \
+  "$RELEASE/runtime/rras-vendor-site-packages.pth" \
+  "$RELEASE/venv/lib/python3.13/site-packages/rras-vendor.pth"
+sudo "$RELEASE/venv/bin/python" -I -c \
+  'import mcp.server.fastmcp, jsonschema; print(jsonschema.__version__)'
+```
+
+The last command must print `4.26.0`. This makes `python -I` used by the units
+resolve the exact bundled libraries without inheriting user site-packages,
+`PYTHONPATH`, pip state, or packages from Hermes. The venv setup is a later
+host installation action; the current source build has not run it.
+
 The following still require the merged release and root-owned server setup:
 
-- build the pinned private Python environment and install the immutable release;
+- install the immutable release and create the pinned private Python environment
+  using the commands above;
 - create the two new service users with separate primary groups and no extra
   groups, then create their state/config paths and exact socket ACLs;
 - extract the existing API key through the helper and install root-owned runtime

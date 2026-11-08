@@ -86,9 +86,12 @@ the Hermes native reader fixture confirms compression lineage, exact source
 selection, reasoning exclusion and unchanged source bytes. Review-only systemd
 unit candidates now target the existing `jarvis-net` bridge and the existing
 engineering API credential source, giving the native coding service only the
-OpenAI key. The server installation candidate remains inactive. Current focused
-reporting tests pass; the broad legacy test suite is limited by missing test
-dependencies and host-only ACL/service checks in this workspace environment.
+OpenAI key. An exact-commit offline release packager now bundles the pinned
+Codex executable/resources and Python imports needed by isolated `-I` services;
+its rendered `.pth` binding and candidate systemd paths are tested. The server
+installation candidate remains inactive. Current focused reporting tests pass;
+the broad legacy test suite is limited by missing test dependencies and
+host-only ACL/service checks in this workspace environment.
 
 ## Earlier v0.3 source position (historical; see v0.4 direction above)
 
