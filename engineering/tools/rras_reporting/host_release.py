@@ -122,6 +122,61 @@ def render_release(files,release):
     return rendered
 
 
+def verify(candidate,expected_manifest_sha256):
+    candidate=Path(candidate)
+    if (not candidate.is_absolute() or candidate.resolve(strict=True)!=candidate or
+            type(expected_manifest_sha256) is not str or not re.fullmatch('[0-9a-f]{64}',expected_manifest_sha256)):
+        raise ValueError('canonical candidate and manifest digest required')
+    manifest_path=candidate/'manifest.json';manifest_raw=regular(manifest_path)
+    if digest(manifest_raw)!=expected_manifest_sha256:raise ValueError('release manifest digest differs')
+    manifest=json.loads(manifest_raw,object_pairs_hook=lambda pairs: _unique_object(pairs))
+    if (type(manifest) is not dict or set(manifest)!={'contract','source_commit','release','payload_sha256',
+            'codex_binary_sha256','dependencies','installed','activated','files'} or
+            json.dumps(manifest,sort_keys=True,indent=2).encode()+b'\n'!=manifest_raw or
+            manifest['contract']!='rras-codex-runtime-release.v1' or manifest['installed'] is not False or
+            manifest['activated'] is not False or type(manifest['source_commit']) is not str or
+            not re.fullmatch('[0-9a-f]{40}',manifest['source_commit']) or manifest['dependencies']!=DEPENDENCIES or
+            type(manifest['files']) is not dict or not 1<=len(manifest['files'])<=2048):
+        raise ValueError('valid inactive runtime release manifest required')
+    release=manifest['release']
+    if not re.fullmatch('/opt/rras-engineering/releases/standardized-history-[0-9a-f]{12}',release):
+        raise ValueError('manifest release path differs')
+    files={};total=0
+    for name,expected in manifest['files'].items():
+        safe_relative(name)
+        if type(expected) is not str or not re.fullmatch('[0-9a-f]{64}',expected):raise ValueError('file digest required')
+        raw=regular(candidate/name);total+=len(raw)
+        if total>1024*1024*1024 or digest(raw)!=expected:raise ValueError('release member digest differs')
+        files[name]=raw
+    entries=list(candidate.rglob('*'))
+    if any(path.is_symlink() for path in entries):raise ValueError('release tree cannot contain symlinks')
+    observed={path.relative_to(candidate).as_posix() for path in entries if path.is_file()}
+    if observed!=set(files)|{'manifest.json'}:raise ValueError('unexpected or missing release member')
+    if manifest['codex_binary_sha256']!=CODEX_SHA256 or digest(files.get('runtime/bin/codex',b''))!=CODEX_SHA256:
+        raise ValueError('pinned Codex executable differs')
+    expected_pth=(release+'/vendor/site-packages\n').encode()
+    if files.get('runtime/rras-vendor-site-packages.pth')!=expected_pth:raise ValueError('vendor environment binding differs')
+    source_files={}
+    for name,raw in files.items():
+        if name=='runtime/rras-vendor-site-packages.pth':continue
+        if name.startswith('engineering/systemd/'):
+            raw=raw.replace(release.encode(),b'/opt/rras-engineering/releases/standardized-history-runtime')
+        source_files[name]=raw
+    payload_sha,_=release_digest(source_files)
+    if manifest['payload_sha256']!=payload_sha or release!='/opt/rras-engineering/releases/standardized-history-'+payload_sha[:12]:
+        raise ValueError('release content identity differs')
+    if render_release(source_files,release)!=files:raise ValueError('rendered release members differ')
+    return manifest,files
+
+
+def _unique_object(pairs):
+    result={}
+    for key,value in pairs:
+        if key in result:raise ValueError('duplicate manifest key')
+        result[key]=value
+    return result
+
+
 def build(source,binary,site,destination,commit):
     source=Path(source).resolve(strict=True);destination=Path(destination)
     if (destination.exists() or destination.is_symlink() or not destination.is_absolute() or
@@ -144,8 +199,9 @@ def build(source,binary,site,destination,commit):
         path.write_bytes(raw);path.chmod(0o555 if name in binary_files else 0o444)
     manifest_raw=json.dumps(manifest,sort_keys=True,indent=2).encode()+b'\n'
     (destination/'manifest.json').write_bytes(manifest_raw);(destination/'manifest.json').chmod(0o444)
+    manifest_sha=digest(manifest_raw);verify(destination,manifest_sha)
     return dict(phase='inactive_codex_runtime_release_prepared',release=release,files=len(files),
-        manifest_sha256=digest(manifest_raw),source_commit=commit,installed=False,activated=False,
+        manifest_sha256=manifest_sha,source_commit=commit,installed=False,activated=False,
         api_calls=0,models_started=0)
 
 
