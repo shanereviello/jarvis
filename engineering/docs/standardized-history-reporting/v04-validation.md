@@ -126,3 +126,24 @@ references and all eight current work revisions under governing version 4. Their
 runtime address is explicitly provisional, PostgreSQL credential grants remain
 unverified in production, and none of these four workflows has been imported or
 activated there. No production SQL migration or runtime installation occurred.
+
+## Runtime recovery and expanded engine cases
+
+The focused runtime/n8n suites pass **47 tests**. A restarted adapter can recover
+a terminal result by reading only its exact retained native thread/turn pair,
+checking the workspace, and retaining a digest of the observed stored turn. Wrong
+or duplicate turns, missing IDs/history, active turns and malformed context remain
+uncertain. No read-only reconciliation starts or resumes a model turn. The
+`thread/read` request validates against the installed 0.159.0 schema; see the
+[official App Server reference](https://learn.chatgpt.com/docs/app-server).
+
+The expanded actual n8n engine probe also passes uncertainty followed by a final
+result, serialized follow-up, matching-turn cancellation, a single cancellation
+result, lost publication without automatic resend and refusal of a wrong OAuth
+actor. It found another engine-specific condition: an empty PostgreSQL result can
+arrive as an empty item. Explicit queue guards now prevent empty dispatch/reply
+processing. Uncertainty uses a thought activity and a separately frozen state
+key, allowing a later confirmed terminal result to be delivered without rewriting
+or resending an earlier activity. A stop request does not duplicate its target
+turn's cancellation result. These are synthetic engine/runtime results, not live
+Linear cancellation, native handoff or paid execution acceptance.

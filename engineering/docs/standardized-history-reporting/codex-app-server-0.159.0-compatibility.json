@@ -31,6 +31,12 @@
       "sha256": "6dff382dae73d1dbc58406ed045605f647e7a49660e2540fbd2c6c24d60c5f2b",
       "compatible": true,
       "errors": []
+    },
+    {
+      "schema": "v2/ThreadReadParams.json",
+      "sha256": "dfe040c6ac71d30795b8be3f3ff232e66f362a37f883b491e5d1ea367f470db4",
+      "compatible": true,
+      "errors": []
     }
   ]
 }

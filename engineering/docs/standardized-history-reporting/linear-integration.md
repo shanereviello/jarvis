@@ -77,8 +77,12 @@ spending/execution authority; architecture approval alone does not grant it.
 The journal is runtime evidence, not another OAuth/webhook database. It pins policy,
 locks one adapter process, records intent before RPC, and stores thread/lineage/turn
 IDs separately. Repeated dispatch returns retained status. Restart or stream loss
-leaves active work uncertain and blocks rerun. Automated cross-process runtime
-reconciliation is unfinished.
+leaves active work uncertain and blocks rerun. A status read now uses
+`thread/read` for an exact retained thread/turn pair and accepts only a matching
+terminal turn with the configured workspace. A missing turn ID, missing history,
+different workspace or still-active stored turn remains uncertain. Recovery never
+starts/resumes a generation. Full history exceeding the bounded RPC frame also
+remains unresolved; paginated-history support is not claimed.
 
 App Server start/resume/turn/cancellation use the supported interface. Permission
 or tool requests are never auto-approved; use the existing operator surface.

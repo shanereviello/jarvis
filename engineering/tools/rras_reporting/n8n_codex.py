@@ -121,7 +121,9 @@ def render(value):
  FROM candidate WHERE e.id=candidate.id RETURNING e.*,
  (SELECT a.id FROM linear_bridge.codex_events a WHERE a.organization_id=e.organization_id AND a.app_user_id=e.app_user_id
  AND a.session_id=e.session_id AND a.id<>e.id AND a.state='running' ORDER BY a.received_at DESC LIMIT 1) AS active_dispatch"""
-    prepare="""const e=$input.first().json, v=e.envelope;
+    prepare="""const e=$input.first().json;
+if (!e.id) return [];
+const v=e.envelope;
 const stop=v.signal==='stop', target=stop?e.active_dispatch:e.id;
 return [{json:{event_id:e.id,target_dispatch:target,can_dispatch:!!target,
 url:ORIGIN+(stop?'/v1/interrupt':'/v1/dispatch'),
@@ -139,12 +141,13 @@ return [{json:{event_id:source.event_id,runtime_result:result}}];"""
  UPDATE linear_bridge.codex_events SET state=$2::jsonb->>'state',runtime_result=$2::jsonb,updated_at=now()
  WHERE {select} AND id=$1::uuid RETURNING *)
  INSERT INTO linear_bridge.codex_outbox(organization_id,app_user_id,session_id,source_key,content)
- SELECT organization_id,app_user_id,session_id,'result:'||id::text,
- jsonb_build_object('type',CASE WHEN state='completed' THEN 'response' ELSE 'error' END,'body',
+ SELECT organization_id,app_user_id,session_id,'result:'||id::text||':'||state,
+ jsonb_build_object('type',CASE WHEN state='completed' THEN 'response' WHEN state='uncertain' THEN 'thought' ELSE 'error' END,'body',
  CASE WHEN state='completed' THEN left(coalesce(runtime_result->>'result','Completed without a captured final response; inspect retained runtime evidence.'),10000)
  WHEN state='interrupted' THEN 'Codex turn interrupted.' WHEN state='uncertain' THEN 'Codex runtime outcome is uncertain; retained state needs reconciliation. Work has not been automatically rerun.'
  ELSE 'Codex runtime failed; inspect retained evidence.' END)
  FROM updated WHERE state IN ('completed','failed','interrupted','uncertain')
+ AND (coalesce(envelope->>'signal','')<>'stop' OR state='uncertain')
  ON CONFLICT(organization_id,app_user_id,source_key) DO NOTHING"""
     repl='={{ [$json.event_id,JSON.stringify($json.runtime_result)] }}'
     dispatch_nodes=[schedule(),pg('Claim Codex dispatch',claim),code('Prepare Codex dispatch',prepare),
@@ -158,8 +161,9 @@ return [{json:{event_id:source.event_id,runtime_result:result}}];"""
     conn['Known target']=dict(main=[[dict(node='Dispatch fixed Codex runtime',type='main',index=0)],
                                   [dict(node='Record dispatch outcome',type='main',index=0)]])
     dispatch=workflow('Codex Runtime Dispatch v0.4 (inactive)',dispatch_nodes,conn)
-    poll=f"SELECT id AS event_id,coalesce(runtime_result->>'dispatch',id::text)::uuid AS target_dispatch FROM linear_bridge.codex_events WHERE {select} AND (state='running' OR (state='dispatching' AND updated_at<now()-interval '60 seconds')) ORDER BY updated_at,received_at LIMIT 1"
+    poll=f"SELECT id AS event_id,coalesce(runtime_result->>'dispatch',id::text)::uuid AS target_dispatch FROM linear_bridge.codex_events WHERE {select} AND (state IN ('running','uncertain') OR (state='dispatching' AND updated_at<now()-interval '60 seconds')) ORDER BY updated_at,received_at LIMIT 1"
     reconcile=workflow('Codex Runtime Reconcile v0.4 (inactive)',[schedule(),pg('Select Codex runtime',poll),
+        code('Require tracked Codex runtime','return $input.all().filter(x=>x.json.event_id && x.json.target_dispatch);'),
         http('Read fixed Codex runtime','={{ '+json.dumps(c['runtime_origin'].rstrip('/')+'/v1/runs/')+'+$json.target_dispatch }}'),
         code('Assess runtime',assess.replace('PREPARE',json.dumps('Select Codex runtime'))),
         pg('Record runtime outcome',finish,repl)])
@@ -189,6 +193,7 @@ return [{json:{id:row.id,publication_state:sent?'sent':unavailable?'dead_letter'
 reason:sent?null:unavailable?'session_unavailable':'publication outcome unconfirmed; reconcile frozen activity UUID'}}];"""
     complete=f"UPDATE linear_bridge.codex_outbox SET state=$2,reason=$3,updated_at=now() WHERE {select} AND id=$1::uuid AND state='uncertain'"
     out_nodes=[schedule(),pg('Claim Codex reply',claim_out),
+        code('Require pending Codex reply','return $input.all().filter(x=>x.json.id);'),
         http('Read Codex actor','https://api.linear.app/graphql',
              json.dumps(dict(query='query CodexViewer {viewer{id organization{id}}}')),True),
         code('Verify Codex actor',check),

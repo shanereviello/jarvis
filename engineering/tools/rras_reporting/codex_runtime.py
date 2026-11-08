@@ -330,7 +330,49 @@ class Runtime:
             with self.connection() as db:
                 row = db.execute('SELECT * FROM turns WHERE dispatch=?', (dispatch,)).fetchone()
                 if not row: raise ValueError('unknown dispatch')
-                return self._public(row)
+            if row['state']=='uncertain' and row['thread'] and row['turn']:
+                self._reconcile(row)
+                with self.connection() as db:
+                    row=db.execute('SELECT * FROM turns WHERE dispatch=?',(dispatch,)).fetchone()
+            return self._public(row)
+
+    def _reconcile(self, row):
+        """Read only the retained thread and accept only the exact saved turn.
+
+        An unacknowledged turn/start with no retained turn ID cannot be inferred
+        from whichever turn happens to be latest. It remains uncertain.
+        """
+        try:
+            if self.client is not None and getattr(self.client,'closed',False):
+                self.client.close();self.client=None
+            thread=self._client().call('thread/read',dict(threadId=row['thread'],includeTurns=True))['thread']
+            if (type(thread) is not dict or thread.get('id')!=row['thread'] or
+                    thread.get('cwd')!=self.policy['cwd']):
+                raise ValueError('stored thread context differs')
+            turns=thread.get('turns',[])
+            if type(turns) is not list or any(type(t) is not dict for t in turns):
+                raise ValueError('stored turn list differs')
+            matches=[t for t in turns if t.get('id')==row['turn']]
+            if len(matches)!=1 or matches[0].get('status') not in ('completed','failed','interrupted'):
+                return
+            turn=matches[0];result=None
+            items=turn.get('items',[])
+            if type(items) is not list or any(type(i) is not dict for i in items):
+                raise ValueError('stored items differ')
+            for item in items:
+                if item.get('type')=='agentMessage' and item.get('text'):
+                    result=bounded(item['text'],MAX_MESSAGE)
+            evidence=dict(method='adapter/reconciled',params=dict(threadId=row['thread'],
+                turnId=row['turn'],status=turn['status'],stored_turn_sha256=hashlib.sha256(encoded(turn)).hexdigest()))
+            with self.connection() as db:
+                db.execute('INSERT INTO events(dispatch,body) VALUES(?,?)',(row['dispatch'],encoded(evidence)))
+                db.execute("UPDATE turns SET state=?,result=coalesce(?,result),reason=? WHERE dispatch=? AND state='uncertain'",
+                    (turn['status'],result,'reconciled exact stored runtime turn'+
+                     ('; final response unavailable' if result is None else ''),row['dispatch']))
+        except (ValueError,OSError,KeyError,TypeError):
+            # A failed read does not authorize a resume, a new turn or a guessed
+            # completion. Keep the original frozen dispatch available for audit.
+            return
 
     def interrupt(self, dispatch):
         with self.lock:

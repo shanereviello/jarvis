@@ -70,6 +70,13 @@ def test_no_blind_outbox_retry_or_runtime_relaunch(config):
     query=next(n for n in dispatch['nodes'] if n['name']=='Claim Codex dispatch')['parameters']['query']
     assert "('dispatching','running','uncertain')" in query
     assert 'FOR UPDATE SKIP LOCKED' in query
+    reconcile=package['workflows']['reconcile']
+    select=next(n for n in reconcile['nodes'] if n['name']=='Select Codex runtime')['parameters']['query']
+    assert "state IN ('running','uncertain')" in select
+    finish=next(n for n in reconcile['nodes'] if n['name']=='Record runtime outcome')['parameters']['query']
+    assert "'result:'||id::text||':'||state" in finish
+    assert "WHEN state='uncertain' THEN 'thought'" in finish
+    assert "coalesce(envelope->>'signal','')<>'stop'" in finish
 
 
 def test_linear_hex_client_id_is_preserved_without_uuid_conversion(config):

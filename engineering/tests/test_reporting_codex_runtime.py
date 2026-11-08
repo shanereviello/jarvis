@@ -128,7 +128,7 @@ def test_restart_does_not_claim_a_running_turn_finished(runtime,policy):
     value,client=runtime;value.dispatch(request(policy));value.close()
     restarted=m.Runtime(value.root,policy,client_factory=Client)
     assert restarted.status(uid(4))['state']=='uncertain'
-    assert restarted.client is None
+    assert restarted.client.calls==[('thread/read',dict(threadId='thread-1',includeTurns=True))]
     restarted.close()
 
 
@@ -196,3 +196,48 @@ def test_different_issues_cannot_edit_same_fixed_worktree(tmp_path,policy):
         with pytest.raises(ValueError,match='workspace has an active'):value.dispatch(other)
         assert len([m for m,_ in client.calls if m=='turn/start'])==1
     finally:value.close()
+
+
+@pytest.mark.parametrize('terminal',['completed','failed','interrupted'])
+def test_restart_recovers_only_the_exact_saved_terminal_turn(tmp_path,policy,terminal):
+    first=Client();value=m.Runtime(tmp_path/'recover',policy,create=True,client_factory=lambda *a:first)
+    value.dispatch(request(policy));value.close()
+    class Reader(Client):
+        def call(self,method,params):
+            self.calls.append((method,params))
+            assert method=='thread/read'
+            return dict(thread=dict(id='thread-1',cwd=policy['cwd'],turns=[
+                dict(id='turn-1',status=terminal,items=[dict(type='agentMessage',text='Recovered exact result.')]),
+                dict(id='later-unrelated-turn',status='completed',items=[dict(type='agentMessage',text='Do not substitute.')])]))
+    reader=Reader();restarted=m.Runtime(value.root,policy,client_factory=lambda *a:reader)
+    try:
+        result=restarted.status(uid(4))
+        assert result['state']==terminal and result['result']=='Recovered exact result.'
+        assert reader.calls==[('thread/read',dict(threadId='thread-1',includeTurns=True))]
+        assert restarted.dispatch(request(policy))['state']==terminal
+        assert len(reader.calls)==1
+    finally:restarted.close()
+
+
+@pytest.mark.parametrize('change',['wrong_thread','wrong_cwd','missing_turn','active','duplicate_turn','malformed_items'])
+def test_restart_reconciliation_never_guesses_a_result(tmp_path,policy,change):
+    first=Client();value=m.Runtime(tmp_path/'unresolved',policy,create=True,client_factory=lambda *a:first)
+    value.dispatch(request(policy));value.close()
+    class Reader(Client):
+        def call(self,method,params):
+            self.calls.append((method,params));assert method=='thread/read'
+            turn=dict(id='turn-1',status='completed',items=[])
+            thread=dict(id='thread-1',cwd=policy['cwd'],turns=[turn])
+            if change=='wrong_thread':thread['id']='other-thread'
+            elif change=='wrong_cwd':thread['cwd']='/'
+            elif change=='missing_turn':turn['id']='later-turn'
+            elif change=='active':turn['status']='inProgress'
+            elif change=='duplicate_turn':thread['turns'].append(dict(turn))
+            elif change=='malformed_items':turn['items']=[None]
+            return dict(thread=thread)
+    reader=Reader();restarted=m.Runtime(value.root,policy,client_factory=lambda *a:reader)
+    try:
+        assert restarted.status(uid(4))['state']=='uncertain'
+        with pytest.raises(ValueError,match='active or uncertain'):restarted.dispatch(request(policy,6,7))
+        assert all(method=='thread/read' for method,_ in reader.calls)
+    finally:restarted.close()

@@ -115,21 +115,25 @@ def probe():
                 for ref in n.get('credentials',{}).values():ref['id']=credential_refs[ref['id']]
             print('Importing fixture '+name,flush=True)
             workflows[name]=api('/rest/workflows',w)
-        remote=r"""const http=require('node:http');const state={calls:[],activities:[],requests:[],active:null,complete:false};
+        remote=r"""const http=require('node:http');const state={calls:[],activities:[],requests:[],interrupts:[],active:null,complete:false,uncertain:false,losePublication:false,wrongActor:false};
 const uid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
 http.createServer(async(req,res)=>{let raw='';for await(const x of req)raw+=x;let b=raw?JSON.parse(raw):{};
 state.requests.push({url:req.url,authorization:req.headers.authorization,query:b.query});
 const reply=(status,v)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(v));};
 if(req.url==='/fixture/status')return reply(200,state);
 if(req.url==='/fixture/complete'){state.complete=true;return reply(200,{ok:true});}
+if(req.url==='/fixture/uncertain'){state.uncertain=true;return reply(200,{ok:true});}
+if(req.url==='/fixture/lose-publication'){state.losePublication=true;return reply(200,{ok:true});}
+if(req.url==='/fixture/wrong-actor'){state.wrongActor=true;return reply(200,{ok:true});}
 if(req.url==='/graphql'){
 if(req.headers.authorization!=='Bearer synthetic-oauth-token')return reply(403,{error:'fixture OAuth denied'});
-if(b.query.startsWith('query '))return reply(200,{data:{viewer:{id:uid(2),organization:{id:uid(1)}}}});
-state.activities.push(b.variables.input);return reply(200,{data:{agentActivityCreate:{success:true,agentActivity:{id:b.variables.input.id}}}});}
+if(b.query.startsWith('query '))return reply(200,{data:{viewer:{id:uid(state.wrongActor?20:2),organization:{id:uid(1)}}}});
+state.activities.push(b.variables.input);if(state.losePublication){state.losePublication=false;return res.destroy();}
+return reply(200,{data:{agentActivityCreate:{success:true,agentActivity:{id:b.variables.input.id}}}});}
 if(req.headers.authorization!=='Bearer synthetic-runtime-bridge')return reply(403,{error:'fixture runtime denied'});
-if(req.url==='/runtime/v1/dispatch'){state.calls.push(b);state.active=b.dispatch_id;return reply(202,{dispatch:b.dispatch_id,state:'running'});}
-if(req.url==='/runtime/v1/interrupt')return reply(200,{dispatch:b.dispatch_id,state:'interrupted'});
-if(req.url.startsWith('/runtime/v1/runs/'))return reply(200,{dispatch:req.url.split('/').pop(),state:state.complete?'completed':'running',result:'Synthetic final result'});
+if(req.url==='/runtime/v1/dispatch'){state.calls.push(b);state.active=b.dispatch_id;state.complete=false;state.uncertain=false;return reply(202,{dispatch:b.dispatch_id,state:'running'});}
+if(req.url==='/runtime/v1/interrupt'){state.interrupts.push(b.dispatch_id);return reply(200,{dispatch:b.dispatch_id,state:'interrupted'});}
+if(req.url.startsWith('/runtime/v1/runs/')){const id=req.url.split('/').pop();return reply(200,{dispatch:id,state:state.interrupts.includes(id)?'interrupted':state.complete?'completed':state.uncertain?'uncertain':'running',result:'Synthetic final result'});}
 reply(404,{error:'unknown fixture route'});
 }).listen(8899,'127.0.0.1');"""
         node("require('node:fs').writeFileSync('/tmp/remote.cjs',require('node:fs').readFileSync(0));",remote)
@@ -163,18 +167,64 @@ reply(404,{error:'unknown fixture route'});
         execute('dispatch')
         assert sql("SELECT count(*) FROM linear_bridge.codex_events WHERE state='running';").strip()=='1'
         execute('reconcile')
+        request('/fixture/uncertain',{},port=8899)
+        execute('reconcile');execute('outbound')
+        assert sql("SELECT count(*) FROM linear_bridge.codex_events WHERE state='uncertain';").strip()=='1'
+        execute('reconcile')
+        assert sql('SELECT count(*) FROM linear_bridge.codex_outbox;').strip()=='2'
         request('/fixture/complete',{},port=8899)
         execute('reconcile');execute('outbound')
         assert sql("SELECT count(*) FROM linear_bridge.codex_events WHERE state='completed';").strip()=='1'
-        assert sql("SELECT count(*) FROM linear_bridge.codex_outbox WHERE state='sent';").strip()=='2'
+        assert sql("SELECT count(*) FROM linear_bridge.codex_outbox WHERE state='sent';").strip()=='3'
         status=json.loads(request('/fixture/status',port=8899)['body'])
-        assert len(status['calls'])==1 and len(status['activities'])==2,status
+        assert len(status['calls'])==1 and len(status['activities'])==3,status
+        assert status['activities'][1]['content']['type']=='thought'
         assert status['activities'][-1]['content']['body']=='Synthetic final result'
+
+        def deliver(session,delivery,activity=None,signal=None):
+            value=dict(body,webhookTimestamp=int(time.time()*1000),
+                agentSession=dict(body['agentSession'],id=str(uuid.UUID(int=session))))
+            if activity is not None:
+                value['action']='prompted'
+                value['agentActivity']=dict(id=str(uuid.UUID(int=activity)),agentSessionId=str(uuid.UUID(int=session)),
+                    userId=str(uuid.UUID(int=6)),content=dict(type='prompt',body='Synthetic follow-up'))
+                if signal:value['agentActivity']['signal']=signal
+            hs=dict(headers);hs['Linear-Delivery']=str(uuid.UUID(int=delivery))
+            hs['X-RRAS-Codex-Body-Sha256']=hashlib.sha256(json.dumps(value).encode()).hexdigest()
+            response=request(path,value,hs);assert response['status']==200,response
+            return json.loads(response['body'])['event_id']
+        current=deliver(50,51);execute('dispatch')
+        follow=deliver(50,52,52);execute('dispatch')
+        assert sql("SELECT state FROM linear_bridge.codex_events WHERE id='"+follow+"';").strip()=='pending'
+        stop=deliver(50,53,53,'stop');execute('dispatch')
+        status=json.loads(request('/fixture/status',port=8899)['body'])
+        assert len(status['calls'])==2 and status['interrupts']==[current],status
+        execute('reconcile')
+        assert sql("SELECT state FROM linear_bridge.codex_events WHERE id='"+current+"';").strip()=='interrupted'
+        assert sql("SELECT count(*) FROM linear_bridge.codex_outbox WHERE source_key LIKE 'result:"+stop+":%';").strip()=='0'
+        execute('outbound');execute('outbound')
+        execute('dispatch')
+        status=json.loads(request('/fixture/status',port=8899)['body'])
+        assert len(status['calls'])==3 and status['calls'][-1]['dispatch_id']==follow,status
+        request('/fixture/complete',{},port=8899);execute('reconcile');execute('outbound')
+
+        def reply_row(key):
+            return sql("INSERT INTO linear_bridge.codex_outbox(organization_id,app_user_id,session_id,source_key,content) VALUES('"+
+                c['organization_id']+"','"+c['app_user_id']+"','"+str(uuid.UUID(int=5))+"','"+key+"','{\"type\":\"thought\",\"body\":\"Fixture only\"}') RETURNING id;").splitlines()[0].strip()
+        lost=reply_row('fixture-lost-publication');request('/fixture/lose-publication',{},port=8899)
+        execute('outbound')
+        assert sql("SELECT state FROM linear_bridge.codex_outbox WHERE id='"+lost+"';").strip()=='uncertain'
+        before=json.loads(request('/fixture/status',port=8899)['body']);execute('outbound')
+        after=json.loads(request('/fixture/status',port=8899)['body'])
+        assert before['activities']==after['activities']
+        refused=reply_row('fixture-wrong-actor');request('/fixture/wrong-actor',{},port=8899);execute('outbound')
+        assert sql("SELECT state FROM linear_bridge.codex_outbox WHERE id='"+refused+"';").strip()=='dead_letter'
+        assert len(json.loads(request('/fixture/status',port=8899)['body'])['activities'])==len(after['activities'])
         assert sql('SELECT value FROM linear_bridge.jarvis_fixture;').strip()=='preserve'
         try:sql('SET ROLE codex_transport; SELECT * FROM linear_bridge.jarvis_fixture;')
         except ValueError:pass
         else:raise ValueError('Transport could read the Jarvis sentinel')
-        print(json.dumps(dict(n8n_version='2.28.3',actual_import=True,actual_http_webhook=True,header_denial=True,durable_receipt=True,duplicate_receipt=True,initial_activity=True,exact_single_dispatch=True,runtime_reconcile=True,final_activity=True,role_grants=True,jarvis_sentinel_preserved=True,network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
+        print(json.dumps(dict(n8n_version='2.28.3',actual_import=True,actual_http_webhook=True,header_denial=True,durable_receipt=True,duplicate_receipt=True,initial_activity=True,exact_single_dispatch=True,runtime_reconcile=True,uncertain_then_final=True,follow_up_serialized=True,matching_turn_stop=True,one_cancellation_result=True,lost_publication_no_resend=True,wrong_oauth_actor_refused=True,final_activity=True,role_grants=True,jarvis_sentinel_preserved=True,network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:
         for name in reversed(created):
             subprocess.run(['docker','rm','-f',name],capture_output=True,timeout=30)
