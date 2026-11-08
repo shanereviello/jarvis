@@ -27,7 +27,8 @@ def render(snapshot,expected_sha256,configuration):
     names=('Normalize and Validate','Only New Deliveries','Start Restricted Hermes Run','Record Hermes Run')
     if (len(nodes)!=len(by_name) or any(name not in by_name for name in names) or
             by_name[names[0]]['type']!='n8n-nodes-base.code' or by_name[names[2]]['type']!='n8n-nodes-base.httpRequest' or
-            result['connections'].get(names[1])!={'main':[[dict(node=names[2],type='main',index=0)]]}):
+            result['connections'].get(names[1])!={'main':[[dict(node=names[2],type='main',index=0)]]} or
+            result['connections'].get(names[3],{}).get('main')):
         raise ValueError('reviewed restricted Jarvis workflow topology required')
     start=by_name['Start Restricted Hermes Run'];body=start['parameters'].get('body','')
     prefix='={{ JSON.stringify(';suffix=') }}'
@@ -110,6 +111,9 @@ binding_json:JSON.stringify(row.envelope.binding),handoff_id:result.correlated_h
  'Jarvis could not confirm this engineering request against its native source and retained handoff. No assistant run was started; inspect the recorded admission evidence.',
  'source','jarvis-engineering-admission')) ON CONFLICT(idempotency_key) DO NOTHING""",
         "={{ [$('Normalize and Validate').first().json.deliveryId,$('Normalize and Validate').first().json.agentSessionId] }}")
+    code('Select admitted engineering run',"return $('Select mapped engineering context').first().json.engineering_selected?$input.all():[];")
+    pg('Retain exact engineering run',"SELECT linear_bridge.jarvis_engineering_run_bind($1::text,$2::uuid) AS run_id",
+        "={{ [$('Start Restricted Hermes Run').first().json.run_id,$('Normalize and Validate').first().json.deliveryId] }}")
     # The original HTTP method, origin, auth reference, headers, timeout and all
     # body fields remain unchanged. The selected context adds instructions only.
     start['parameters']['body']="={{ JSON.stringify($('Select mapped engineering context').first().json.engineering_run_body) }}"
@@ -123,6 +127,7 @@ binding_json:JSON.stringify(row.envelope.binding),handoff_id:result.correlated_h
         'Verify Jarvis engineering origin','Retain Jarvis engineering admission','Verified engineering origin','Start Restricted Hermes Run']
     for a,b in zip(chain,chain[1:]):edge(a,b)
     edge('Verified engineering origin','Report unconfirmed engineering origin',1)
+    edge('Record Hermes Run','Select admitted engineering run');edge('Select admitted engineering run','Retain exact engineering run')
     result['active']=False
     # Caller must update the existing workflow ID under a checked version, not
     # import a duplicate webhook or assume preparing this patch activates it.

@@ -97,19 +97,21 @@ def main():
     args = parser.parse_args(); m = local()
     m.history_unix().uid(args.native_uid)
     if args.native_uid==os.getuid():raise ValueError('native coder and private adapter need distinct identities')
-    selected = json.loads(m.private(args.policy).read_bytes())
+    spec=importlib.util.spec_from_file_location('private_runtime_protected_config',Path(__file__).with_name('protected_config.py'))
+    protected=importlib.util.module_from_spec(spec);spec.loader.exec_module(protected)
+    selected=protected.decode(args.policy)
     if args.initialize:
         # Initialization creates no native process, HTTP listener or model turn.
         runtime=m.Runtime(args.state,selected,create=True)
         runtime.close()
         print(json.dumps(dict(initialized=True,models_started=0,listener_started=False)))
         return
-    token = m.private(args.bridge_token_file).read_bytes().strip()
+    token=protected.read(args.bridge_token_file,maximum=257).strip()
     reporter=None
     if args.reporting_policy:
         spec=importlib.util.spec_from_file_location('private_runtime_reporting',Path(__file__).with_name('runtime_reporting.py'))
         reporting=importlib.util.module_from_spec(spec);spec.loader.exec_module(reporting)
-        reporter=reporting.Reporter(json.loads(m.private(args.reporting_policy).read_bytes()),selected)
+        reporter=reporting.Reporter(protected.decode(args.reporting_policy),selected)
     checkpoint=None
     if args.checkpoint_python:
         if reporter is None:raise ValueError('checkpoint tool requires installed reporting policy')
@@ -137,4 +139,6 @@ def main():
     finally:http.server_close();runtime.close()
 
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    try:main()
+    except Exception:raise SystemExit('Private Codex runtime entry refused; retain installed configuration and journal.') from None

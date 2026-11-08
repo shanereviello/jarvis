@@ -39,8 +39,8 @@ action:raw.action,prompt:raw.promptContext,rawPayload:raw}}];"""
         node('Record Hermes Run','postgres',dict(operation='executeQuery',query="""WITH session AS (
  INSERT INTO linear_bridge.agent_sessions VALUES($1,$2,$3,$4,$5)
  ON CONFLICT(agent_session_id) DO UPDATE SET latest_hermes_run_id=EXCLUDED.latest_hermes_run_id RETURNING *)
- INSERT INTO linear_bridge.hermes_runs VALUES($5,$1,'running',NULL) ON CONFLICT DO NOTHING""",
-            options=dict(queryReplacement="={{ [$('Normalize and Validate').first().json.agentSessionId,$('Normalize and Validate').first().json.organizationId,$('Normalize and Validate').first().json.issueId,'linear:'+ $('Normalize and Validate').first().json.organizationId+':'+$('Normalize and Validate').first().json.agentSessionId,$json.run_id] }}")),
+ INSERT INTO linear_bridge.hermes_runs VALUES($5,$1,'running',NULL,$6::uuid) ON CONFLICT DO NOTHING RETURNING hermes_run_id""",
+            options=dict(queryReplacement="={{ [$('Normalize and Validate').first().json.agentSessionId,$('Normalize and Validate').first().json.organizationId,$('Normalize and Validate').first().json.issueId,'linear:'+ $('Normalize and Validate').first().json.organizationId+':'+$('Normalize and Validate').first().json.agentSessionId,$json.run_id,$('Normalize and Validate').first().json.deliveryId] }}")),
             {'postgres':{'id':configuration['credentials']['postgres']}})]
     return dict(name='Synthetic existing Jarvis inbound',active=False,nodes=nodes,
         connections={a['name']:dict(main=[[dict(node=b['name'],type='main',index=0)]]) for a,b in zip(nodes,nodes[1:])},
@@ -67,7 +67,7 @@ def probe():
             return run(['docker','exec','-i',pg,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],query)
         sql('CREATE SCHEMA linear_bridge;\n'+(ROOT/'contracts/linear-codex-n8n-v1.sql').read_text())
         sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text);'
-            'CREATE TABLE linear_bridge.hermes_runs(hermes_run_id text PRIMARY KEY,agent_session_id text,status text,completed_at timestamptz);'
+            'CREATE TABLE linear_bridge.hermes_runs(hermes_run_id text PRIMARY KEY,agent_session_id text,status text,completed_at timestamptz,delivery_id uuid);'
             +(ROOT/'contracts/linear-native-handoff-v1.sql').read_text())
         sql((ROOT/'contracts/linear-jarvis-engineering-admission-v1.sql').read_text())
         sql("CREATE ROLE codex_transport LOGIN; GRANT USAGE ON SCHEMA linear_bridge TO codex_transport;"
@@ -84,6 +84,11 @@ def probe():
             "GRANT EXECUTE ON FUNCTION linear_bridge.native_handoff_request(uuid,text,jsonb,text),linear_bridge.native_handoff_quiescence(uuid,text,uuid),linear_bridge.native_handoff_refresh(uuid,uuid) TO codex_transport;"
             "GRANT SELECT,INSERT ON linear_bridge.jarvis_engineering_admissions TO codex_transport;"
             "GRANT EXECUTE ON FUNCTION linear_bridge.jarvis_engineering_admit(uuid,uuid,uuid,uuid,boolean,jsonb,jsonb,uuid) TO codex_transport;"
+            "GRANT SELECT,INSERT ON linear_bridge.jarvis_engineering_runs TO codex_transport;"
+            "GRANT EXECUTE ON FUNCTION linear_bridge.jarvis_engineering_run_bind(text,uuid) TO codex_transport;"
+            "GRANT SELECT,INSERT ON linear_bridge.jarvis_engineering_checkpoints TO codex_transport;"
+            "GRANT USAGE,SELECT ON SEQUENCE linear_bridge.jarvis_engineering_checkpoints_sequence_seq TO codex_transport;"
+            "GRANT EXECUTE ON FUNCTION linear_bridge.jarvis_engineering_checkpoint(uuid,uuid,uuid,text,text,text) TO codex_transport;"
             "GRANT INSERT,UPDATE ON linear_bridge.agent_sessions,linear_bridge.hermes_runs TO codex_transport;"
             "CREATE TABLE linear_bridge.outbox(idempotency_key text UNIQUE,agent_session_id text,event_type text,payload jsonb);"
             "GRANT INSERT ON linear_bridge.outbox TO codex_transport;"
@@ -141,6 +146,8 @@ def probe():
         package['workflows'].update({'handoff_'+key:value for key,value in hp['workflows'].items()})
         jarvis=hm.local('n8n_jarvis_admission');legacy=jarvis_fixture(handoff_config)
         package['workflows']['jarvis_admission']=jarvis.render(legacy,hashlib.sha256(jarvis.encoded(legacy)).hexdigest(),handoff_config)['workflow']
+        package['workflows']['jarvis_context']=hm.local('n8n_hermes_context').render(handoff_config)
+        package['workflows']['jarvis_checkpoint']=hm.local('n8n_hermes_context').checkpoint(handoff_config)
         history=hm.local('handoff_history');pin=c['issues'][str(uuid.UUID(int=4))]
         history_context=dict(project_id=pin['project_id'],architecture=dict(document_id='doc_'+'3'*32,
             version=pin['architecture_version'],markdown_sha256=pin['architecture_sha256']),
@@ -201,7 +208,7 @@ if(req.url==='/fixture/clear-wrong-actor'){state.wrongActor=false;return reply(2
 if(req.url==='/fixture/deny-execution'){state.denyExecution=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/lose-handoff-comment'){state.loseHandoffComment=true;return reply(200,{ok:true});}
 if(req.url==='/fixture/lose-handoff-session'){state.loseHandoffSession=true;return reply(200,{ok:true});}
-if(req.url==='/hermes/v1/runs'){state.hermes=state.hermes||[];state.hermes.push(b);return reply(202,{run_id:'fixture-hermes-run-'+state.hermes.length});}
+if(req.url==='/hermes/v1/runs'){state.hermes=state.hermes||[];state.hermes.push(b);return reply(202,{run_id:'run_'+state.hermes.length.toString(16).padStart(32,'0')});}
 if(req.url==='/graphql'){
 const actor=req.headers.authorization==='Bearer synthetic-oauth-token'?uid(2):req.headers.authorization==='Bearer synthetic-jarvis-oauth-token'?uid(20):null;
 if(!actor)return reply(403,{error:'fixture OAuth denied'});
@@ -324,7 +331,7 @@ reply(404,{error:'unknown fixture route'});
         sql("INSERT INTO linear_bridge.native_handoff_apps VALUES('"+uid(1)+"','codex','"+uid(2)+"'),('"+uid(1)+"','jarvis','"+uid(20)+"');"
             "INSERT INTO linear_bridge.native_handoff_issues VALUES('"+uid(1)+"','"+uid(4)+"',"+js(c['issues'][uid(4)])+");"
             "INSERT INTO linear_bridge.agent_sessions VALUES('"+uid(75)+"','"+uid(1)+"','"+uid(4)+"','fixture-hermes-75','fixture-run-75');"
-            "INSERT INTO linear_bridge.hermes_runs VALUES('fixture-run-75','"+uid(75)+"','running',NULL);")
+            "INSERT INTO linear_bridge.hermes_runs VALUES('fixture-run-75','"+uid(75)+"','running',NULL,NULL);")
         for role in ('jarvis','codex'):
             w=workflows['handoff_'+role+'_request'];api('/rest/workflows/'+ids['handoff_'+role+'_request']+'/activate',dict(versionId=w['versionId']))
         for _ in range(30):
@@ -403,9 +410,46 @@ reply(404,{error:'unknown fixture route'});
             raise ValueError('Patched Jarvis fixture did not reach expected state: '+sql('SELECT left(data,12000) FROM execution_data ORDER BY "executionId" DESC LIMIT 1;'))
         jarvis_event=dict(type='AgentSessionEvent',action='created',organizationId=uid(1),deliveryId=uid(700),
             agentSession=dict(id=jarvis_target,issueId=uid(4),commentId=second_handoff['comment_id']),promptContext='Synthetic assistant handoff.')
-        jarvis_deliver(jarvis_event,lambda:sql("SELECT count(*) FROM linear_bridge.hermes_runs WHERE agent_session_id='"+jarvis_target+"';").strip()=='1')
+        jarvis_deliver(jarvis_event,lambda:sql("SELECT count(*) FROM linear_bridge.jarvis_engineering_runs WHERE session_id='"+jarvis_target+"';").strip()=='1')
         state=json.loads(request('/fixture/status',port=8899)['body']);assert len(state['hermes'])==1
         assert 'run terminal commands' in state['hermes'][0]['instructions'] and 'Engineering context is explicit' in state['hermes'][0]['instructions']
+        for key in ('jarvis_context','jarvis_checkpoint'):
+            api('/rest/workflows/'+ids[key]+'/activate',dict(versionId=workflows[key]['versionId']))
+        actual_native=dict(organization_id=uid(1),session_id=jarvis_target,hermes_session_id='linear:'+uid(1)+':'+jarvis_target,run_id='run_'+'0'*31+'1')
+        context_path='/webhook/rras-jarvis-engineering-context';native_headers=dict(Authorization='Bearer synthetic-handoff-jarvis')
+        for _ in range(30):
+            response=request(context_path,dict(contract='jarvis-native-context.v1',**actual_native),native_headers)
+            if response['status']!=404:break
+            time.sleep(.25)
+        assert response['status']==200,response
+        actual_context=json.loads(response['body'])['context']
+        assert actual_context==dict(session_id=jarvis_target,issue_id=uid(4),binding=pin,parent_handoff_id=second_handoff['id'],depth=2,delivery_id=uid(700))
+        wrong_native=dict(actual_native,session_id=uid(999),hermes_session_id='linear:'+uid(1)+':'+uid(999))
+        response=request(context_path,dict(contract='jarvis-native-context.v1',**wrong_native),native_headers)
+        assert response['status']==200 and json.loads(response['body'])['context'] is None
+        with tempfile.TemporaryDirectory(prefix='shrr-hermes-tool-fixture-') as folder:
+            hermes_adapter=hm.local('hermes_runtime');native_queue=hm.local('runtime_handoff').Queue(Path(folder)/'queue',create=True)
+            def native_call(kind,value):
+                endpoint=context_path if kind=='context' else '/webhook/rras-jarvis-engineering-checkpoint'
+                response=request(endpoint,value,native_headers);assert response['status']==200,response
+                if not response['body']:
+                    flat=json.loads(sql('SELECT data FROM execution_data ORDER BY "executionId" DESC LIMIT 1;'))
+                    ref=lambda value:flat[int(value)] if type(value) is str and value.isdecimal() else value
+                    error=ref(ref(flat[0]['resultData']).get('error',{}))
+                    raise ValueError('Native '+kind+' workflow failed: '+str(ref(error.get('message','unconfirmed'))))
+                return json.loads(response['body'])
+            adapter=hermes_adapter.Adapter(dict(contract='hermes-native-reporting.v1',policy=handoff_policy,
+                scope=dict(kind='repository',id='jarvis'),contexts={uid(4):history_context},queue=str(native_queue.path),origin='http://fixture.invalid',
+                token_file='/not-opened-in-synthetic-fixture'),actual=lambda:actual_native,call=native_call)
+            adapter.record('checkpoint',dict(key='actual-n8n-native-tool',observations=['Native Jarvis report retained under the actual run.'],next_step='Deliver through the scoped owned-history importer.'))
+            delivered=adapter.flush()
+            if delivered['pending']:
+                with native_queue.connection() as db:frame=native_queue.i.local('contract').decode(db.execute('SELECT intent FROM handoffs').fetchone()[0])
+                try:adapter.deliver(frame)
+                except Exception as error:raise ValueError('Native checkpoint fixture delivery refused: '+type(error).__name__+': '+str(error)[:2000]) from None
+                raise ValueError('Native checkpoint acknowledgment was not retained')
+            assert adapter.flush()['delivered']==0
+            assert sql('SELECT count(*) FROM linear_bridge.jarvis_engineering_checkpoints;').strip()=='1'
         echo=dict(jarvis_event,action='prompted',deliveryId=uid(701),agentActivity=dict(userId=uid(20)))
         jarvis_deliver(echo,lambda:sql("SELECT count(*) FROM linear_bridge.jarvis_engineering_admissions WHERE delivery_id='"+uid(701)+"' AND NOT permitted;").strip()=='1')
         assert len(json.loads(request('/fixture/status',port=8899)['body'])['hermes'])==1
@@ -456,6 +500,7 @@ reply(404,{error:'unknown fixture route'});
             handoff_separate_oauth_actors=True,handoff_correlated_codex_dispatch_once=True,handoff_ack_and_terminal=True,
             handoff_history_read_only_endpoint=True,handoff_history_scope_denial=True,handoff_history_exact_typed_projection=True,pre_dispatch_execution_refusal=True,
             jarvis_admission_actual_engine=True,jarvis_correlated_handoff_admitted=True,jarvis_agent_echo_denied=True,jarvis_unselected_run_preserved=True,
+            jarvis_exact_native_run_context=True,jarvis_wrong_native_run_context_denied=True,jarvis_scoped_checkpoint_intake=True,
             hermes_execution='synthetic_http_endpoint_only',
             network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:

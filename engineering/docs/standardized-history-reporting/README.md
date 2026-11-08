@@ -18,6 +18,7 @@ is a separate historical designation, not an edit to the document.
 - [Curated reporting profiles and MCP retrieval](curated-reporting.md)
 - [Automatic runtime reporting and selected background capture](runtime-reporting.md)
 - [Explicit native handoff transport and acceptance limits](native-handoff.md)
+- [Scoped native Jarvis reporting](hermes-runtime.md)
 
 ## Approved v0.4 integration direction
 
