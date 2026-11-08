@@ -212,3 +212,40 @@ tests before its first named-UID ACL case failed under the sandbox UID mapping;
 the same temporary-directory ACL test passes with the host UID mapping, and the
 two tests that needed the pinned PyYAML package pass separately (**6 passed**).
 No production host acceptance or activation has occurred.
+
+## Operator-reported inactive host staging — November 8
+
+The operator subsequently installed the immutable Codex runtime release at
+`/opt/rras-engineering/releases/standardized-history-9e7954c07fdb`; the reported
+manifest SHA-256 is
+`1e8f48a1b7e22afe2e637d0a26cba7077ce58b0dfacf9384e5ce77479bfd01cf`. The
+offline Python import check succeeded. The installed Codex executable reports
+version `0.159.0` and matches the packaged SHA-256
+`d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f`.
+
+The operator reports creation of the separate `rras-codex-adapter` (UID 992)
+and `rras-codex-native` (UID 991) system identities, installation and loading
+of candidate unit files, and preparation of the existing engineering API key
+as `/etc/rras-engineering/codex-runtime/openai-api-key` (root-owned, mode 0400).
+The parent config directory is root-owned by the adapter group, mode 0750. The
+credential-preparation helper reported zero model starts and API calls and did
+not print the secret. Candidate Codex sockets/timers remained inactive and
+disabled; no `host-runtime-enabled` marker was reported. No Codex service or
+timer has been started.
+
+The existing history service is active as `rras-history` from the
+`native-10` release. Its scoped project read confirmed the Standardized
+History Reporting Format and Rules project, governing architecture v4, and all
+eight REV-46–REV-53 work assignments with exact revision hashes. The Codex
+binary and clean worktree were also confirmed on branch
+`codex/standardized-history-reporting-20261107`.
+
+A read-only owner-run reporting migration plan passed integrity validation for
+the current schema-3 store. It reports 154 legacy records and fingerprint
+`a8f9e145bc5c9d7c4c0fc04f8e9be8983ea2a5a9956b034b638e45374605d331` for the
+additive schema 3 → 4 reporting migration. No migration has been applied and
+the live service remains running. The repository records an earlier operator
+decision to defer backup setup; the applicable backup boundary for this
+migration is awaiting operator direction. Accordingly, no backup or migration
+command has been run, and no history writer grant, evidence migration, or
+Codex runtime policy has been installed.
