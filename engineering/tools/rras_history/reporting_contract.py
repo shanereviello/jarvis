@@ -56,6 +56,13 @@ DEFS = dict(
         result=text(), references=array(REF)),
     session=obj(session=SESSION, relationship=choices('attached', 'resumed_from', 'compressed_from', 'continued_from', 'coordinated_by'),
         related_session=nullable(SESSION), attempt_id=nullable(pattern('att_[0-9a-f]{32}')), actor=ACTOR, reason=text()),
+    session_metadata=obj(session_record_id=pattern('ses_[0-9a-f]{32}'),**REVISION,session=SESSION,actor=ACTOR,
+        linear_agent_session_id=nullable(UUID),linear_agent_activity_id=nullable(UUID),oauth_client_id=nullable(pattern('(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})')),
+        native_session_tree_id=nullable(text(512)),parent_native_thread_id=nullable(text(512)),forked_from_native_thread_id=nullable(text(512)),
+        host_identity=nullable(text(256)),workspace_identity=nullable(text(4096)),source_version=nullable(text(128)),
+        model=nullable(text(128)),model_basis=choices('configured_thread','unknown'),
+        tokens=nullable(obj(input=dict(type='integer',minimum=0),output=dict(type='integer',minimum=0),cached_input=nullable(dict(type='integer',minimum=0)))),
+        cost_usd=nullable(dict(type='number',minimum=0)),limitations=array(text())),
     report=obj(report_id=pattern('rpt_[0-9a-f]{32}'), attempt_id=nullable(pattern('att_[0-9a-f]{32}')),
         observations=array(text()), alternatives_and_reasons=array(text()), changes=array(text()),
         validation=array(obj(result=choices('passed', 'failed', 'partial', 'not_run', 'unknown'),
@@ -91,13 +98,19 @@ DEFS = dict(
 OPERATIONS = {'mapping.record': 'mapping', 'attempt.record': 'attempt', 'session.relate': 'session',
     'checkpoint.report': 'report', 'linear.observe': 'observation', 'handoff.record': 'handoff',
     'decision.observe': 'decision', 'artifact.record': 'artifact', 'artifact.associate': 'association',
-    'source.observe': 'freshness'}
+    'source.observe': 'freshness','session.describe':'session_metadata'}
 
 # Optional additive capture-time fact. Earlier retained manifests stay valid;
 # receipt/import time and native source occurrence time remain separate.
 DEFS['artifact']['properties']['captured_at']=UTC
 DEFS['artifact']['properties']['authorization_reference']=text(2048)
 DEFS['observation']['properties'].update(redaction_profile=NAME,source_snapshot_sha256=SHA,gaps=array(text()))
+DEFS['report']['properties']['validation']['items']['properties'].update(
+    criterion_id=nullable(NAME),command=nullable(text(4096)),code_commit=nullable(pattern('[0-9a-f]{40}')),
+    environment=nullable(text(1024)),output_sha256=nullable(SHA))
+DEFS['attempt']['properties'].update(previous_attempt_id=nullable(pattern('att_[0-9a-f]{32}')),
+    managed_task_id=nullable(text(256)),managed_run_id=nullable(text(256)),branch=nullable(text(256)),
+    worktree_identity=nullable(text(4096)),started_at=nullable(UTC),ended_at=nullable(UTC))
 
 SCHEMA = dict(obj(contract=dict(const='engineering-reporting.v1'), operation=choices(*OPERATIONS),
     client_event_key=text(128), expected_head=nullable(SHA), scope=ref('scope'), context=nullable(ref('context')),
@@ -119,7 +132,7 @@ def validate(value):
             for child in item: inspect(child)
     inspect(value)
     op, body, context = value['operation'], value['body'], value['context']
-    if context is None and op not in ('artifact.record', 'source.observe', 'linear.observe'):
+    if context is None and op not in ('artifact.record', 'source.observe', 'linear.observe','session.describe'):
         raise ValueError('explicit project/architecture context required')
     if op in ('attempt.record', 'session.relate', 'checkpoint.report', 'handoff.record') and context['work'] is None:
         raise ValueError('explicit work context required')
@@ -144,6 +157,8 @@ def validate(value):
             raise ValueError('recipient acknowledgment requires actual session')
     if op == 'session.relate' and ((body['relationship'] == 'attached') != (body['related_session'] is None)):
         raise ValueError('lineage names its actual related session')
+    if op=='session.describe' and ((body['model'] is None)!=(body['model_basis']=='unknown')):
+        raise ValueError('known configured model or explicit unknown required')
     if op == 'attempt.record' and value['scope']['kind'] == 'non_git' and body['baseline_commit'] is not None:
         raise ValueError('non-Git attempt has no Git baseline')
     if op == 'artifact.record':
@@ -157,7 +172,7 @@ def validate(value):
     if op == 'linear.observe' and c.digest(body['snapshot_text'].encode()) != body['snapshot_sha256']:
         raise ValueError('exact observed snapshot digest required')
     # Source times are observations, never receipt times or independent approval.
-    for stamp in [value['occurred_at']] + ([body.get(k) for k in ('source_updated_at', 'source_created_at', 'source_observed_at','captured_at')]):
+    for stamp in [value['occurred_at']] + ([body.get(k) for k in ('source_updated_at', 'source_created_at', 'source_observed_at','captured_at','started_at','ended_at')]):
         if stamp is not None and not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z', stamp):
             raise ValueError('exact UTC source time required')
     return value

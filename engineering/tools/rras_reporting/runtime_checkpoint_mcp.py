@@ -1,0 +1,164 @@
+"""One scoped checkpoint tool for a configured Codex runtime session.
+
+No Linear credential, work selector, private-history read, execution, approval or
+publication tool is exposed. The parent runtime journal supplies actual context;
+agent text supplies attributed observations, never new authority.
+"""
+import argparse
+from contextlib import contextmanager
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import sqlite3
+import stat
+import sys
+from jsonschema import Draft202012Validator,ValidationError
+
+
+def local(name):
+    spec=importlib.util.spec_from_file_location('runtime_checkpoint_'+name,Path(__file__).with_name(name+'.py'))
+    value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
+
+
+class Launch:
+    """Trusted thread configuration; never constructed from an agent argument."""
+    def __init__(self,state,configuration,python):
+        runtime=local('codex_runtime');self.state=runtime.private(state,True)
+        self.configuration=runtime.private(configuration);self.python=Path(python)
+        info=self.python.stat()
+        if (not self.python.is_absolute() or not stat.S_ISREG(info.st_mode) or info.st_uid not in (0,os.getuid()) or
+                info.st_mode&0o022 or not os.access(self.python,os.X_OK)):raise ValueError('trusted installed MCP Python required')
+
+    def parameters(self,session):
+        local('codex_runtime').identifier(session)
+        tool=dict(command=str(self.python),args=['-I','-B',str(Path(__file__).resolve()),'--state',str(self.state),
+            '--reporting-policy',str(self.configuration),'--session',session],enabled=True,required=False,
+            enabled_tools=['engineering_checkpoint'],startup_timeout_sec=15,tool_timeout_sec=15)
+        return dict(config=dict(mcp_servers=dict(engineering_checkpoint=tool)),developerInstructions=(
+            'Use engineering_checkpoint at meaningful findings, choices, failed attempts, changes, validation and pauses. '
+            'Use a stable distinct key per checkpoint. Report observations, reasons, evidence and next steps; '
+            'do not log every command. The trusted tool supplies this turn\'s exact work/architecture context. '
+            'Checkpoint delivery is passive: preserve failures and continue authorized work without rerunning it. '
+            'This tool grants no execution, spending, acceptance, approval, merge or deployment authority.'))
+
+    def verify_inventory(self,client,thread):
+        value=client.call('mcpServerStatus/list',dict(threadId=thread,detail='toolsAndAuthOnly',limit=100))
+        if type(value) is not dict or value.get('nextCursor') is not None or type(value.get('data')) is not list:
+            raise ValueError('bounded complete runtime MCP inventory required')
+        for server in value['data']:
+            if server.get('runtimeStatus')=='disabled':continue
+            if server.get('name')!='engineering_checkpoint':raise ValueError('unexpected MCP identity in coding runtime')
+            if set(server.get('tools',{})) - {'engineering_checkpoint'}:raise ValueError('unexpected runtime recorder tool')
+        # No model call is needed for discovery. Missing recorder is a reporting
+        # gap; an extra MCP identity is an authority error and refuses dispatch.
+        return any(s.get('name')=='engineering_checkpoint' and 'engineering_checkpoint' in s.get('tools',{}) for s in value['data'])
+
+
+class Checkpoints:
+    def __init__(self,state,configuration,session):
+        runtime=local('codex_runtime');runtime.identifier(session);self.session=session
+        self.state=runtime.private(state,True);self.path=runtime.private(self.state/'runtime.sqlite3');self.r=local('runtime_reporting')
+        self.c=self.r.local('capture_intake').local('contract')
+        with self.connection() as db:self.policy=runtime.policy(self.c.decode(db.execute('SELECT body FROM policy').fetchone()[0]))
+        self.reporter=self.r.Reporter(configuration,self.policy)
+
+    @contextmanager
+    def connection(self):
+        local('codex_runtime').private(self.path)
+        db=sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=3);db.row_factory=sqlite3.Row
+        db.execute('PRAGMA trusted_schema=OFF');db.execute('PRAGMA query_only=ON')
+        try:yield db
+        finally:db.close()
+
+    def schema(self):
+        rc=self.reporter.intake.local('reporting_contract');body=rc.DEFS['report']
+        return dict(type='object',properties=dict(key=rc.NAME,**{k:v for k,v in body['properties'].items() if k not in ('report_id','attempt_id')}),
+            required=['key','observations','next_step'],additionalProperties=False,**{'$defs':rc.DEFS})
+
+    def record(self,arguments):
+        Draft202012Validator(self.schema()).validate(arguments)
+        with self.connection() as db:
+            rows=db.execute("SELECT * FROM turns WHERE session=? AND state IN ('preparing','running','uncertain','interrupt_requested')",(self.session,)).fetchall()
+        if len(rows)!=1:raise ValueError('one active configured runtime session required')
+        row=rows[0]
+        if self.c.digest(row['request'])!=row['digest']:raise ValueError('frozen runtime request differs')
+        native=self.c.decode(row['request']);pin=self.policy['issues'].get(row['issue'])
+        if (native['session_id']!=self.session or native['issue_id']!=row['issue'] or native['binding']!=pin or
+                native['organization_id']!=self.policy['organization_id'] or native['app_user_id']!=self.policy['app_user_id']):
+            raise ValueError('actual runtime issue/app binding differs')
+        aid=self.r.ident('att_','codex-runtime:'+self.policy['organization_id']+':'+self.policy['app_user_id']+':'+row['dispatch'])
+        body={k:arguments.get(k,[]) for k in ('observations','alternatives_and_reasons','changes','validation','open_questions','references')}
+        body.update(report_id=self.r.ident('rpt_','runtime-agent-checkpoint:'+row['dispatch']+':'+arguments['key']),attempt_id=aid,next_step=arguments['next_step'])
+        body,redactions=self.reporter.intake.redact_object(body)
+        request=self.reporter.request(row,'checkpoint.report',body,key='runtime-agent-checkpoint:'+self.c.digest(self.c.encoded(
+            dict(dispatch=row['dispatch'],key=arguments['key']))))
+        with self.reporter.spool.connection() as db:
+            db.execute('BEGIN IMMEDIATE');sequence=self.reporter.append(db,request);db.commit()
+        self.reporter.intake.sync(self.reporter.spool.root)
+        return dict(staged=True,sequence=sequence,source='agent_reported',project_id=request['context']['project_id'],
+            work_item_id=request['context']['work']['work_item_id'],architecture_version=request['context']['architecture']['version'],
+            history_delivery='pending_or_replayed',redactions=redactions,authority_granted=False)
+
+
+def server(checkpoints):
+    # MCP runs as the configured local recorder, not with provider/Linear auth.
+    os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8')
+    name='engineering_checkpoint';error='Checkpoint refused or unconfirmed; retain the stable key and known work context. No work was launched.'
+    from importlib.metadata import version
+    major=int(version('mcp').split('.')[0])
+    if major==1:
+        from mcp.server import Server
+        import mcp.types as types
+        instance=Server('rras-runtime-engineering-checkpoints')
+        @instance.list_tools()
+        async def listing():return [types.Tool(name=name,description='Record a meaningful finding, decision, change, validation or next step for this exact runtime work.',inputSchema=checkpoints.schema())]
+        @instance.call_tool()
+        async def call(tool,arguments):
+            try:
+                if tool!=name:raise ValueError('unknown tool')
+                value=checkpoints.record(arguments)
+                return [types.TextContent(type='text',text=json.dumps(value))]
+            except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,ValidationError):raise ValueError(error) from None
+        import anyio
+        from mcp.server.stdio import stdio_server
+        class Stdio:
+            def run(self):
+                async def serve():
+                    async with stdio_server() as (read,write):await instance.run(read,write,instance.create_initialization_options())
+                anyio.run(serve)
+        return Stdio()
+    if major!=2:raise ValueError('unreviewed MCP version')
+    import anyio
+    import mcp.types as types
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    async def listing(context,params):return types.ListToolsResult(tools=[types.Tool(name=name,
+        description='Record a meaningful checkpoint for this exact configured runtime work; no execution or approval authority.',inputSchema=checkpoints.schema())])
+    async def call(context,params):
+        try:
+            if params.name!=name:raise ValueError('unknown tool')
+            value=checkpoints.record(params.arguments or {})
+            return types.CallToolResult(content=[types.TextContent(type='text',text=json.dumps(value))])
+        except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,ValidationError):
+            return types.CallToolResult(isError=True,content=[types.TextContent(type='text',text=error)])
+    instance=Server('rras-runtime-engineering-checkpoints',on_list_tools=listing,on_call_tool=call)
+    class Stdio:
+        def run(self):
+            async def serve():
+                async with stdio_server() as (read,write):await instance.run(read,write,instance.create_initialization_options())
+            anyio.run(serve)
+    return Stdio()
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--state',required=True)
+    parser.add_argument('--reporting-policy',required=True);parser.add_argument('--session',required=True);args=parser.parse_args()
+    runtime=local('codex_runtime')
+    try:
+        config=json.loads(runtime.private(args.reporting_policy).read_bytes());server(Checkpoints(args.state,config,args.session)).run()
+    except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,ValidationError):parser.exit(1,'Scoped checkpoint service refused.\n')
+
+
+if __name__=='__main__':main()

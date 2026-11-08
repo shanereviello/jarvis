@@ -108,7 +108,8 @@ def test_runtime_journal_excludes_reasoning_deltas_and_nested_private_fields(run
     assert value.status(uid(4))['result']=='Visible final'
     with value.connection() as db:
         saved=[x[0] for x in db.execute('SELECT body FROM events')]
-        assert len(saved)==2 and all(b'EXCLUDED-REASONING' not in x for x in saved)
+        lifecycle=[x for x in saved if b'adapter/threadMetadata' not in x]
+        assert len(lifecycle)==2 and all(b'EXCLUDED-REASONING' not in x for x in saved)
 
 
 def test_one_issue_executor_across_sessions_and_real_turn_interrupt(runtime,policy):

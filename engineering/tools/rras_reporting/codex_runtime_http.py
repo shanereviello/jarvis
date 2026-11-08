@@ -81,13 +81,38 @@ def main():
     parser.add_argument('--policy', type=Path, required=True)
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--bridge-token-file', type=Path, required=True)
+    parser.add_argument('--reporting-policy',type=Path)
+    parser.add_argument('--checkpoint-python',type=Path)
+    parser.add_argument('--codex-home',type=Path,required=True)
     parser.add_argument('--initialize', action='store_true')
     parser.add_argument('--bind', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8766)
     args = parser.parse_args(); m = local()
+    if args.codex_home!=args.state/'codex-home':raise ValueError('dedicated runtime-owned Codex home required')
     selected = json.loads(m.private(args.policy).read_bytes())
+    if args.initialize:
+        # Initialization creates no native process, HTTP listener or model turn.
+        runtime=m.Runtime(args.state,selected,create=True)
+        try:args.codex_home.mkdir(mode=0o700)
+        finally:runtime.close()
+        print(json.dumps(dict(initialized=True,models_started=0,listener_started=False)))
+        return
+    # Separate native integration home: no inherited personal MCP/OAuth config.
+    home=m.private(args.codex_home,True)
     token = m.private(args.bridge_token_file).read_bytes().strip()
-    runtime = m.Runtime(args.state, selected, create=args.initialize)
+    reporter=None
+    if args.reporting_policy:
+        spec=importlib.util.spec_from_file_location('private_runtime_reporting',Path(__file__).with_name('runtime_reporting.py'))
+        reporting=importlib.util.module_from_spec(spec);spec.loader.exec_module(reporting)
+        reporter=reporting.Reporter(json.loads(m.private(args.reporting_policy).read_bytes()),selected)
+    checkpoint=None
+    if args.checkpoint_python:
+        if reporter is None:raise ValueError('checkpoint tool requires installed reporting policy')
+        spec=importlib.util.spec_from_file_location('private_runtime_checkpoint',Path(__file__).with_name('runtime_checkpoint_mcp.py'))
+        tool=importlib.util.module_from_spec(spec);spec.loader.exec_module(tool)
+        checkpoint=tool.Launch(args.state,args.reporting_policy,args.checkpoint_python)
+    runtime = m.Runtime(args.state, selected,reporter=reporter,checkpoint_tool=checkpoint,
+        client_factory=lambda executable,cwd:m.AppServer(executable,cwd,codex_home=home))
     http = server(runtime, token, (args.bind, args.port))
     try: http.serve_forever()
     finally: http.server_close(); runtime.close()

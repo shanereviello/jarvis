@@ -111,7 +111,7 @@ def policy(value):
 
 class AppServer:
     """Bounded stdio RPC. Never auto-accept server tool/permission requests."""
-    def __init__(self, executable, cwd, *, timeout=15):
+    def __init__(self, executable, cwd, *, timeout=15,codex_home=None):
         self.timeout = timeout
         self.lock = threading.Lock()
         self.pending = {}
@@ -120,6 +120,8 @@ class AppServer:
         self.closed = False
         # No Linear credential or n8n secret is passed to the coding runtime.
         env = {k: os.environ[k] for k in ('HOME', 'PATH', 'LANG', 'CODEX_HOME') if k in os.environ}
+        if codex_home is not None:
+            home=private(codex_home,True);env.update(CODEX_HOME=str(home),HOME=str(home.parent))
         self.process = subprocess.Popen([executable, 'app-server'], cwd=cwd, env=env,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         self.reader = threading.Thread(target=self._read, daemon=True); self.reader.start()
@@ -199,13 +201,15 @@ class AppServer:
 
 class Runtime:
     """Durable dispatch results and issue ownership, isolated from transport queues."""
-    def __init__(self, root, selected_policy, *, create=False, client_factory=AppServer):
+    def __init__(self, root, selected_policy, *, create=False, client_factory=AppServer,reporter=None,checkpoint_tool=None):
         self.policy = policy(selected_policy)
         self.root = Path(root)
         if create: self.root.mkdir(mode=0o700, parents=False, exist_ok=False)
         private(self.root, True)
         self.path = self.root / 'runtime.sqlite3'
         self.client_factory = client_factory
+        self.reporter=reporter
+        self.checkpoint_tool=checkpoint_tool
         self.client = None
         self.journal_lock = None
         self.closed = False
@@ -242,6 +246,22 @@ class Runtime:
             # A new process must not rerun a dispatched turn after losing its stream.
             db.execute("UPDATE turns SET state='uncertain',reason='adapter restarted; runtime reconciliation required' "
                        "WHERE state IN ('preparing','running','interrupt_requested')")
+        if self.reporter is not None:
+            with self.connection() as db:pending=[r[0] for r in db.execute("SELECT dispatch FROM turns WHERE state='uncertain'")]
+            for dispatch in pending:self._report(dispatch)
+
+    def _report(self,dispatch):
+        if self.reporter is None:return
+        try:self.reporter.observe(self,dispatch)
+        except Exception:
+            # Reporting is passive. A local spool failure must not repeat or
+            # revoke an otherwise authorized in-scope coding turn. Retain an
+            # explicit gap in the runtime journal without source exception text.
+            event=dict(method='adapter/reportingGap',params=dict(dispatch=dispatch,
+                detail='Runtime history staging unconfirmed; retain native journal and selected source.'))
+            with self.connection() as db:
+                prior=db.execute('SELECT body FROM events WHERE dispatch=? ORDER BY sequence DESC LIMIT 1',(dispatch,)).fetchone()
+                if not prior or prior[0]!=encoded(event):db.execute('INSERT INTO events(dispatch,body) VALUES(?,?)',(dispatch,encoded(event)))
 
     @contextmanager
     def connection(self):
@@ -295,29 +315,40 @@ class Runtime:
                                (dispatch, session, issue, raw, digest, 'preparing'))
                 except sqlite3.IntegrityError:
                     raise ValueError('workspace has an active or uncertain executor; reconcile first') from None
+            self._report(dispatch)
             try:
                 client = self._client()
+                checkpoint_parameters=self.checkpoint_tool.parameters(session) if self.checkpoint_tool is not None else {}
                 if prior and prior['thread']:
                     info = client.call('thread/resume', dict(threadId=prior['thread'],
-                        cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request'))['thread']
+                        cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))['thread']
                     if info['id'] != prior['thread']: raise ValueError('runtime thread changed')
                 else:
                     info = client.call('thread/start', dict(cwd=self.policy['cwd'],
-                        sandbox=self.policy['sandbox'], approvalPolicy='on-request', ephemeral=False))['thread']
-                thread = bounded(info['id'], 256); lineage = bounded(info.get('sessionId', thread), 256)
+                        sandbox=self.policy['sandbox'], approvalPolicy='on-request', ephemeral=False,**checkpoint_parameters))['thread']
+                thread = bounded(info['id'], 256); lineage = bounded(info['sessionId'],256) if info.get('sessionId') else None
                 with self.connection() as db:
                     db.execute('UPDATE sessions SET thread=?,lineage=? WHERE session=?', (thread,lineage,session))
                     db.execute('UPDATE turns SET thread=? WHERE dispatch=?', (thread,dispatch))
+                    metadata={k:info[k] for k in ('id','sessionId','parentThreadId','forkedFromId','path','cwd','cliVersion','model','modelProvider','gitInfo','createdAt','updatedAt') if k in info}
+                    raw_metadata=encoded(dict(method='adapter/threadMetadata',params=metadata))
+                    if len(raw_metadata)<=16384:db.execute('INSERT INTO events(dispatch,body) VALUES(?,?)',(dispatch,raw_metadata))
+                self._report(dispatch)
+                if self.checkpoint_tool is not None and not self.checkpoint_tool.verify_inventory(client,thread):
+                    with self.connection() as db:db.execute('INSERT INTO events(dispatch,body) VALUES(?,?)',(dispatch,
+                        encoded(dict(method='adapter/reportingGap',params=dict(detail='Scoped checkpoint tool unavailable; automatic lifecycle reporting and selected capture remain independent.')))))
                 context = 'Pinned engineering context (not additional authority):\n' + encoded(value['binding']).decode()
                 response = client.call('turn/start', dict(threadId=thread,
                     input=[dict(type='text',text=context+'\nOperator/session request:\n'+value['message'])]))
                 turn = bounded(response['turn']['id'], 256)
                 with self.connection() as db:
                     db.execute("UPDATE turns SET turn=?,state='running' WHERE dispatch=?", (turn,dispatch))
+                self._report(dispatch)
                 self.collect()
             except (ValueError, OSError, KeyError, TypeError):
                 with self.connection() as db:
                     db.execute("UPDATE turns SET state='uncertain',reason='runtime dispatch outcome requires reconciliation' WHERE dispatch=?", (dispatch,))
+                self._report(dispatch)
                 raise ValueError('runtime dispatch uncertain; retain dispatch ID and reconcile') from None
             return self.status(dispatch)
 
@@ -327,6 +358,7 @@ class Runtime:
 
     def collect(self):
         if self.client is None: return
+        changed=set()
         for event in self.client.events():
             event=journal_event(event)
             if event is None:continue
@@ -339,6 +371,7 @@ class Runtime:
                 dispatch = row['dispatch'] if row else None
                 db.execute('INSERT INTO events(dispatch,body) VALUES(?,?)', (dispatch,raw))
                 if not row: continue
+                changed.add(dispatch)
                 if event.get('method') == 'item/completed':
                     item = params.get('item') or {}
                     if item.get('type') == 'agentMessage':
@@ -350,7 +383,9 @@ class Runtime:
                     db.execute('UPDATE turns SET state=? WHERE dispatch=?', (state,dispatch))
         if getattr(self.client, 'closed', False):
             with self.connection() as db:
+                changed.update(r[0] for r in db.execute("SELECT dispatch FROM turns WHERE state IN ('preparing','running','interrupt_requested')"))
                 db.execute("UPDATE turns SET state='uncertain',reason='runtime stream unavailable' WHERE state IN ('preparing','running','interrupt_requested')")
+        for dispatch in changed:self._report(dispatch)
 
     def status(self, dispatch):
         identifier(dispatch)
@@ -364,6 +399,7 @@ class Runtime:
                 self._reconcile(row)
                 with self.connection() as db:
                     row=db.execute('SELECT * FROM turns WHERE dispatch=?',(dispatch,)).fetchone()
+            self._report(dispatch)
             return self._public(row)
 
     def _reconcile(self, row):

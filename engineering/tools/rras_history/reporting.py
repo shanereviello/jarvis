@@ -92,7 +92,7 @@ class Reporting:
     def entity(request):
         body = request['body']
         fields = {'mapping.record': 'mapping_id', 'attempt.record': 'attempt_id', 'handoff.record': 'handoff_id',
-                  'decision.observe': 'decision_id', 'artifact.record': 'artifact_id', 'checkpoint.report': 'report_id'}
+                  'decision.observe': 'decision_id', 'artifact.record': 'artifact_id', 'checkpoint.report': 'report_id','session.describe':'session_record_id'}
         if request['operation'] == 'artifact.associate': return ('artifact.associate', body['artifact_id'])
         key = fields.get(request['operation'])
         return (request['operation'], body[key]) if key else None
@@ -137,6 +137,8 @@ class Reporting:
                 if request['operation'] == 'attempt.record' and (
                         body['actor'] != old['body']['actor'] or old['body']['phase'] in ('failed', 'completed')):
                     raise ValueError('new executor or terminal-attempt retry requires a distinct attempt')
+                if request['operation']=='session.describe' and any(body[k]!=old['body'][k] for k in ('session','actor','linear_agent_session_id')):
+                    raise ValueError('session metadata retains its native/app identity')
                 if request['operation'] == 'mapping.record' and any(body[k] != old['body'][k] for k in ('kind', 'plan_id')):
                     raise ValueError('stable mapping kind and plan identity required')
                 if request['operation'] == 'mapping.record':

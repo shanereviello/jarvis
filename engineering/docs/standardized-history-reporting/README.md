@@ -16,6 +16,7 @@ is a separate historical designation, not an edit to the document.
 - [Reporting reference UI](reference-ui.md)
 - [Passive Linear observation](linear-observation.md)
 - [Curated reporting profiles and MCP retrieval](curated-reporting.md)
+- [Automatic runtime reporting and selected background capture](runtime-reporting.md)
 
 ## Approved v0.4 integration direction
 

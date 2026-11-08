@@ -37,6 +37,14 @@ function reportingRecord(item) {
     for (const [key, label] of [['observations', 'Observation'], ['alternatives_and_reasons', 'Approach / rationale'], ['changes', 'Change'], ['open_questions', 'Open question']]) for (const text of b[key]) field(card, label, text);
     for (const test of b.validation) field(card, 'Reported validation · ' + test.result, test.description);
     field(card, 'Next step', b.next_step);
+  } else if (r.operation === 'session.describe') {
+    field(card, 'Native session', b.session.namespace + ':' + b.session.id); field(card, 'Agent', agentLabel(b.actor));
+    field(card, 'Linear agent session / activity', (b.linear_agent_session_id || 'Unknown') + ' / ' + (b.linear_agent_activity_id || 'Unknown'));
+    field(card, 'Native session tree', b.native_session_tree_id); field(card, 'Parent / fork source', (b.parent_native_thread_id || 'Unknown') + ' / ' + (b.forked_from_native_thread_id || 'Unknown'));
+    field(card, 'Host / workspace', (b.host_identity || 'Unknown') + ' / ' + (b.workspace_identity || 'Unknown'));
+    field(card, 'Source version', b.source_version); field(card, 'Model observation', (b.model || 'Unknown') + ' · ' + b.model_basis);
+    field(card, 'Recorded tokens / cost', b.tokens === null ? 'Unknown' : JSON.stringify(b.tokens)); field(card, 'Cost USD', b.cost_usd === null ? 'Unknown' : String(b.cost_usd));
+    for (const limit of b.limitations) field(card, 'Provenance limitation', limit);
   } else if (r.operation === 'session.relate') {
     field(card, 'Session relationship', b.relationship + ' · ' + b.session.namespace + ':' + b.session.id);
     if (b.related_session) field(card, 'Related session', b.related_session.namespace + ':' + b.related_session.id);
