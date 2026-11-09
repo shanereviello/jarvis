@@ -53,3 +53,18 @@ def test_handoff_delivery_is_scoped_to_the_private_adapter_and_network():
     assert 'Unit=rras-codex-handoff-delivery.service' in timer
     for unit in (service,timer):
         assert 'ConditionPathExists=/var/lib/rras-codex-adapter/handoff-delivery.json' in unit
+
+
+def test_observer_timers_use_fixed_private_configuration_and_no_provider_credentials():
+    for name,entry,config in (
+        ('rras-codex-handoff-history','handoff_history_http.py','handoff-history.json'),
+        ('rras-codex-linear-observer','linear_observer_http.py','linear-observer.json'),
+    ):
+        service=text(name+'.service');timer=text(name+'.timer')
+        assert 'User=rras-codex-adapter' in service and 'Type=oneshot' in service
+        assert entry+' --config /var/lib/rras-codex-adapter/'+config in service
+        assert 'IPAddressDeny=any' in service and 'IPAddressAllow=172.19.0.0/16' in service
+        assert 'LoadCredential=' not in service and 'OPENAI_API_KEY=' not in service
+        assert 'Unit='+name+'.service' in timer
+        for unit in (service,timer):
+            assert 'ConditionPathExists=/var/lib/rras-codex-adapter/'+config in unit

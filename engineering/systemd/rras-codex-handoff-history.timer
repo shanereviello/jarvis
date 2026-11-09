@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh selected native handoff evidence
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+ConditionPathExists=/var/lib/rras-codex-adapter/handoff-history.json
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=rras-codex-handoff-history.service
+
+[Install]
+WantedBy=timers.target

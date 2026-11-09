@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh selected Linear engineering observations
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+ConditionPathExists=/var/lib/rras-codex-adapter/linear-observer.json
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=rras-codex-linear-observer.service
+
+[Install]
+WantedBy=timers.target
