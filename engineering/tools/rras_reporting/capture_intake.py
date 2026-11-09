@@ -136,15 +136,27 @@ class Spool:
 
     def observe_linear(self,snapshot,*,scope,context,organization_id,team_id,project_id,object_kind,object_id,updated_at):
         original=self.c.encoded(snapshot);snapshot,redactions=redact_object(snapshot);raw=self.c.encoded(snapshot)
-        # The owned observation contract bounds small snapshots. Oversized
-        # content is a gap, never silent truncation into a successful record.
-        if len(raw)>65536:raise ValueError('Linear snapshot exceeds bounded observation; retain source')
+        references=[];large=False
+        # Keep large source objects as immutable chunked evidence; the bounded
+        # observation carries its identity and digest rather than truncated text.
+        if len(raw)>65536:
+            if len(raw)>MAX_EXPORT:raise ValueError('Linear snapshot exceeds evidence limit; retain source')
+            normalized,_=redact(raw)
+            artifact=self.stage(raw,scope=scope,context=context,
+                session=dict(namespace='linear_object',id=project_id+':'+object_id),
+                collector='linear_observer',collector_version='1',source_sha256=self.c.digest(original),
+                source_updated_at=updated_at,media_type='application/json',session_context=False)
+            references=[dict(namespace='capture_artifact',id=artifact['artifact_id'],sha256=self.c.digest(normalized))]
+            snapshot=dict(object_kind=object_kind,object_id=object_id,linear_project_id=project_id,
+                retained_artifact=references[0],source_snapshot_sha256=self.c.digest(original))
+            raw=self.c.encoded(snapshot);large=True
         body=dict(object_kind=object_kind,organization_id=organization_id,team_id=team_id,
             linear_project_id=project_id,object_id=object_id,source_updated_at=updated_at,
-            snapshot_sha256=self.c.digest(raw),snapshot_text=raw.decode(),references=[],
+            snapshot_sha256=self.c.digest(raw),snapshot_text=raw.decode(),references=references,
             redaction_profile=PROFILE,source_snapshot_sha256=self.c.digest(original),
             gaps=['Polling can miss intermediate edits and objects deleted between polls.',
                 'Pattern redaction is partial; imported statements grant no execution or approval authority.'])
+        if large:body['gaps'].append('Full redacted snapshot retained as referenced chunked evidence; observation text is an index.')
         if redactions:body['gaps'].append('Recognized credentials were removed before persistent observation staging.')
         key=self.c.digest(self.c.encoded(dict(scope=scope,context=context,body=body)))
         request=dict(contract='engineering-reporting.v1',operation='linear.observe',client_event_key='linear-observation:'+key,
@@ -161,7 +173,10 @@ class Spool:
         sync(self.root);return dict(staged=True,sequence=seq)
 
     def stage(self,raw,*,scope,context,session,collector,collector_version,source_sha256,
-              source_range=None,gaps=(),source_created_at=None,source_updated_at=None,authorization_reference=None):
+              source_range=None,gaps=(),source_created_at=None,source_updated_at=None,authorization_reference=None,
+              media_type='text/markdown',session_context=True):
+        if media_type not in ('text/plain','text/markdown','application/json','application/x-ndjson') or type(session_context) is not bool:
+            raise ValueError('valid evidence format and context required')
         original=raw;raw,redactions=redact(raw);digest=hashlib.sha256(raw).hexdigest()
         if type(source_sha256) is not str or not re.fullmatch('[0-9a-f]{64}',source_sha256):raise ValueError('exact source identity required')
         artifact='cap_'+uuid.uuid5(uuid.NAMESPACE_URL,json.dumps([scope,session,collector],sort_keys=True)).hex
@@ -177,15 +192,16 @@ class Spool:
                 raise ValueError('capture spool capacity reached; retain source')
             previous=db.execute("SELECT * FROM items WHERE artifact=? AND kind='artifact' ORDER BY sequence DESC LIMIT 1",(artifact,)).fetchone()
             old=self.c.decode(previous['request']) if previous else None
-            limits=list(gaps)+['Session-level context; this export does not prove that every exchange belongs to the linked work.',
-                'Pattern redaction covers recognized credentials; it is not proof that arbitrary secrets are absent.']
+            limits=list(gaps)
+            if session_context:limits.append('Session-level context; this export does not prove that every exchange belongs to the linked work.')
+            limits.append('Pattern redaction covers recognized credentials; it is not proof that arbitrary secrets are absent.')
             if redactions:limits.append('Recognized credential values were redacted by '+PROFILE+'.')
             request=dict(contract='engineering-reporting.v1',operation='artifact.record',client_event_key=event_key,
                 expected_head=previous['request_sha256'] if previous else None,scope=scope,context=context,
                 source=dict(kind='imported',namespace='capture_intake',id=session['id']),occurred_at=source_updated_at,
                 body=dict(artifact_id=artifact,version=old['body']['version']+1 if old else 1,
                     previous_sha256=previous['request_sha256'] if previous else None,session=session,
-                    collector=collector,collector_version=collector_version,media_type='text/markdown',
+                    collector=collector,collector_version=collector_version,media_type=media_type,
                     content_sha256=digest,byte_length=len(raw),
                     chunks=[dict(index=i,sha256=hashlib.sha256(raw[n:n+65536]).hexdigest(),byte_length=len(raw[n:n+65536]))
                         for i,n in enumerate(range(0,len(raw),65536))],

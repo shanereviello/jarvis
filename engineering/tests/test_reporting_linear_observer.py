@@ -85,3 +85,26 @@ def test_bad_identity_cross_scope_and_nonadvancing_pages_refuse_without_launchin
         assert len(calls)<10
     assert spool.flush(sender(reporting))['pending']==0
     assert not any(r['operation'] in ('attempt.record','decision.observe','handoff.record') for r,_ in events(reporting))
+
+
+def test_large_document_retains_chunked_evidence_and_full_poll(spool,projects,evidence,reporting):
+    config=selected(projects);base,_=transport()
+    def query(value):
+        result=base(value)
+        if value['operation']=='documents':
+            result['data']['project']['documents']['nodes'][0]['content']='Large architecture evidence. '+('x'*80000)
+        return result
+    result=m.poll(spool,config,query)
+    assert result['complete_pass']
+    assert spool.flush(sender(reporting))['pending']==0
+    rows=[r for r,_ in events(reporting)]
+    artifact=next(r for r in rows if r['operation']=='artifact.record')
+    observation=next(r for r in rows if r['operation']=='linear.observe' and r['body']['object_kind']=='document')
+    assert artifact['body']['media_type']=='application/json'
+    assert artifact['body']['session']['namespace']=='linear_object'
+    assert len(artifact['body']['chunks'])>=2
+    assert observation['body']['references'][0]['id']==artifact['body']['artifact_id']
+    assert observation['body']['references'][0]['sha256']==artifact['body']['content_sha256']
+    assert 'chunked evidence' in ' '.join(observation['body']['gaps'])
+    assert m.poll(spool,config,query)['observed']==0
+    assert spool.flush(sender(reporting))['delivered']==0
