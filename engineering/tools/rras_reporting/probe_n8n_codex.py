@@ -118,6 +118,10 @@ def probe():
         else:raise ValueError('isolated PostgreSQL fixture did not start')
         def sql(text):return run(['docker','exec','-i',name,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],text)
         sql('CREATE SCHEMA linear_bridge;\n'+(ROOT/'contracts/linear-codex-n8n-v1.sql').read_text())
+        # Current dispatch SQL checks handoff quiescence; supply its isolated dependencies.
+        sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text);'
+            'CREATE TABLE linear_bridge.hermes_runs(hermes_run_id text PRIMARY KEY,agent_session_id text,status text,completed_at timestamptz,delivery_id uuid);'
+            +(ROOT/'contracts/linear-native-handoff-v1.sql').read_text())
         org,app=c['organization_id'],c['app_user_id']
         sql("INSERT INTO linear_bridge.codex_apps VALUES('"+org+"','"+app+"');")
         event=dict(contract='codex-admitted-event.v1',organization_id=org,app_user_id=app,
