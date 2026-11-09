@@ -2,8 +2,13 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
+import signal
+import subprocess
+import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -16,6 +21,38 @@ def module(name):
     value = importlib.util.module_from_spec(spec); spec.loader.exec_module(value); return value
 m = module('codex_runtime')
 def uid(n): return str(uuid.UUID(int=n))
+
+
+def test_sigterm_removes_owned_checkpoint_socket_and_closes_runtime(tmp_path):
+    script = r'''
+import importlib.util,sys,time
+from pathlib import Path
+root=Path(sys.argv[1]);folder=Path(sys.argv[2]);entry=root/'tools/rras_reporting/codex_runtime_http.py'
+s=importlib.util.spec_from_file_location('http_entry',entry);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+u=importlib.util.spec_from_file_location('unix_entry',root/'tools/rras_history/unix.py');unix=importlib.util.module_from_spec(u);u.loader.exec_module(unix)
+broker=unix.Server.__new__(unix.Server);broker.path=folder/'checkpoint.sock';broker.listener=None;broker.identity=None;broker.on_bound=None
+class Http:
+ def serve_forever(self):
+  (folder/'ready').write_text('ready')
+  while True:time.sleep(.1)
+ def server_close(self):(folder/'http-closed').write_text('closed')
+class Runtime:
+ def close(self):(folder/'runtime-closed').write_text('closed')
+m.serve(Http(),broker,Runtime())
+'''
+    child=subprocess.Popen([sys.executable,'-I','-c',script,str(ROOT),str(tmp_path)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    try:
+        deadline=time.monotonic()+10
+        while not (tmp_path/'ready').exists() and child.poll() is None and time.monotonic()<deadline:time.sleep(.05)
+        assert (tmp_path/'ready').exists(),child.stderr.read().decode() if child.poll() is not None else 'child did not become ready'
+        assert (tmp_path/'checkpoint.sock').exists()
+        os.kill(child.pid,signal.SIGTERM)
+        _,error=child.communicate(timeout=10)
+        assert child.returncode==0,error.decode()
+        assert not (tmp_path/'checkpoint.sock').exists()
+        assert (tmp_path/'runtime-closed').exists() and (tmp_path/'http-closed').exists()
+    finally:
+        if child.poll() is None:child.kill();child.communicate()
 
 
 class Client:

@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import signal
 import threading
 
 
@@ -81,6 +82,29 @@ def server(runtime, token, address=('127.0.0.1', 8766)):
     return ThreadingHTTPServer(address, Handler)
 
 
+def serve(http, broker_context, runtime):
+    """Release the owned checkpoint socket and journal during service stop."""
+    stopped=threading.Event()
+    previous=signal.getsignal(signal.SIGTERM)
+    def terminate(_signum,_frame):
+        # Repeated service-stop signals must not interrupt cleanup.
+        signal.signal(signal.SIGTERM,signal.SIG_IGN)
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM,terminate)
+    try:
+        with broker_context as broker:
+            def serve_checkpoints():
+                while not stopped.is_set():broker.serve_once()
+            thread=threading.Thread(target=serve_checkpoints,daemon=True);thread.start()
+            try:http.serve_forever()
+            finally:stopped.set();thread.join(timeout=3)
+    finally:
+        try:
+            try:http.server_close()
+            finally:runtime.close()
+        finally:signal.signal(signal.SIGTERM,previous)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--policy', type=Path, required=True)
@@ -137,17 +161,9 @@ def main():
     http = server(runtime, token, (args.bind, args.port))
     spec=importlib.util.spec_from_file_location('private_runtime_checkpoint_broker',Path(__file__).with_name('runtime_checkpoint_broker.py'))
     broker_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(broker_module)
-    stopped=threading.Event()
     os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8')
-    try:
-        with broker_module.Server(args.checkpoint_socket,runtime,reporter.configuration,args.native_uid,
-                on_bound=lambda path:broker_module.acl_on_bound(path,args.native_uid)) as broker:
-            def serve_checkpoints():
-                while not stopped.is_set():broker.serve_once()
-            thread=threading.Thread(target=serve_checkpoints,daemon=True);thread.start()
-            try:http.serve_forever()
-            finally:stopped.set();thread.join(timeout=3)
-    finally:http.server_close();runtime.close()
+    serve(http,broker_module.Server(args.checkpoint_socket,runtime,reporter.configuration,args.native_uid,
+        on_bound=lambda path:broker_module.acl_on_bound(path,args.native_uid)),runtime)
 
 
 if __name__ == '__main__':

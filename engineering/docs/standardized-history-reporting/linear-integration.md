@@ -84,6 +84,12 @@ different workspace or still-active stored turn remains uncertain. Recovery neve
 starts/resumes a generation. Full history exceeding the bounded RPC frame also
 remains unresolved; paginated-history support is not claimed.
 
+On a normal systemd stop, SIGTERM now unwinds the checkpoint broker and closes
+its journal, removing the socket it owns before the next start. A crash or forced
+kill can still leave a socket behind; the service refuses to adopt it, and an
+operator must confirm it is unbound before removing it. A restart never implies
+authorization to repeat an uncertain coding turn.
+
 The runtime event journal retains only lifecycle/approval metadata and visible
 agent result messages. Reasoning channels, reasoning items/deltas, unneeded
 stream notifications and nested terminal-turn items are excluded before the
