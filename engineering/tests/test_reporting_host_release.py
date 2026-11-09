@@ -60,3 +60,17 @@ def test_release_renders_every_systemd_path_and_python_vendor_binding():
             assert b'standardized-history-runtime' not in raw
             if b'/opt/rras-engineering/releases/standardized-history-' in files[name]:
                 assert target.encode() in raw
+
+
+def test_packaged_source_can_render_both_n8n_integrations(tmp_path):
+    from test_reporting_n8n_handoff import configuration
+    from test_reporting_n8n_codex import config
+
+    for name, raw in release.source_files(ROOT.parent).items():
+        target=tmp_path/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    folder=tmp_path/'engineering/tools/rras_reporting'
+    def renderer(name):
+        spec=importlib.util.spec_from_file_location('packaged_'+name,folder/(name+'.py'))
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+    assert len(renderer('n8n_handoff').render(configuration())['workflows'])==8
+    assert len(renderer('n8n_codex').render(config.__wrapped__())['workflows'])==4

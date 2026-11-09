@@ -74,6 +74,9 @@ def source_files(root):
     for folder in ('engineering/tools/rras_reporting','engineering/tools/rras_history'):
         for path in sorted((root/folder).glob('*.py')):
             rel=path.relative_to(root).as_posix();files[rel]=regular(path)
+    for name in ('n8n_codex_admission.js','n8n_native_handoff.js','n8n_native_origin.js'):
+        path=root/'engineering/tools/rras_reporting'/name
+        rel=path.relative_to(root).as_posix();files[rel]=regular(path)
     for folder in ('engineering/contracts',):
         for path in sorted((root/folder).glob('*.json')):
             rel=path.relative_to(root).as_posix();files[rel]=regular(path)
