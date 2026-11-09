@@ -1,6 +1,7 @@
 """Native Jarvis tool staging, source attribution and outage-safe delivery."""
 import copy
 import json
+import threading
 import pytest
 from test_reporting_runtime_reporting import setup,m,projects,reporting,store
 from test_reporting_codex_runtime import uid
@@ -80,3 +81,42 @@ def test_exhausted_handoff_does_not_block_independent_checkpoint_delivery(tmp_pa
     adapter=hermes.Adapter(config,actual=lambda:native,call=call)
     adapter.record('handoff',args('handoff'));adapter.record('checkpoint',args('checkpoint'))
     assert adapter.flush()==dict(delivered=1,pending=1,models_started=0) and posted==['checkpoint']
+
+
+def test_concurrent_recovery_sends_one_frozen_request(tmp_path,projects,reporting):
+    config,native,context,queue=installed(tmp_path,projects)
+    entered=threading.Event();release=threading.Event();posted=[]
+    def call(kind,value):
+        if kind=='context':return dict(context=context,execution_started=False)
+        posted.append(value['id']);entered.set();assert release.wait(5)
+        return dict(staged=True,request_id=value['id'],execution_started=False)
+    adapter=hermes.Adapter(config,actual=lambda:native,call=call)
+    adapter.record('handoff',args('handoff'))
+    results=[]
+    first=threading.Thread(target=lambda:results.append(adapter.flush()))
+    second=threading.Thread(target=lambda:results.append(adapter.flush()))
+    first.start();assert entered.wait(5);second.start();release.set()
+    first.join(5);second.join(5)
+    assert not first.is_alive() and not second.is_alive()
+    assert len(posted)==1 and sum(r['delivered'] for r in results)==1
+
+
+def test_passive_worker_recovers_without_native_run(tmp_path,projects,reporting,monkeypatch):
+    config,native,context,queue=installed(tmp_path,projects)
+    down=hermes.Adapter(config,actual=lambda:native,call=lambda *_:(_ for _ in ()).throw(OSError('offline')))
+    down.record('handoff',args('handoff'));assert down.flush()['pending']==1
+    delivered=threading.Event()
+    def call(kind,value):
+        if kind=='context':return dict(context=context,execution_started=False)
+        delivered.set();return dict(staged=True,request_id=value['id'],execution_started=False)
+    recovered=hermes.Adapter(config,actual=lambda:(_ for _ in ()).throw(AssertionError('no run should start')),call=call)
+    original=hermes.local
+    class Protected:
+        @staticmethod
+        def decode(*_args,**_kwargs):return config
+    monkeypatch.setattr(hermes,'local',lambda name:Protected if name=='protected_config' else original(name))
+    monkeypatch.setattr(hermes,'Adapter',lambda _config:recovered)
+    stop,thread=hermes.start_delivery_worker('/fixture',interval=1)
+    try:assert delivered.wait(5)
+    finally:stop.set();thread.join(5)
+    assert not thread.is_alive() and recovered.flush()['pending']==0

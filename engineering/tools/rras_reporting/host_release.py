@@ -78,6 +78,9 @@ def source_files(root):
     for name in ('n8n_codex_admission.js','n8n_native_handoff.js','n8n_native_origin.js'):
         path=root/'engineering/tools/rras_reporting'/name
         rel=path.relative_to(root).as_posix();files[rel]=regular(path)
+    for name in ('__init__.py','plugin.yaml'):
+        path=root/'engineering/hermes_plugins/engineering-reporting'/name
+        rel=path.relative_to(root).as_posix();files[rel]=regular(path)
     for folder in ('engineering/contracts',):
         for path in sorted((root/folder).glob('*.json')):
             rel=path.relative_to(root).as_posix();files[rel]=regular(path)

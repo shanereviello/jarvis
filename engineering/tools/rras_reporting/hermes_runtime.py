@@ -5,9 +5,13 @@ only. Passive delivery resolves the retained engineering-run binding through
 n8n, which retains the native OAuth credentials and work mapping.
 """
 import hashlib
+import fcntl
 import http.client
 import importlib.util
 import json
+import logging
+import os
+import threading
 from pathlib import Path
 from urllib.parse import urlsplit
 from jsonschema import Draft202012Validator
@@ -114,7 +118,35 @@ class Adapter:
             if ack!=dict(staged=True,request_id=frame['id'],execution_started=False):raise ValueError('native checkpoint admission unconfirmed')
         return dict(staged=True,request_id=frame['id'],execution_started=False)
 
-    def flush(self):return self.queue.flush(self.deliver,independent=True)
+    def flush(self):
+        # Multiple Hermes processes and tool calls may attempt recovery at once.
+        # Serialize the entire network/receipt operation, including across processes.
+        self.intake.private(self.queue.path,True)
+        path=self.queue.path/'delivery.lock'
+        fd=os.open(path,os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+        try:
+            self.intake.private(path)
+            fcntl.flock(fd,fcntl.LOCK_EX)
+            return self.queue.flush(self.deliver,independent=True)
+        finally:
+            os.close(fd)
+
+
+def start_delivery_worker(configuration_path,*,interval=60,stop=None):
+    """Retry retained reports without launching an agent or requiring a tool call."""
+    if type(interval) not in (int,float) or not 1<=interval<=3600:
+        raise ValueError('bounded passive delivery interval required')
+    stop=stop or threading.Event()
+    def run():
+        while not stop.wait(interval):
+            try:
+                Adapter(local('protected_config').decode(configuration_path,maximum=1024*1024)).flush()
+            except Exception:
+                # No report content, tokens, or exception text in shared logs.
+                logging.getLogger(__name__).warning('Native reporting delivery remains pending or unavailable')
+    thread=threading.Thread(target=run,name='engineering-reporting-delivery',daemon=True)
+    thread.start()
+    return stop,thread
 
 
 def register(ctx,configuration_path):
