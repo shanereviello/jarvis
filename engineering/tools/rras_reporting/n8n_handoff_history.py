@@ -16,6 +16,7 @@ def render(selected,postgres_reference,header_reference):
     def node(name,kind,version,parameters,credential=None):
         value=dict(id=str(uuid.uuid5(uuid.NAMESPACE_URL,'rras-handoff-read:'+project+':'+name)),name=name,
             type='n8n-nodes-base.'+kind,typeVersion=version,position=[240*len(nodes),0],parameters=parameters)
+        if kind=='webhook':value['webhookId']=value['id']
         if credential:value['credentials']={credential[0]:dict(id=credential[1],name='Selected handoff reader credential reference')}
         nodes.append(value);return value
     node('Private selected handoff history','webhook',2.1,dict(httpMethod='POST',path='rras-native-handoff-events-'+project,

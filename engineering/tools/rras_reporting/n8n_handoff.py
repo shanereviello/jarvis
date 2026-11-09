@@ -32,6 +32,7 @@ def render(configuration):
             value=dict(id=str(uuid.uuid5(uuid.NAMESPACE_URL,'rras:v04:handoff:'+role+':'+name)),name=name,
                 type='n8n-nodes-base.'+kind,typeVersion={'webhook':2.1,'respondToWebhook':1.4,'postgres':2.6,
                     'httpRequest':4.2,'code':2,'scheduleTrigger':1.2,'if':2.2}[kind],position=[0,0],parameters=parameters)
+            if kind=='webhook':value['webhookId']=value['id']
             if credential:value['credentials']={credential[0]:dict(id=credential[1],name='Native handoff credential reference')}
             return value
         def code(name,body):return node(name,'code',dict(jsCode=body,mode='runOnceForAllItems'))

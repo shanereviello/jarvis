@@ -73,6 +73,7 @@ def render(value):
             type='n8n-nodes-base.'+kind,typeVersion={'webhook':2.1,'respondToWebhook':1.4,
             'postgres':2.6,'httpRequest':4.2,'code':2,'scheduleTrigger':1.2,'if':2.2}[kind],
             position=[0,0],parameters=parameters)
+        if kind=='webhook':value['webhookId']=value['id']
         if credential:
             value['credentials']={credential[0]:dict(id=credentials[credential[1]],name='Codex '+credential[1])}
         return value

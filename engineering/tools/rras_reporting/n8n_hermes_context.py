@@ -31,6 +31,7 @@ return [{json:value}];""".replace('ORG',json.dumps(org))
         options=dict(queryReplacement='={{ [$json.run_id,$json.session_id,$json.hermes_session_id] }}'))
     reply['parameters']['responseBody']='={{ {context:$json.context||null,execution_started:false} }}'
     for node in result['nodes']:node['id']=str(uuid.uuid5(uuid.NAMESPACE_URL,'rras:jarvis-native-context:'+node['name']))
+    webhook['webhookId']=webhook['id']
     return result
 
 
@@ -52,4 +53,5 @@ return [{json:{...value,id:frame.id,report_json}}];""")
         options=dict(queryReplacement='={{ [$json.id,$json.session_id,$json.hermes_session_id,$json.run_id,$json.report_json] }}'))
     reply['parameters']['responseBody']='={{ {staged:true,request_id:$json.request_id,execution_started:false} }}'
     for node in result['nodes']:node['id']=str(uuid.uuid5(uuid.NAMESPACE_URL,'rras:jarvis-native-checkpoint:'+node['name']))
+    webhook['webhookId']=webhook['id']
     return result
