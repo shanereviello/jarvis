@@ -290,3 +290,24 @@ mapping records and verified the issue/plan/work relationships and digests.
 These records add private, immutable history relationships; they did not change
 Linear issues or existing work records. Codex runtime sockets/timers remain
 inactive. No session capture, model call or artifact export was started.
+
+## Production reporting and browser check — November 9
+
+The new n8n workflows were activated after the CLI-imported webhook registration
+IDs were fixed and independently tested. All nine protected routes rejected
+unauthenticated requests, and the two scoped history readers and selected Linear
+reader responded successfully. The existing Jarvis workflow's unrelated
+versions were preserved. The first collector timer pass exposed lock contention;
+the collectors were changed to serialize and the simultaneous service test and
+later scheduled passes succeeded. A Linear document exceeded the original 64 KiB
+observation limit; its redacted full snapshot is now retained as chunked evidence
+with a bounded observation referencing it. A subsequent production poll completed
+with no pending deliveries.
+
+The reporting dashboard release `history-web-34e127b311a2` was activated without
+restarting the history service or changing its configuration or policy. The
+operator confirmed that the project Overview and History tabs, Linear mappings,
+reporting records, and the large-document evidence preview worked in the
+authenticated browser. This does not establish the separate live Codex agent,
+curated-publication, automatic session-capture, or project-closeout acceptance.
+No coding model was started in these checks.

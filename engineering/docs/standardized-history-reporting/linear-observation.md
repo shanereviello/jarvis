@@ -17,9 +17,11 @@ every intermediate edit or an object deleted between polls.
 Small snapshots are canonical JSON, with strings recursively redacted **before
 JSON escaping** and before queue persistence. The original source digest,
 normalized snapshot digest, source update time, import receipt, selected IDs and
-coverage/redaction limits remain separate. More than 64 KiB normalized content
-refuses observation and records a gap; content is not silently truncated. Large
-session transcripts use the separate chunked evidence path.
+coverage/redaction limits remain separate. Normalized snapshots over 64 KiB are retained as immutable, chunked JSON
+evidence. The bounded observation contains an explicit artifact reference and
+digests; it does not silently truncate the original. Exports exceeding the
+evidence limit remain a reported gap. Session transcripts use the same custody
+boundary with their own source identity and coverage limitations.
 
 The existing gateway was not assumed to provide complete pagination.
 `n8n_linear_observer.py` instead renders an **inactive** four-node narrow reader
@@ -39,8 +41,9 @@ and `selected`. The selected binding has `organization_id`, `team_id`,
 contexts. Files and spool are caller-owned/private; the endpoint path pins the
 selected project. The transport sends only read parameters and the dedicated
 bridge header, never exports n8n's OAuth token, and follows no redirects.
-Collection takes the spool's nonblocking lock and replay calls only the scoped
-history upload/reporting methods. Timer installation and activation are separate.
+Collection takes the spool's exclusive lock and waits for another collector to
+finish; the systemd service timeout remains the upper bound. Replay calls only
+the scoped history upload/reporting methods.
 
 Generated Code nodes pass actual Node execution tests for read construction,
 pagination parameters, arbitrary-query refusal, OAuth identity and scope checks.
@@ -53,11 +56,12 @@ It preserved all seven previous workflow records, performed no Linear mutations,
 exported no credentials and started no models. This is schema compatibility,
 not production scheduled-poller or complete historical-coverage acceptance.
 
-The reader workflow, bridge credential, passive timer and production reporting
-schema are not installed by this source. n8n remains the OAuth owner. The reader
-is intended for the private integration network, with no new Cloudflare route
-required for passive collection. Coordinate its concrete network, credential,
-grant and backup packaging with the reviewed deployment plan.
+The selected production reader, bridge credential, passive timer and reporting
+schema were activated in November 2026. A complete poll and delivery were
+verified after the oversized-document fix; later overlapping polls completed
+without new records. n8n remains the OAuth owner and the reader uses the private
+integration network. This does not prove capture of intermediate edits or
+between-poll deletions.
 
 Official API behavior: [GraphQL errors and authentication](https://linear.app/developers/graphql),
 [Relay-style pagination](https://linear.app/developers/pagination).

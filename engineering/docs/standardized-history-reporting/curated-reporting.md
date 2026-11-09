@@ -64,3 +64,16 @@ The disposable container has no network, production mounts, real history,
 credentials or model runs. It mounts only repository engineering source read-only.
 This proves the protocol path on fixtures, not installation in the live Hermes
 tool configuration or live publication of the operator's private archive.
+
+## Existing catalog preservation
+
+A profile publication can coexist with previously curated selections: the
+composite generation retains existing validated previews and replaces only the
+matching profile's component. Search still enforces repository grants and
+generation-bound cursors. Withdrawals apply within the relevant components and
+are not resurrected by a later profile pass. A combined generation that exceeds
+100 entries refuses publication instead of silently dropping older entries.
+The live catalog had three existing Jarvis entries when checked. The preservation
+code passed an isolated actual MCP and cross-UID fixture, but this source change
+has not yet been deployed and no new profile or production content has been
+published.
