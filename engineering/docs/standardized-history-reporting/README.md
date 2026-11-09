@@ -21,6 +21,21 @@ is a separate historical designation, not an edit to the document.
 - [Scoped native Jarvis reporting](hermes-runtime.md)
 - [Server runtime installation candidate](runtime-host-setup.md)
 
+## Current deployment status — November 9, 2026
+
+The history service, reporting dashboard, selected Linear observer, Jarvis history
+reader, and n8n transport workflows are active. The operator verified the new
+reporting dashboard in an authenticated browser. The approved structured-field
+profile and 17 reviewed records are published to Jarvis; the three earlier
+curated entries remain visible. The Codex bridge and sockets are enabled at boot,
+with native coding execution still disabled. The capture timer remains disabled.
+An actual server reboot, live Codex mention/delegation and paid native execution,
+continued profile publication, automatic interactive-session capture and overall
+project closeout are not yet verified. See [current validation](v04-validation.md).
+
+The sections below include earlier implementation notes for provenance; where
+an earlier operational state differs, this current status takes precedence.
+
 ## Approved v0.4 integration direction
 
 Use existing n8n and verified ingress; preserve Jarvis. Codex has a distinct app,
