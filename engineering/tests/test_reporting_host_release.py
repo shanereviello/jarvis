@@ -50,6 +50,17 @@ def test_release_inputs_and_digest_are_canonical():
     assert first==release.release_digest({'b':b'two','a':b'one'})
 
 
+def test_optional_collector_is_pinned_and_requires_an_executable(tmp_path,monkeypatch):
+    candidate=tmp_path/'specstory';candidate.write_bytes(b'synthetic collector')
+    candidate.chmod(0o755)
+    monkeypatch.setattr(release,'SPECSTORY_SHA256',release.digest(candidate.read_bytes()))
+    assert release.binaries(BINARY,candidate)['runtime/bin/specstory']==b'synthetic collector'
+    candidate.write_bytes(b'changed collector')
+    try:release.binaries(BINARY,candidate)
+    except ValueError:pass
+    else:raise AssertionError('changed collector accepted')
+
+
 def test_release_renders_every_systemd_path_and_python_vendor_binding():
     files=release.source_files(ROOT.parent)
     target='/opt/rras-engineering/releases/standardized-history-a1b2c3d4e5f6'

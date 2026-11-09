@@ -11,6 +11,7 @@ import stat
 import subprocess
 
 CODEX_SHA256='d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f'
+SPECSTORY_SHA256='25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4'
 DEPENDENCIES={
  'annotated-types':'0.8.0','anyio':'4.16.0','attrs':'26.1.0','certifi':'2026.10.23','click':'8.5.1',
  'h11':'0.16.0','httpcore':'1.0.9','httpx':'0.28.1','httpx-sse':'0.4.3','idna':'3.20',
@@ -88,7 +89,7 @@ def source_files(root):
     return files
 
 
-def binaries(binary):
+def binaries(binary,specstory=None):
     path=Path(binary).resolve(strict=True)
     if digest(regular(path))!=CODEX_SHA256:raise ValueError('reviewed Codex 0.159.0 executable required')
     base=path.parent;root=base.parent
@@ -102,6 +103,11 @@ def binaries(binary):
         data=regular(source)
         if not os.access(source,os.X_OK):raise ValueError('reviewed executable resource required')
         result[name]=data
+    if specstory is not None:
+        source=Path(specstory).resolve(strict=True);data=regular(source)
+        if digest(data)!=SPECSTORY_SHA256 or not os.access(source,os.X_OK):
+            raise ValueError('reviewed SpecStory 2.17.0 executable required')
+        result['runtime/bin/specstory']=data
     return result
 
 
@@ -157,6 +163,8 @@ def verify(candidate,expected_manifest_sha256):
     if observed!=set(files)|{'manifest.json'}:raise ValueError('unexpected or missing release member')
     if manifest['codex_binary_sha256']!=CODEX_SHA256 or digest(files.get('runtime/bin/codex',b''))!=CODEX_SHA256:
         raise ValueError('pinned Codex executable differs')
+    if 'runtime/bin/specstory' in files and digest(files['runtime/bin/specstory'])!=SPECSTORY_SHA256:
+        raise ValueError('pinned SpecStory executable differs')
     expected_pth=(release+'/vendor/site-packages\n').encode()
     if files.get('runtime/rras-vendor-site-packages.pth')!=expected_pth:raise ValueError('vendor environment binding differs')
     source_files={}
@@ -180,7 +188,7 @@ def _unique_object(pairs):
     return result
 
 
-def build(source,binary,site,destination,commit):
+def build(source,binary,site,destination,commit,specstory=None):
     source=Path(source).resolve(strict=True);destination=Path(destination)
     if (destination.exists() or destination.is_symlink() or not destination.is_absolute() or
             not re.fullmatch('[0-9a-f]{40}',commit)):
@@ -188,7 +196,7 @@ def build(source,binary,site,destination,commit):
     head=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],timeout=10).decode().strip()
     changed=subprocess.check_output(['git','-C',str(source),'status','--porcelain','--untracked-files=all'],timeout=10)
     if head!=commit or changed:raise ValueError('clean exact source commit required')
-    files=source_files(source);files.update(site_packages(site));binary_files=binaries(binary);files.update(binary_files)
+    files=source_files(source);files.update(site_packages(site));binary_files=binaries(binary,specstory);files.update(binary_files)
     if len(files)>2048 or sum(map(len,files.values()))>1024*1024*1024:raise ValueError('bounded immutable release required')
     content_sha,_=release_digest(files);release='/opt/rras-engineering/releases/standardized-history-'+content_sha[:12]
     rendered=render_release(files,release)
@@ -211,8 +219,9 @@ def build(source,binary,site,destination,commit):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     for name in ('source','binary','site-packages','destination','source-commit'):parser.add_argument('--'+name,required=True)
+    parser.add_argument('--specstory',help='optional pinned SpecStory candidate; does not enable collection')
     args=parser.parse_args()
-    try:print(json.dumps(build(args.source,args.binary,args.site_packages,args.destination,args.source_commit),sort_keys=True))
+    try:print(json.dumps(build(args.source,args.binary,args.site_packages,args.destination,args.source_commit,args.specstory),sort_keys=True))
     except Exception:parser.exit(1,'Inactive Codex runtime packaging refused; preserve existing releases and state.\n')
 
 

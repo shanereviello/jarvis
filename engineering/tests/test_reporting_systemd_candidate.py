@@ -40,3 +40,16 @@ def test_socket_templates_and_passive_capture_timers_are_disabled_candidates():
         assert 'OnUnitActiveSec=1min' in unit
         assert 'ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled' in unit
     assert '0750 rras-codex-adapter rras-codex-adapter' in text('rras-codex-runtime.conf')
+
+
+def test_handoff_delivery_is_scoped_to_the_private_adapter_and_network():
+    service=text('rras-codex-handoff-delivery.service')
+    timer=text('rras-codex-handoff-delivery.timer')
+    assert 'User=rras-codex-adapter' in service and 'Type=oneshot' in service
+    assert 'runtime_handoff_delivery.py --config /var/lib/rras-codex-adapter/handoff-delivery.json' in service
+    assert 'ProtectSystem=strict' in service and 'NoNewPrivileges=yes' in service
+    assert 'IPAddressDeny=any' in service and 'IPAddressAllow=172.19.0.0/16' in service
+    assert 'LoadCredential=' not in service and 'OPENAI_API_KEY=' not in service
+    assert 'Unit=rras-codex-handoff-delivery.service' in timer
+    for unit in (service,timer):
+        assert 'ConditionPathExists=/var/lib/rras-codex-adapter/handoff-delivery.json' in unit
