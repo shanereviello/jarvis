@@ -12,4 +12,5 @@ def register(ctx):
     # Validate the protected installation before exposing either tool.
     module.Adapter(module.local('protected_config').decode(config,maximum=1024*1024))
     module.register(ctx,config)
-    module.start_delivery_worker(config)
+    stop,_thread=module.start_delivery_worker(config)
+    ctx.on_unload(stop.set)

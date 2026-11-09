@@ -1,6 +1,8 @@
 """Native Jarvis tool staging, source attribution and outage-safe delivery."""
 import copy
+import importlib.util
 import json
+from pathlib import Path
 import threading
 import pytest
 from test_reporting_runtime_reporting import setup,m,projects,reporting,store
@@ -120,3 +122,32 @@ def test_passive_worker_recovers_without_native_run(tmp_path,projects,reporting,
     try:assert delivered.wait(5)
     finally:stop.set();thread.join(5)
     assert not thread.is_alive() and recovered.flush()['pending']==0
+
+
+def test_plugin_registers_cleanup_for_passive_worker(monkeypatch):
+    wrapper_path=Path(__file__).resolve().parents[1]/'hermes_plugins/engineering-reporting/__init__.py'
+    spec=importlib.util.spec_from_file_location('test_engineering_plugin',wrapper_path)
+    wrapper=importlib.util.module_from_spec(spec);spec.loader.exec_module(wrapper)
+    stop=threading.Event();calls=[]
+    class Protected:
+        @staticmethod
+        def decode(path,**kwargs):calls.append(('decode',str(path)));return {'fixture':True}
+    class Runtime:
+        @staticmethod
+        def local(name):assert name=='protected_config';return Protected
+        @staticmethod
+        def Adapter(config):assert config=={'fixture':True}
+        @staticmethod
+        def register(ctx,path):calls.append(('register',str(path)))
+        @staticmethod
+        def start_delivery_worker(path):return stop,None
+    class Loader:
+        def exec_module(self,module):pass
+    class Spec:loader=Loader()
+    class Context:
+        def on_unload(self,callback):self.cleanup=callback
+    monkeypatch.setattr(wrapper.importlib.util,'spec_from_file_location',lambda *_:Spec())
+    monkeypatch.setattr(wrapper.importlib.util,'module_from_spec',lambda _:Runtime)
+    ctx=Context();wrapper.register(ctx)
+    assert [item[0] for item in calls]==['decode','register']
+    ctx.cleanup();assert stop.is_set()
