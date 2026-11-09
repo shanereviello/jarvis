@@ -55,7 +55,7 @@ def run_once(value,token,*,query=None,send=None):
     intake=local('capture_intake');spool=intake.Spool(value['spool']);source=local('handoff_history');selected=source.configuration(value['selected'])
     lock=spool.root/'collector.lock';fd=os.open(lock,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
     try:
-        intake.private(lock);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        intake.private(lock);fcntl.flock(fd,fcntl.LOCK_EX)
         if query is None:query=reader(value['reader_url'],token)
         if send is None:send=lambda message:intake.local('unix').call(value['service_socket'],value['service_uid'],message)
         try:result=source.poll(spool,selected,query)
