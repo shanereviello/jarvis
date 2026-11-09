@@ -11,6 +11,8 @@ def test_adapter_is_bridge_only_and_does_not_receive_repo_or_provider_secret():
     assert 'User=rras-codex-adapter' in unit and 'Group=rras-codex-adapter' in unit
     assert 'IPAddressDeny=any' in unit and 'IPAddressAllow=172.19.0.0/16' in unit
     assert 'ProtectSystem=strict' in unit
+    assert 'After=network.target docker.service rras-engineering-history.service' in unit
+    assert 'Wants=docker.service' in unit and 'WantedBy=multi-user.target' in unit
     assert 'ReadWritePaths=/run/rras-codex-runtime' in unit
     assert '--bind 172.19.0.1 --port 8766' in unit
     assert '/srv/git/jarvis' not in unit and 'LoadCredential' not in unit and 'OPENAI_API_KEY=' not in unit
