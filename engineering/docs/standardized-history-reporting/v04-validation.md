@@ -311,3 +311,20 @@ reporting records, and the large-document evidence preview worked in the
 authenticated browser. This does not establish the separate live Codex agent,
 curated-publication, automatic session-capture, or project-closeout acceptance.
 No coding model was started in these checks.
+
+## Curated publication and bridge boot persistence — November 9
+
+The operator approved the reviewed project-specific structured-field profile and
+its initial 17 records. The installed catalog reader reported successful actual
+Hermes MCP search and exact entry read; all three pre-existing curated entries
+remained visible. The approved profile excludes transcript bytes and raw Linear
+snapshots. This verifies the initial publication, not automatic publication of
+future checkpoints or a complete archive.
+
+The runtime bridge and its two sockets were active but disabled at boot. A
+root-installed systemd drop-in now orders the bridge after Docker and enables
+it together with the sockets. The existing process remained running and an
+unauthenticated bridge request was denied. The coding execution policy remains
+false; the capture timer remains disabled. Boot enablement is verified through
+systemd state, not a full server reboot test. Actual native mention, delegation,
+follow-up, cancellation and two-way handoff remain separate live acceptance work.
