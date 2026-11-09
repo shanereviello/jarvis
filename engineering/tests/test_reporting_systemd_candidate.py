@@ -10,6 +10,8 @@ def test_adapter_is_bridge_only_and_does_not_receive_repo_or_provider_secret():
     unit=text('rras-codex-runtime.service')
     assert 'User=rras-codex-adapter' in unit and 'Group=rras-codex-adapter' in unit
     assert 'IPAddressDeny=any' in unit and 'IPAddressAllow=172.19.0.0/16' in unit
+    assert 'ProtectSystem=strict' in unit
+    assert 'ReadWritePaths=/run/rras-codex-runtime' in unit
     assert '--bind 172.19.0.1 --port 8766' in unit
     assert '/srv/git/jarvis' not in unit and 'LoadCredential' not in unit and 'OPENAI_API_KEY=' not in unit
     assert 'ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled' in unit

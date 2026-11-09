@@ -21,6 +21,7 @@ AmbientCapabilities=
 PrivateTmp=yes
 ProtectHome=yes
 ProtectSystem=strict
+ReadWritePaths=/run/rras-codex-runtime
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
