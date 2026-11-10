@@ -140,8 +140,9 @@ found one unassigned `hermes_native_export` artifact in `jarvis-non-git`;
 its sole chunk and complete 18,334-byte export matched SHA-256
 `40283d5eecec1fb613db878139c82d2dddf05fce92bd2dc075f01184e02293a9`.
 This verifies storage and bytes, not complete conversation coverage or removal
-of arbitrary sensitive content. Authenticated browser preview and download
-acceptance remain pending.
+of arbitrary sensitive content. The operator confirmed that the authenticated
+dashboard preview and download both work for this artifact. The timer remained
+enabled and active, with no failed or pending delivery in the checked pass.
 
 ## Selected chat intake — November 10, 2026
 
