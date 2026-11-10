@@ -92,12 +92,13 @@ def run_once(reporter,*,limit=32,send=None):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--policy',required=True)
-    parser.add_argument('--reporting-policy',required=True);args=parser.parse_args();runtime=reporting.local('codex_runtime')
+    parser.add_argument('--reporting-policy',required=True);parser.add_argument('--limit',type=int,default=32)
+    args=parser.parse_args();runtime=reporting.local('codex_runtime')
     try:
         protected=reporting.local('protected_config')
         policy=runtime.policy(protected.decode(args.policy))
         reporter=reporting.Reporter(protected.decode(args.reporting_policy),policy)
-        print(json.dumps(run_once(reporter),allow_nan=False))
+        print(json.dumps(run_once(reporter,limit=args.limit),allow_nan=False))
     except (ValueError,OSError,TypeError,KeyError):parser.exit(1,'Registered capture pass refused; retain native sources, registry and pending spool.\n')
 
 
