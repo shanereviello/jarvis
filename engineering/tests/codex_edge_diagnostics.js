@@ -17,6 +17,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
  assert.equal((await worker.fetch(await req({...body,type:'wrong'}),env)).status,403);assert.equal(logs.at(-1).stage,'event_type');
  global.fetch=async()=>new Response('internal payload should not be logged',{status:403});
  assert.equal((await worker.fetch(await req(body),env)).status,503);assert.equal(logs.at(-2).stage,'upstream_rejected');assert.deepEqual(logs.at(-1),{event:'codex_webhook',stage:'upstream_status',status:403});
+ global.fetch=async(_url,options)=>{assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{location:'https://other.invalid/private'}})};
+ assert.equal((await worker.fetch(await req(body),env)).status,503);assert.deepEqual(logs.at(-1),{event:'codex_webhook',stage:'upstream_status',status:302});
  global.fetch=async()=>new Response('ok',{status:200});assert.equal((await worker.fetch(await req(body),env)).status,200);assert.equal(logs.at(-1).stage,'accepted');
  const result=JSON.stringify(logs);for(const secret of [env.CODEX_WEBHOOK_SECRET,env.CODEX_N8N_BRIDGE_SECRET,env.CF_ACCESS_CLIENT_SECRET,'PRIVATE-CONTENT-DO-NOT-LOG','internal payload'])assert(!result.includes(secret));
  process.stdout.write(JSON.stringify({signature_mismatch:true,scope_rejections:true,upstream_status:true,no_sensitive_logs:true,security_checks_preserved:true}));

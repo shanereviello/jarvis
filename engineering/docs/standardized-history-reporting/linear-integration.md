@@ -103,6 +103,20 @@ ownership and linked continuation still need acceptance.
 
 ## Validation and outstanding acceptance
 
+### Production observation: human delegation (2026-11-09)
+
+The operator deferred this issue while continuing the remaining work. A direct
+human mention on REV-48 reached the Codex runtime and returned the expected
+execution-disabled refusal. On REV-49, a human delegation reached the bridge,
+but the native origin check returned `origin_unconfirmed` and no coding turn
+started. The admitted source-comment ID matches the Linear-generated agent
+session thread. That relationship is a lead, not yet a verified root cause:
+the individual failing native identity check is not retained in the observation.
+Investigate the native session metadata and test a fix without weakening
+agent-origin or handoff verification. Delegation acceptance remains open; its
+impact may extend beyond REV-49. This observation does not establish a percentage
+of functionality complete or verify live model execution or either handoff.
+
 Focused tests use actual private HTTP, SQLite restart and a synthetic stdio child,
 without real models. **probe_n8n_codex.py --isolated-containers** uses installed
 images with pull=never, no network/production mounts and disposable PostgreSQL.

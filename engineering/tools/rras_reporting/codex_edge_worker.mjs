@@ -58,7 +58,7 @@ export default {
     });
     try {
       const response = await fetch(target.toString(),{method:'POST',headers,body:raw,
-        redirect:'error',signal:AbortSignal.timeout(3500)});
+        redirect:'manual',signal:AbortSignal.timeout(3500)});
       // Preserve non-2xx/uncertain intake for Linear's retry; never acknowledge a
       // merely forwarded request or leak an internal response body.
       log(response.ok ? 'accepted' : 'upstream_rejected',response.ok ? 200 : 503);
