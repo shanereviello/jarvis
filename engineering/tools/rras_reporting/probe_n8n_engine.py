@@ -60,7 +60,12 @@ def probe():
         created.append(pg)
         for _ in range(60):
             ready=subprocess.run(['docker','exec',pg,'pg_isready','-U','postgres'],capture_output=True)
-            if ready.returncode==0:break
+            if ready.returncode==0:
+                # The image starts and stops a temporary server during its
+                # initialization. Require a stable socket before provisioning.
+                time.sleep(1)
+                ready=subprocess.run(['docker','exec',pg,'pg_isready','-U','postgres'],capture_output=True)
+                if ready.returncode==0:break
             time.sleep(.25)
         else:raise ValueError('Fixture PostgreSQL did not become ready')
         def sql(query):
@@ -180,6 +185,34 @@ def probe():
             result=json.loads(response['body'])
             assert 'data' in result,result
             return result['data']
+        # Exercise an inactive cloned dispatch and an API cutover/rollback in
+        # the disposable engine without touching any production workflow.
+        patch_spec=importlib.util.spec_from_file_location('origin_clone_patch',ROOT/'tools/rras_reporting/n8n_codex_origin_patch.py')
+        origin_patch=importlib.util.module_from_spec(patch_spec);patch_spec.loader.exec_module(origin_patch)
+        old_source=run(['git','show','f132d7b:engineering/tools/rras_reporting/n8n_native_origin.js'])
+        schedule=dict(id=uuid.uuid4().hex,name='Schedule',type='n8n-nodes-base.scheduleTrigger',typeVersion=1.2,position=[0,0],
+            parameters=dict(rule=dict(interval=[dict(field='minutes',minutesInterval=10)])))
+        def code(name,script):
+            return dict(id=uuid.uuid4().hex,name=name,type='n8n-nodes-base.code',typeVersion=2,position=[200,0],parameters=dict(jsCode=script))
+        orig=api('/rest/workflows',dict(name='Synthetic dispatch cutover',nodes=[schedule,
+            code('Prepare Codex origin read','const query = '+json.dumps(origin_patch.OLD_SESSION+' '+origin_patch.OLD_COMMENT)+'; return [];'),
+            code('Verify native Codex origin',old_source+'\nreturn [];')],connections={},settings=dict(executionOrder='v1')))
+        activated=api('/rest/workflows/'+orig['id']+'/activate',dict(versionId=orig['versionId']))
+        assert activated['active'] is True
+        current=json.loads(request('/rest/workflows/'+orig['id'])['body'])['data']
+        clone=origin_patch.prepare(current,old_source,uuid.uuid4().hex[:16],orig['id'])
+        write('/tmp/fixture-origin-clone.json',[clone])
+        run(['docker','exec','--user','node',n8n,'n8n','import:workflow','--input=/tmp/fixture-origin-clone.json'])
+        staged=json.loads(request('/rest/workflows/'+clone['id'])['body'])['data']
+        assert staged['active'] is False
+        assert json.loads(request('/rest/workflows/'+orig['id'])['body'])['data']['active'] is True
+        api('/rest/workflows/'+orig['id']+'/deactivate',{})
+        api('/rest/workflows/'+clone['id']+'/activate',dict(versionId=staged['versionId']))
+        assert json.loads(request('/rest/workflows/'+clone['id'])['body'])['data']['active'] is True
+        api('/rest/workflows/'+clone['id']+'/deactivate',{})
+        api('/rest/workflows/'+orig['id']+'/activate',dict(versionId=current['versionId']))
+        assert json.loads(request('/rest/workflows/'+orig['id'])['body'])['data']['active'] is True
+        print('Inactive dispatch clone, cutover and rollback verified in fixture.',flush=True)
         credential_refs={}
         for credential in creds:
             old=credential.pop('id')
@@ -239,7 +272,7 @@ if(b.query.startsWith('mutation NativeHandoffSession')){const comment=state.comm
  return reply(200,{data:{agentSessionCreateOnComment:{success:true,agentSession:{id:session.id}}}});}
 if(b.query.startsWith('query NativeHandoffReadComment'))return reply(200,{data:{viewer,comment:state.comments[b.variables.id]||null}});
 if(b.query.startsWith('query CodexNativeOrigin'))return reply(200,{data:{viewer:{id:uid(state.wrongActor?20:2),organization:{id:uid(1)}},
- sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,appUser:{id:uid(2)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:null,sourceComment:null}}});
+ sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,sourceMetadata:null,appUser:{id:uid(2)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:b.variables.id===uid(880)?{id:uid(881),isArtificialAgentSessionRoot:true,agentSession:{id:uid(880)},user:null}:null,sourceComment:null}}});
 if(b.query.startsWith('query JarvisNativeOrigin'))return reply(200,{data:{viewer,
  sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,appUser:{id:uid(20)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:null,sourceComment:null}}});
 if(b.query.startsWith('query '))return reply(200,{data:{viewer}});
@@ -253,6 +286,23 @@ reply(404,{error:'unknown fixture route'});
 }).listen(8899,'127.0.0.1');"""
         node("require('node:fs').writeFileSync('/tmp/remote.cjs',require('node:fs').readFileSync(0));",remote)
         run(['docker','exec','--user','node','-d',n8n,'node','/tmp/remote.cjs'])
+        # A separate CLI process must use its own broker port and the same
+        # existing OAuth credential, without activating a production webhook.
+        diagnostic_id=uuid.uuid4().hex[:16]
+        diagnostic_nodes=[dict(id=uuid.uuid4().hex,name='Manual',type='n8n-nodes-base.manualTrigger',typeVersion=1,position=[0,0],parameters={}),
+            dict(id=uuid.uuid4().hex,name='Read viewer',type='n8n-nodes-base.httpRequest',typeVersion=4.2,position=[200,0],
+                parameters=dict(authentication='genericCredentialType',genericAuthType='oAuth2Api',method='POST',
+                    url='http://127.0.0.1:8899/graphql',sendBody=True,contentType='raw',rawContentType='application/json',
+                    body=json.dumps(dict(query='query FixtureViewer { viewer { id } }')),options=dict(timeout=15000)),
+                credentials=dict(oAuth2Api=dict(id=credential_refs[c['credentials']['codex_oauth']],name='Fixture OAuth')))]
+        diagnostic=dict(id=diagnostic_id,name='Synthetic read-only CLI diagnostic',nodes=diagnostic_nodes,
+            connections={'Manual':dict(main=[[dict(node='Read viewer',type='main',index=0)]])},
+            settings=dict(executionOrder='v1',saveDataErrorExecution='none',saveDataSuccessExecution='none',saveManualExecutions=False))
+        write('/tmp/cli-diagnostic.json',[diagnostic])
+        run(['docker','exec','--user','node',n8n,'n8n','import:workflow','--input=/tmp/cli-diagnostic.json'])
+        cli_output=run(['docker','exec','--user','node','-e','N8N_RUNNERS_BROKER_PORT=35679',n8n,
+            'n8n','execute','--id='+diagnostic_id,'--rawOutput'],timeout=90)
+        assert str(uuid.UUID(int=2)) in cli_output, 'Fixture read-only CLI credential execution failed'
         api('/rest/workflows/'+ids['inbound']+'/activate',dict(versionId=workflows['inbound']['versionId']))
         path='/webhook/rras-codex-agent-events'
         for _ in range(40):
@@ -554,6 +604,17 @@ reply(404,{error:'unknown fixture route'});
         assert response['status']==200,response
         selected_rows=json.loads(response['body'])['sessions']
         assert len(selected_rows)==1 and selected_rows[0]['agent_session_id']==fixture_id
+        delegated_body=dict(body,webhookTimestamp=int(time.time()*1000),agentSession=dict(body['agentSession'],
+            id=str(uuid.UUID(int=880)),commentId=str(uuid.UUID(int=881))))
+        delegated_headers=dict(headers);delegated_headers['Linear-Delivery']=str(uuid.UUID(int=882))
+        delegated_headers['X-RRAS-Codex-Body-Sha256']=hashlib.sha256(json.dumps(delegated_body).encode()).hexdigest()
+        response=request(path,delegated_body,delegated_headers);assert response['status']==200,response
+        delegated_event=json.loads(response['body'])['event_id']
+        before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
+        execute('dispatch')
+        assert sql("SELECT origin_observation->>'actor_basis' FROM linear_bridge.codex_events WHERE id='"+delegated_event+"';").strip()=='native_artificial_root_and_verified_creator'
+        assert len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])==before+1
+        request('/fixture/complete',{},port=8899);execute('reconcile');execute('outbound')
         request('/fixture/deny-execution',{},port=8899)
         before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
         denied=deliver(800,801);execute('dispatch')

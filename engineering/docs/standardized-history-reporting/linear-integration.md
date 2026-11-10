@@ -117,6 +117,30 @@ agent-origin or handoff verification. Delegation acceptance remains open; its
 impact may extend beyond REV-49. This observation does not establish a percentage
 of functionality complete or verify live model execution or either handoff.
 
+### Delegation origin correction — November 10
+
+A read-only query through the existing Codex OAuth credential showed that the
+rejected session's thread is an authorless artificial session root, not an
+ordinary source comment. Linear's native response linked that root to the exact
+session and identified a human creator matching the signed event's responsible
+human. No `sourceComment` or external-source metadata was present. The
+[Linear schema](https://raw.githubusercontent.com/linear/linear/refs/heads/master/packages/sdk/src/schema.graphql)
+describes the artificial root and distinguishes the session's responsible human
+from a source comment; the artificial-root field is marked internal and must be
+rechecked for compatibility if Linear changes it.
+
+An uninstalled source correction accepts this specific shape only when the
+authenticated app, workspace, session and issue match; the signed root ID matches
+the native artificial root and its reverse session link; the responsible human
+matches both the native creator and the independent user read; and there is no
+source comment, external-source metadata or correlated handoff. All other agent
+comments still require the existing correlated handoff proof. The resulting
+observation records the root as the session thread, leaves the triggering actor
+unknown, records the responsible human separately, and infers no human approval.
+Synthetic unit and n8n engine tests cover
+the accepted shape and adversarial mismatches. Live deployment, human delegation
+and the remaining cross-agent scenarios are not yet accepted.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was

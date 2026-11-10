@@ -19,6 +19,23 @@ function verifyOrigin(envelope, reply, policy, handoff = null) {
   } else {
     comment=s.sourceComment || s.comment || null;
     if(envelope.origin_comment_id && comment?.id!==envelope.origin_comment_id)return deny();
+    // Linear creates an authorless root thread for a session that did not
+    // originate in another comment. Its responsible creator is meaningful
+    // only when the signed event, native session, and user read all agree.
+    // An actual source comment or any correlated handoff must follow the
+    // existing author/handoff path, even if the display root is artificial.
+    if(s.sourceComment===null && s.sourceMetadata===null && comment && comment===s.comment &&
+       comment.isArtificialAgentSessionRoot===true && comment.agentSession?.id===s.id &&
+       comment.user===null && envelope.origin_comment_id===comment.id && !handoff) {
+      actor=s.creator;
+      if(!actor || actor.app!==false || !envelope.responsible_human_id ||
+         actor.id!==envelope.responsible_human_id || d?.sourceActor?.id!==actor.id ||
+         d?.sourceActor?.app!==false || policy.agent_actor_ids.includes(actor.id))return deny();
+      return {permitted:true,correlated_handoff_id:null,observation:{status:'native_human_context',
+        source_actor_id:null,actor_basis:'native_artificial_root_and_verified_creator',
+        source_comment_id:null,session_thread_comment_id:comment.id,
+        responsible_human_id:actor.id,human_approval_inferred:false}};
+    }
     if(comment) {
       actor=comment.user;basis='native_source_comment_author';
       if(!actor || typeof actor.app!=='boolean')return deny();
