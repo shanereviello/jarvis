@@ -123,6 +123,26 @@ An authenticated metadata route, a confined native-reader deployment, durable
 cursor integration, scoped delivery, restart tests and live acceptance remain
 required. No future Hermes session collection has been activated by this source.
 
+## Future Hermes capture production check — November 10, 2026
+
+The operator installed release `standardized-history-a38d08615a5b`, approved
+future Linear-linked Jarvis sessions and selected `jarvis-non-git` when no
+repository is known. Staging fixed the cutoff at `2026-11-10T20:19:27.108667Z`,
+retained eight explicit Jarvis issue mappings, and created an inactive metadata
+reader. After the operator published the reader through the running n8n interface,
+an unauthenticated request returned 403. The operator enabled the five-minute
+capture timer following a successful zero-session pass.
+
+A new REV-37 Jarvis session was created after the cutoff. A scheduled pass
+processed one session and delivered three queued records with no failed or
+pending delivery and no model started by the collector. A scoped history read
+found one unassigned `hermes_native_export` artifact in `jarvis-non-git`;
+its sole chunk and complete 18,334-byte export matched SHA-256
+`40283d5eecec1fb613db878139c82d2dddf05fce92bd2dc075f01184e02293a9`.
+This verifies storage and bytes, not complete conversation coverage or removal
+of arbitrary sensitive content. Authenticated browser preview and download
+acceptance remain pending.
+
 ## Selected chat intake — November 10, 2026
 
 The operator separately authorized one private intake of this chat. The installed
