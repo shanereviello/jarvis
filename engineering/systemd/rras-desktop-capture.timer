@@ -1,0 +1,13 @@
+[Unit]
+Description=Run bounded desktop Codex evidence collection
+ConditionPathExists=/home/shanereviello/.local/state/rras-desktop-capture/config.json
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=10s
+Persistent=true
+Unit=rras-desktop-capture.service
+
+[Install]
+WantedBy=timers.target

@@ -139,15 +139,17 @@ def run_once(value,*,send=None,limit=32):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('operation',choices=('register','run-once'))
-    parser.add_argument('--config',required=True);args=parser.parse_args()
+    parser.add_argument('--config',required=True);parser.add_argument('--limit',type=int,default=32);args=parser.parse_args()
     try:
         value=configuration(args.config)
         if args.operation=='register':
             raw=sys.stdin.buffer.read(65537)
             if len(raw)>65536:raise ValueError('bounded hook event required')
             result=register(value,intake.local('contract').decode(raw))
-            # Hook output is not model context and never includes event content.
-        else:result=run_once(value);print(json.dumps(result,allow_nan=False))
+            # Stop hooks require JSON; an empty object grants no authority and
+            # never includes prompt, transcript or registration details.
+            print('{}')
+        else:result=run_once(value,limit=args.limit);print(json.dumps(result,allow_nan=False))
     except (ValueError,OSError,TypeError,KeyError):
         parser.exit(1,'Desktop capture registration or pass refused; retained sources and queue unchanged.\n')
 

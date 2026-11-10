@@ -62,7 +62,7 @@ def test_hook_entry_registers_without_echoing_prompt(selected):
     policy,path=selected;e=dict(event(path),prompt='SYNTHETIC-PRIVATE-PROMPT')
     result=subprocess.run([sys.executable,str(ROOT/'desktop_capture.py'),'register','--config',str(path/'config.json')],
         input=json.dumps(e),text=True,capture_output=True,timeout=10)
-    assert result.returncode==0 and result.stdout=='' and 'SYNTHETIC-PRIVATE-PROMPT' not in result.stderr
+    assert result.returncode==0 and json.loads(result.stdout)=={} and 'SYNTHETIC-PRIVATE-PROMPT' not in result.stderr
     for entry in (path/'registry').glob('*.json'):
         assert 'SYNTHETIC-PRIVATE-PROMPT' not in entry.read_text()
 

@@ -165,3 +165,13 @@ the transcript path as a convenience and cautions that transcript format can
 change. The prototype therefore still checks the selected file's exact session
 identity, preserves source-coverage gaps, and does not treat hook data as authority
 to assign work.
+
+The operator subsequently selected all sessions using the shared
+`/home/shanereviello/Documents/Codex` working directory for the initial Jarvis
+scope. This is explicit scope authorization, not a project/work assignment or
+permission to assign a transcript based on its directory. The desktop adapter
+leaves those relationships unmapped. New and resumed sessions require a trusted
+hook event; the adapter does not recursively scan historical sessions. The
+prepared timer runs as the existing user, in a private network namespace, with
+a bounded number of sources per pass. Installation and actual desktop hook
+delivery remain to be verified.
