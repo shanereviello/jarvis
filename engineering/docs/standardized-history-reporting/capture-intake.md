@@ -175,3 +175,23 @@ hook event; the adapter does not recursively scan historical sessions. The
 prepared timer runs as the existing user, in a private network namespace, with
 a bounded number of sources per pass. Installation and actual desktop hook
 delivery remain to be verified.
+
+## Desktop capture production check — November 10, 2026
+
+The operator installed immutable release `standardized-history-43ae65bac66b`
+and the initially disabled desktop capture service and timer. The reviewed
+user hook was installed and the operator reported trusting its four lifecycle
+handlers. This desktop session then appeared in the private registry. A manual
+service pass captured its selected source and delivered all four queued items
+without failures or model execution; its artifact manifest and local full export
+digest were verified against the scoped history service.
+
+The operator enabled the timer. A scheduled pass ran successfully, processed two
+registered sources, and reported no failed or pending deliveries. Subsequent
+checks matched all three retained artifact receipts in private history; one
+artifact had versions 1 and 2 and the other had version 1. All were unmapped and
+marked partial. This verifies an actual hook event and one scheduled pass, not
+every desktop lifecycle event, history completeness, or cross-project work
+attribution. The timer's next trigger was visible on the monotonic schedule.
+Collection does not recursively import historical sessions; source discovery
+depends on trusted future lifecycle events. No paid model was started.
