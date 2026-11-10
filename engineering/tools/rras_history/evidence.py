@@ -205,7 +205,8 @@ class Evidence:
 
     def read(self,selected,query):
         if type(query) is not dict or set(query) not in (
-                {'artifact_id','version','snapshot'},{'artifact_id','version','snapshot','index'}):
+                {'artifact_id','version','snapshot'},{'artifact_id','version','snapshot','index'},
+                {'artifact_id','version','snapshot','index','count'}):
             raise ValueError('exact signed artifact query required')
         if (type(query['artifact_id']) is not str or not re.fullmatch('cap_[0-9a-f]{32}',query['artifact_id']) or
                 type(query['version']) is not int or query['version']<1):raise ValueError('exact artifact revision required')
@@ -225,8 +226,14 @@ class Evidence:
         result['association']=dict(submission=association[0],receipt=association[1]) if association else None
         result['effective_context']=association[0]['context'] if association else request['context']
         if 'index' in query:
-            index=query['index']
-            if type(index) is not int or not 0<=index<len(body['chunks']):raise ValueError('bounded artifact chunk required')
-            chunk=body['chunks'][index];raw=self.read_blob(chunk['sha256'],chunk['byte_length'])
-            result['chunk']=dict(chunk,data_base64=base64.b64encode(raw).decode())
+            index=query['index'];count=query.get('count',1)
+            if (type(index) is not int or type(count) is not int or not 1<=count<=8 or
+                    not 0<=index<len(body['chunks']) or index+count>len(body['chunks'])):
+                raise ValueError('bounded artifact chunk range required')
+            chunks=[]
+            for chunk in body['chunks'][index:index+count]:
+                raw=self.read_blob(chunk['sha256'],chunk['byte_length'])
+                chunks.append(dict(chunk,data_base64=base64.b64encode(raw).decode()))
+            if 'count' in query:result['chunks']=chunks
+            else:result['chunk']=chunks[0]
         return result

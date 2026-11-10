@@ -74,14 +74,18 @@ class Reader:
             if manifest.get('artifact_id')!=query.get('artifact_id') or manifest.get('version')!=query.get('version'):
                 raise ValueError('unavailable')
             if 'index' in query:
-                chunk=answer.get('chunk',{});index=query['index']
-                if type(index) is not int or not 0<=index<len(manifest.get('chunks',[])):
+                index=query['index'];count=query.get('count',1)
+                if (type(index) is not int or type(count) is not int or not 1<=count<=8 or
+                        not 0<=index<len(manifest.get('chunks',[])) or index+count>len(manifest['chunks'])):
                     raise ValueError('unavailable')
-                expected=manifest['chunks'][index]
-                raw=base64.b64decode(chunk.get('data_base64',''),validate=True)
-                if ({k:chunk.get(k) for k in ('index','sha256','byte_length')}!=expected or
-                        len(raw)!=expected['byte_length'] or hashlib.sha256(raw).hexdigest()!=expected['sha256']):
-                    raise ValueError('unavailable')
+                chunks=answer.get('chunks') if 'count' in query else [answer.get('chunk',{})]
+                if type(chunks) is not list or len(chunks)!=count:raise ValueError('unavailable')
+                for offset,chunk in enumerate(chunks):
+                    expected=manifest['chunks'][index+offset]
+                    raw=base64.b64decode(chunk.get('data_base64',''),validate=True)
+                    if ({k:chunk.get(k) for k in ('index','sha256','byte_length')}!=expected or
+                            len(raw)!=expected['byte_length'] or hashlib.sha256(raw).hexdigest()!=expected['sha256']):
+                        raise ValueError('unavailable')
         if query['view']=='architecture':
             doc=answer.get('document',{})
             if (type(doc.get('markdown')) is not str or len(doc['markdown'].encode())>128*1024 or

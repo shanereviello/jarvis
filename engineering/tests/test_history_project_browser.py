@@ -29,8 +29,9 @@ def test_reporting_reference_and_verified_private_capture_browser(projects,proje
     checkpoint['body']['observations']=['BROWSER-REFERENCE-FINDING <img src=x onerror="window.injected=true">']
     reporting.submit(checkpoint)
     reporting.submit(report_request(projects,'attempt.record'))
-    raw='VISIBLE-CAPTURE-RESULT\n<img src=x onerror="window.injected=true">\nUnicode: Ω\n'.encode()
-    evidence.upload(upload(raw));capture=manifest(projects,raw);reporting.submit(capture)
+    raw='VISIBLE-CAPTURE-RESULT\n<img src=x onerror="window.injected=true">\nUnicode: Ω\n'.encode()+b'X'*(9*65536)
+    for offset in range(0,len(raw),65536):evidence.upload(upload(raw[offset:offset+65536]))
+    capture=manifest(projects,raw);reporting.submit(capture)
     unmapped=manifest(projects,b'',context=False);unmapped['body']['artifact_id']='cap_'+'9'*32;reporting.submit(unmapped)
     app=web('app').create_app(project_reader,access(key));errors=[];corrupt=[False]
     with ThreadPoolExecutor(max_workers=1) as requests,playwright.sync_playwright() as p:
@@ -41,7 +42,7 @@ def test_reporting_reference_and_verified_private_capture_browser(projects,proje
             response=requests.submit(client_call,app,key,path,route.request.method).result(timeout=12)
             body=response.content
             if corrupt[0] and path.startswith('/api/workspace/artifact') and 'index=' in path:
-                value=response.json();value['chunk']['data_base64']='Y29ycnVwdA=='
+                value=response.json();value['chunks'][0]['data_base64']='Y29ycnVwdA=='
                 body=json.dumps(value).encode()
             route.fulfill(status=response.status_code,headers=dict(response.headers),body=body)
         page.route(ORIGIN+'/**',fulfill);page.goto(ORIGIN)
@@ -58,7 +59,7 @@ def test_reporting_reference_and_verified_private_capture_browser(projects,proje
         page.get_by_role('heading',name='Captured engineering evidence',exact=True).wait_for()
         page.get_by_role('button',name='Preview captured text',exact=True).click()
         playwright.expect(page.locator('#detail pre')).to_contain_text('VISIBLE-CAPTURE-RESULT')
-        playwright.expect(page.locator('#detail')).to_contain_text('Exact full artifact verified')
+        playwright.expect(page.locator('#detail')).to_contain_text('Partial preview: first')
         assert page.evaluate('window.injected') is None and page.locator('#detail img').count()==0
         with page.expect_download() as download:
             page.get_by_role('button',name='Download verified full export',exact=True).click()

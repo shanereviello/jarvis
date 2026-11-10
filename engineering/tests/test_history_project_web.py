@@ -69,6 +69,9 @@ def test_reporting_snapshots_and_private_artifact_chunks(project_reader,projects
     assert client_call(app,key,url('works',project_id=P1,snapshot=token)).status_code==200
     got=client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,snapshot=token))
     assert got.status_code==200 and got.json()['chunk']['sha256']==value['body']['content_sha256']
+    batch=client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,count=1,snapshot=token))
+    assert batch.status_code==200 and batch.json()['chunks'][0]['sha256']==value['body']['content_sha256']
+    assert client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,count=9,snapshot=token)).status_code==503
     assert any(call['method']=='evidence_read' for call in project_reader.calls)
     wrong=client_call(app,key,url('artifact',artifact_id='cap_'+'9'*32,version=1,index=0,snapshot=token))
     assert wrong.status_code==503 and 'plain private evidence' not in wrong.text

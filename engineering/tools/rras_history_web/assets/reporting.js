@@ -105,15 +105,21 @@ async function openArtifact(artifactId, revision, expectedManifest) {
     const progress = node('p', 'event-time');
     async function bytes(maximum) {
       const chunks = []; let length = 0;
-      for (const part of b.chunks.slice(0, maximum)) {
+      const selected = b.chunks.slice(0, maximum);
+      for (let offset = 0; offset < selected.length; offset += 8) {
         if (version !== state.detailVersion) return null;
-        const value = await workspace('artifact', {artifact_id: artifactId, version: revision, index: part.index}, scope, snapshot);
+        const batch = selected.slice(offset, offset + 8);
+        const value = await workspace('artifact', {artifact_id: artifactId, version: revision, index: batch[0].index, count: batch.length}, scope, snapshot);
         if (version !== state.detailVersion) return null;
-        if (value.manifest_sha256 !== expectedManifest || value.chunk.index !== part.index) throw new Error('artifact association');
-        const raw = Uint8Array.from(atob(value.chunk.data_base64), c => c.charCodeAt(0));
-        const sha = [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map(x => x.toString(16).padStart(2, '0')).join('');
-        if (sha !== part.sha256 || raw.length !== part.byte_length) throw new Error('chunk digest');
-        chunks.push(raw); length += raw.length; progress.textContent = 'Verified ' + length + ' of ' + b.byte_length + ' bytes';
+        if (value.manifest_sha256 !== expectedManifest || !Array.isArray(value.chunks) || value.chunks.length !== batch.length) throw new Error('artifact association');
+        for (let i = 0; i < batch.length; i++) {
+          const part = batch[i], data = value.chunks[i];
+          if (data.index !== part.index) throw new Error('artifact association');
+          const raw = Uint8Array.from(atob(data.data_base64), c => c.charCodeAt(0));
+          const sha = [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map(x => x.toString(16).padStart(2, '0')).join('');
+          if (sha !== part.sha256 || raw.length !== part.byte_length) throw new Error('chunk digest');
+          chunks.push(raw); length += raw.length; progress.textContent = 'Verified ' + length + ' of ' + b.byte_length + ' bytes';
+        }
       }
       const raw = new Uint8Array(length); let offset = 0; for (const chunk of chunks) { raw.set(chunk, offset); offset += chunk.length; }
       return raw;
