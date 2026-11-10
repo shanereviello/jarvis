@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh future selected Linear Hermes evidence
+ConditionPathExists=/etc/rras-engineering/codex-runtime/hermes-future-capture.json
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=10s
+Unit=rras-hermes-future-capture.service
+
+[Install]
+WantedBy=timers.target

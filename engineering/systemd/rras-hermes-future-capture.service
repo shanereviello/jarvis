@@ -1,0 +1,34 @@
+[Unit]
+Description=Passively capture future selected Linear Hermes sessions
+After=docker.service rras-engineering-history.service
+ConditionPathExists=/etc/rras-engineering/codex-runtime/hermes-future-capture.json
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+Environment=PATH=/usr/bin:/bin HOME=/nonexistent LANG=C.UTF-8
+UnsetEnvironment=OPENAI_API_KEY ANTHROPIC_API_KEY GH_TOKEN GITHUB_TOKEN CODEX_HOME
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/hermes_future_host.py
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_SETPCAP
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=172.19.0.0/16
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/rras-hermes-future-capture /srv/hermes/data/rras-engineering-capture
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+TimeoutStartSec=720s
+MemoryMax=1G
+TasksMax=64
+StandardOutput=journal
+StandardError=journal

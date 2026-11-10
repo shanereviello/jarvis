@@ -66,7 +66,7 @@ def probe():
         def sql(query):
             return run(['docker','exec','-i',pg,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],query)
         sql('CREATE SCHEMA linear_bridge;\n'+(ROOT/'contracts/linear-codex-n8n-v1.sql').read_text())
-        sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text);'
+        sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text,created_at timestamptz NOT NULL DEFAULT now());'
             'CREATE TABLE linear_bridge.hermes_runs(hermes_run_id text PRIMARY KEY,agent_session_id text,status text,completed_at timestamptz,delivery_id uuid);'
             +(ROOT/'contracts/linear-native-handoff-v1.sql').read_text())
         sql((ROOT/'contracts/linear-jarvis-engineering-admission-v1.sql').read_text())
@@ -159,6 +159,8 @@ def probe():
         package['workflows']['handoff_history']=hm.local('n8n_handoff_history').render(history_selected,c['credentials']['postgres'],'fixture-handoff-history')
         native_history_selected=dict(history_selected,contract='hermes-runtime-history-source.v1')
         package['workflows']['hermes_history']=hm.local('n8n_hermes_history').render(native_history_selected,c['credentials']['postgres'],'fixture-handoff-history')
+        package['workflows']['hermes_future_sessions']=hm.local('n8n_hermes_capture_sessions').render(
+            c['organization_id'],'2020-01-01T00:00:00Z',c['credentials']['postgres'],'fixture-handoff-history')
         sql("INSERT INTO linear_bridge.codex_apps VALUES('"+c['organization_id']+"','"+c['app_user_id']+"');")
         creds=[dict(id=c['credentials']['postgres'],name='Fixture SQL',type='postgres',data=dict(host='127.0.0.1',port=5432,database='postgres',user='codex_transport',password='synthetic',ssl='disable')),
             dict(id=c['credentials']['edge_header'],name='Fixture edge',type='httpHeaderAuth',data=dict(name='X-RRAS-Codex-Bridge',value='synthetic-edge-bridge')),
@@ -524,6 +526,28 @@ reply(404,{error:'unknown fixture route'});
             assert all(row['context']==history_context for row in native_records)
             native_source.poll(native_spool,native_history_selected,native_history_query)
             with native_spool.connection() as db:assert db.execute('SELECT count(*) FROM items').fetchone()[0]==count
+        api('/rest/workflows/'+ids['hermes_future_sessions']+'/activate',dict(versionId=workflows['hermes_future_sessions']['versionId']))
+        future_path='/webhook/rras-hermes-future-session-metadata'
+        future_cursor=dict(after_time='2020-01-01T00:00:00Z',after_id=str(uuid.UUID(int=0)))
+        for _ in range(30):
+            response=request(future_path,future_cursor,native_headers)
+            if response['status']!=404:break
+            time.sleep(.25)
+        assert response['status']==403,response
+        response=request(future_path,future_cursor,dict(Authorization='Bearer synthetic-handoff-history'))
+        assert response['status']==200,response
+        future_page=json.loads(response['body'])
+        assert future_page['contract']=='hermes-future-session-page.v1' and len(future_page['sessions'])<=4
+        assert all(set(row)=={'organization_id','agent_session_id','issue_id','hermes_session_id','created_at'} for row in future_page['sessions'])
+        fixture_id=str(uuid.UUID(int=9001));fixture_issue=str(uuid.UUID(int=9002));other_id=str(uuid.UUID(int=9003))
+        sql("INSERT INTO linear_bridge.agent_sessions(agent_session_id,organization_id,issue_id,hermes_session_id,created_at) VALUES "
+            "('"+fixture_id+"','"+c['organization_id']+"','"+fixture_issue+"','linear:"+c['organization_id']+":"+fixture_id+"','2091-01-01Z'),"
+            "('"+other_id+"','"+str(uuid.UUID(int=9999))+"','"+fixture_issue+"','linear:"+str(uuid.UUID(int=9999))+":"+other_id+"','2091-01-01Z');")
+        future_cursor['after_time']='2090-01-01T00:00:00Z'
+        response=request(future_path,future_cursor,dict(Authorization='Bearer synthetic-handoff-history'))
+        assert response['status']==200,response
+        selected_rows=json.loads(response['body'])['sessions']
+        assert len(selected_rows)==1 and selected_rows[0]['agent_session_id']==fixture_id
         request('/fixture/deny-execution',{},port=8899)
         before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
         denied=deliver(800,801);execute('dispatch')
@@ -537,6 +561,7 @@ reply(404,{error:'unknown fixture route'});
             jarvis_admission_actual_engine=True,jarvis_correlated_handoff_admitted=True,jarvis_agent_echo_denied=True,jarvis_unselected_run_preserved=True,
             jarvis_exact_native_run_context=True,jarvis_wrong_native_run_context_denied=True,jarvis_scoped_checkpoint_intake=True,
             jarvis_private_history_reader=True,jarvis_producer_private_history_denied=True,jarvis_typed_history_projection=True,
+            future_hermes_metadata_authenticated=True,future_hermes_metadata_bounded=True,
             hermes_execution='synthetic_http_endpoint_only',
             network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:

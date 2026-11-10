@@ -91,6 +91,38 @@ session collection and scheduled collector activation still need their selected
 source authorization and deployment acceptance. Prior real-session permission
 applies only to the explicitly approved chat pilot.
 
+## Selected Hermes session pilot — November 10, 2026
+
+The operator selected REV-34 for a private, model-free Hermes export pilot.
+One retained Linear-to-Hermes session mapping matched that issue. The pinned
+read-only reader opened that exact session and its native compression lineage;
+the pinned native exporter and owned intake redactor staged one private export.
+The result contained 17 visible messages, and its 29,370 bytes matched SHA-256
+`a89b807bb4eff2e06ddb4e8bbf983d150f7c8402971336cb0b2dbd51988e7626`.
+The export was not delivered to production history or assigned to a project.
+This test does not establish complete capture, arbitrary-secret removal, or
+authorization to collect other Hermes sessions automatically.
+
+The operator subsequently selected future Linear-linked Jarvis sessions only,
+with `jarvis-non-git` as the destination when no repository is known. Source
+components now validate a fixed rollout cutoff, exact organization and native
+session identities, and strictly ordered bounded metadata pages before opening
+any session. An inactive n8n workflow template exposes only those identifiers
+and timestamps. A model-free isolated Hermes fixture verified the pinned reader,
+cutoff refusal, redacted staging and unchanged-session replay. A separate worker
+and coordinator prototype do not themselves install a service or grant access.
+An attempted new container with a read-only native database directory failed
+because SQLite WAL shared-memory coordination was unavailable. The prototype
+instead invokes the pinned reader inside the existing Hermes container as its
+existing UID, with a cleared environment and a fixed entry point. This succeeded
+against a synthetic database in a disposable network-isolated Hermes container;
+the production container's normal network namespace was not changed. A protected
+host wrapper must pin the container, code and inputs before this can be deployed;
+the reporting user must not receive general Docker access.
+An authenticated metadata route, a confined native-reader deployment, durable
+cursor integration, scoped delivery, restart tests and live acceptance remain
+required. No future Hermes session collection has been activated by this source.
+
 ## Selected chat intake — November 10, 2026
 
 The operator separately authorized one private intake of this chat. The installed
