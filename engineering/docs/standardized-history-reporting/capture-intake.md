@@ -131,3 +131,13 @@ diagnostic, not proof that the remaining text is absent or present. All three
 artifacts remain marked partial. More work is required to establish real-surface
 coverage, desktop session registration, rotation and other selection criteria
 before claiming automatic capture is production-ready.
+
+The current registration is tied to the Linear Codex runtime and its explicit
+issue context; it does not automatically register desktop sessions. OpenAI's
+[plugin documentation](https://developers.openai.com/plugins/build/plugins)
+describes lifecycle hooks for supported Codex clients, subject to hook trust and
+the script being present in the execution environment. The local Codex CLI
+reports version 0.159.0 and the `hooks` feature as enabled. Those facts do not
+establish that a hook fires for this desktop session, supplies the right source
+on resume or rotation, or has authority to assign a project. A bounded,
+model-free compatibility test is still needed before relying on that interface.
