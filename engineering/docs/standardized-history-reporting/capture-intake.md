@@ -110,3 +110,24 @@ the exact full-artifact digests in 33.4 seconds. This validates retained bytes,
 not the completeness of the collector's source coverage. The records are
 unassigned because the chat covers multiple efforts; its artifacts do not assert
 a single work membership.
+
+## Automatic capture recovery checks — November 10, 2026
+
+A registered-runtime capture pass could be interrupted after fsyncing its next
+rotation cursor but before renaming it. The leftover private `.cursor.next`
+then caused every later pass to reject the registry. The runner now validates
+and completes that pending atomic cursor update under the registry lock. A
+malformed or unsafe temporary cursor remains in place and stops the pass for
+inspection. These changes do not add source discovery or start a timer.
+
+Model-free tests exercised the pinned SpecStory binary with a synthetic registered
+session: a history outage left its export pending, a later pass delivered it,
+growing the source created version 2, and an unchanged pass created no duplicate.
+The approved chat's already-retained segments were also compared without printing
+conversation content. Of 30 and 22 non-exact visible/unknown messages in the two
+longer segments, respectively, 20 and 16 had matching beginnings and endings
+after redaction/whitespace normalization; 10 and 6 did not. This is a coarse
+diagnostic, not proof that the remaining text is absent or present. All three
+artifacts remain marked partial. More work is required to establish real-surface
+coverage, desktop session registration, rotation and other selection criteria
+before claiming automatic capture is production-ready.
