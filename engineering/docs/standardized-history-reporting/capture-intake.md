@@ -90,3 +90,21 @@ corrupt exports, wrong/lost receipts, restart and outage recovery. Actual Hermes
 session collection and scheduled collector activation still need their selected
 source authorization and deployment acceptance. Prior real-session permission
 applies only to the explicitly approved chat pilot.
+
+## Selected chat intake — November 10, 2026
+
+The operator separately authorized one private intake of this chat. The installed
+v2 collector retained its three explicitly selected native files as separate
+unassigned artifacts and received all chunk and reporting receipts. No scheduled
+capture or model execution was enabled. The artifacts have partial coverage:
+full-text comparisons to the redacted exports left 30 visible source messages
+unmatched in the November 6 file and 22 in the November 8 file; normalization
+may also prevent verbatim matches. No visible source message was unmatched in
+the November 4 file under that comparison. Reasoning is excluded, and complete
+tool/media coverage is not established.
+
+The first stored chunk of each artifact passed a scoped API digest readback. A
+full 171-chunk readback was stopped after several minutes; whole-artifact
+readback remains unverified. Each chunk upload and the artifact manifest did
+receive matching custody receipts. The records are unassigned because the chat
+covers multiple efforts; its artifacts do not assert a single work membership.
