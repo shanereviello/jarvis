@@ -219,7 +219,8 @@ def collect_codex(spool,*,source,session,binary,scope,context,authorization_refe
                         raise ValueError('collector included an explicitly excluded reasoning/analysis channel')
         coverage=pilot.response_coverage(rows,text)
         if coverage['unmatched_visible_or_unknown_messages']:
-            gaps.append('Some visible source messages were not found verbatim after collector normalization/redaction; see coverage counters.')
+            gaps.append(str(coverage['unmatched_visible_or_unknown_messages'])+
+                ' visible or unknown source messages were not found verbatim in the collector output; formatting or redaction may affect this comparison.')
         if not text.strip():gaps.append('Collector exited successfully but produced no readable conversation text.')
         range_prefix='byte:' if source_segment is None else 'segment:'+source_segment+':byte:'
         staged=spool.stage(export,scope=scope,context=context,session=association,collector='specstory',source_segment=source_segment,

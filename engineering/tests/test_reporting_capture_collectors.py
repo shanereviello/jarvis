@@ -58,6 +58,9 @@ def test_actual_pinned_collector_reads_only_selected_synthetic_source(tmp_path,b
     assert 'EXCLUDED-PRIVATE-ANALYSIS-FIXTURE-CONTENT-DO-NOT-EXPORT' not in export
     if style=='response-only':assert fixtures.PROMPT not in export and fixtures.ANSWER not in export
     else:assert fixtures.PROMPT in export and fixtures.ANSWER in export
+    if style=='response-only':
+        saved=spool.c.decode(item['request'])
+        assert any('source messages were not found verbatim' in gap for gap in saved['body']['gaps'])
     assert m.collect_codex(spool,**args)['changed'] is False
     shutil.rmtree(worktree)
     assert (spool.exports/item['export_sha256']).exists()
