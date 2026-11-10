@@ -195,3 +195,25 @@ every desktop lifecycle event, history completeness, or cross-project work
 attribution. The timer's next trigger was visible on the monotonic schedule.
 Collection does not recursively import historical sessions; source discovery
 depends on trusted future lifecycle events. No paid model was started.
+
+## Linear Codex capture production check — November 10, 2026
+
+The operator authorized the three registered Linear Codex sources and future
+sources registered for configured Jarvis work. The first capture pass reported
+a gap on all three; no capture timer was enabled. Diagnostics showed that the
+root-controlled systemd listener presented UID 0 as its Unix peer while the
+configuration incorrectly expected the native worker UID 991. The socket itself
+remained adapter-owned mode 0600, and the accepted filesystem reader service
+remained separately confined as UID 991. The reviewed unit definitions were
+checked, and the approved sources passed a private probe before the protected
+configuration was corrected; its previous bytes were retained in a root-private
+journal.
+
+The bounded collector was activated from release `standardized-history-f602e6d949cc`
+with at most four sources per pass. Its first pass checked all three sources with
+no capture gaps or pending deliveries. A subsequent scheduled pass reported all
+three unchanged and no failures. Scoped history reads confirmed three
+work-associated SpecStory records, each marked partial. The separate Codex
+execution policy remained disabled, and no model was started. This confirms the
+selected registered sources and scheduled replay, not arbitrary historical
+sessions, complete transcript coverage, or a new live coding turn.
