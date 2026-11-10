@@ -328,3 +328,17 @@ unauthenticated bridge request was denied. The coding execution policy remains
 false; the capture timer remains disabled. Boot enablement is verified through
 systemd state, not a full server reboot test. Actual native mention, delegation,
 follow-up, cancellation and two-way handoff remain separate live acceptance work.
+
+## n8n no-retention execution records — November 9
+
+The deployment idle check treated soft-deleted `running` rows as active and
+refused to restart n8n. A selected authenticated reader returned HTTP 200, yet
+its corresponding execution row remained marked running with `deletedAt` set.
+An isolated n8n 2.28.3 fixture using the same no-retention reader settings
+reproduced that combination. Existing workflows retain their privacy settings;
+the corrected idle check excludes soft-deleted rows while still blocking on
+non-deleted active executions and nonterminal Hermes runs. A separate reader
+endpoint initially returned 404; after the operator-approved backup and n8n
+restart, protected endpoints and selected readers passed their checks. This
+does not establish that every individual old execution succeeded, and no old
+records were manually deleted.

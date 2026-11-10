@@ -188,6 +188,9 @@ def probe():
             ids[name]=uuid.uuid4().hex[:16];w['id']=ids[name]
             # Fixture observability only; schedules are triggered manually below.
             w['settings'].update(saveDataErrorExecution='all',saveDataSuccessExecution='all',saveManualExecutions=True,saveExecutionProgress=True)
+            # Exercise production's no-retention setting on the read-only reader.
+            if name=='handoff_history':
+                w['settings'].update(saveDataErrorExecution='none',saveDataSuccessExecution='none',saveExecutionProgress=False)
             for n in w['nodes']:
                 if n['type']=='n8n-nodes-base.scheduleTrigger':
                     n['type']='n8n-nodes-base.manualTrigger';n['typeVersion']=1;n['parameters']={}
@@ -485,6 +488,11 @@ reply(404,{error:'unknown fixture route'});
             assert response['status']==200,response
             assert 'UNSELECTED-PROJECT-NARRATIVE' not in response['body']
             return json.loads(response['body'])
+        query_history(0)
+        time.sleep(3)
+        no_retention_running=sql("SELECT count(*) FROM execution_entity WHERE status='running' AND \"deletedAt\" IS NOT NULL AND \"workflowId\"='"+ids['handoff_history']+"';").strip()
+        assert int(no_retention_running)>=1, 'Expected soft-deleted running execution in no-retention fixture'
+        print(json.dumps(dict(fixture_soft_deleted_running_records=int(no_retention_running),fixture_reader_responded=True)),flush=True)
         with tempfile.TemporaryDirectory(prefix='shrr-handoff-history-fixture-') as folder:
             spool=hm.local('capture_intake').Spool(Path(folder)/'spool',create=True)
             observed=history.poll(spool,history_selected,query_history)
