@@ -342,3 +342,23 @@ endpoint initially returned 404; after the operator-approved backup and n8n
 restart, protected endpoints and selected readers passed their checks. This
 does not establish that every individual old execution succeeded, and no old
 records were manually deleted.
+
+## Unmapped capture browser verification — November 10
+
+The operator reported that the three selected-chat records appeared under Jarvis
+scope details but opening an evidence record failed. The production dashboard's
+transport allowlist omitted the read-only `evidence_read` method. The history
+service itself returned the three matching manifests and previously verified
+their retained bytes. Source commit `73c986edcea8a2571abf9bd2f53fa7896abdb7c8`
+adds the read method to the dashboard guard and exercises that guard in the API
+and browser fixtures; write operations remain denied. Fifty-three dashboard API
+and browser tests passed, including preview and full download of unmapped
+multi-chunk evidence.
+
+The operator installed dashboard release `history-web-afae626808a3`. Its
+deployment reported a successful scoped evidence read, write denial, and
+unauthenticated-origin denial, with configuration and history policy preserved.
+The operator subsequently confirmed that opening, previewing, and downloading
+the unmapped records worked in the authenticated browser. This confirms the
+dashboard path, not complete capture of the original conversation or ongoing
+automatic capture. No model was started for this change.
