@@ -15,6 +15,12 @@ has `id`, exact canonical `source` and `binary` paths, native `session` UUID,
 `authorization_reference`. No source discovery, wildcard directory, environment
 credential, or repository-to-project inference is supported. A reference records
 the selection basis; it is not independent authentication of human consent.
+A v2 job configuration additionally requires an explicit `source_segment` for
+each selected source. Segments sharing a native session are separate artifacts
+with independent byte ranges and revision chains; the native session identity is
+preserved. A repeated segment identity is rejected. The existing v1 format and
+its artifact identities remain unchanged. Segment identifiers do not establish
+that every native file was selected or that a segment belongs to a work item.
 
 The Codex adapter pins SpecStory 2.17.0 executable SHA-256
 `25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4`.

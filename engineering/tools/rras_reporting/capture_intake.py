@@ -52,6 +52,15 @@ def redact_object(value):return local('redaction').redact_object(value)
 def stamp():return datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
 
 
+def artifact_identity(scope,session,collector,source_segment=None):
+    parts=[scope,session,collector]
+    if source_segment is not None:
+        if type(source_segment) is not str or not re.fullmatch('[A-Za-z0-9_.-]{1,64}',source_segment):
+            raise ValueError('bounded explicit source segment required')
+        parts.append(source_segment)
+    return 'cap_'+uuid.uuid5(uuid.NAMESPACE_URL,json.dumps(parts,sort_keys=True)).hex
+
+
 class Spool:
     def __init__(self,root,*,create=False):
         self.root=Path(root);self.c=local('contract')
@@ -174,14 +183,22 @@ class Spool:
 
     def stage(self,raw,*,scope,context,session,collector,collector_version,source_sha256,
               source_range=None,gaps=(),source_created_at=None,source_updated_at=None,authorization_reference=None,
-              media_type='text/markdown',session_context=True):
+              media_type='text/markdown',session_context=True,source_segment=None):
         if media_type not in ('text/plain','text/markdown','application/json','application/x-ndjson') or type(session_context) is not bool:
             raise ValueError('valid evidence format and context required')
         original=raw;raw,redactions=redact(raw);digest=hashlib.sha256(raw).hexdigest()
         if type(source_sha256) is not str or not re.fullmatch('[0-9a-f]{64}',source_sha256):raise ValueError('exact source identity required')
-        artifact='cap_'+uuid.uuid5(uuid.NAMESPACE_URL,json.dumps([scope,session,collector],sort_keys=True)).hex
-        event_key='capture:'+self.c.digest(self.c.encoded(dict(scope=scope,context=context,session=session,
-            source=source_sha256,content=digest,collector=collector,collector_version=collector_version)))
+        artifact=artifact_identity(scope,session,collector,source_segment)
+        if source_segment is not None:
+            prefix='segment:'+source_segment+':byte:'
+            if (type(source_range) is not dict or source_range.get('start')!=prefix+'0' or
+                    type(source_range.get('end')) is not str or not source_range['end'].startswith(prefix) or
+                    not source_range['end'][len(prefix):].isdigit()):
+                raise ValueError('source segment requires its exact bounded range')
+        identity=dict(scope=scope,context=context,session=session,source=source_sha256,content=digest,
+                      collector=collector,collector_version=collector_version)
+        if source_segment is not None:identity['source_segment']=source_segment
+        event_key='capture:'+self.c.digest(self.c.encoded(identity))
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             existing=db.execute('SELECT sequence FROM items WHERE key=?',(event_key,)).fetchone()

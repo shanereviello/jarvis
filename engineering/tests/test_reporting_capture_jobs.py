@@ -48,3 +48,17 @@ def test_fault_status_is_private_deduplicated_and_flush_still_works(tmp_path,mon
     assert first['delivery']['pending']==0 and again['delivery']['delivered']==0
     for file in spool.root.rglob('*'):
         if file.is_file():assert b'SENSITIVE' not in file.read_bytes()
+
+
+def test_v2_segment_jobs_keep_v1_exact_and_reject_duplicate_segment_identity(tmp_path):
+    path,value=config(tmp_path)
+    first=value['jobs'][0]
+    first['source_segment']='first'
+    path.write_text(json.dumps(value))
+    with pytest.raises(ValueError):m.configuration(path)
+    value['contract']='engineering-capture-jobs.v2'
+    second=dict(first,id='second',source=str(tmp_path/'second.jsonl'),source_segment='second')
+    value['jobs'].append(second);path.write_text(json.dumps(value))
+    assert m.configuration(path)==value
+    second['source_segment']='first';path.write_text(json.dumps(value))
+    with pytest.raises(ValueError,match='duplicate session segment'):m.configuration(path)
