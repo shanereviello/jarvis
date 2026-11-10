@@ -74,6 +74,7 @@ def test_no_blind_outbox_retry_or_runtime_relaunch(config):
     select=next(n for n in reconcile['nodes'] if n['name']=='Select Codex runtime')['parameters']['query']
     assert "state IN ('running','uncertain')" in select
     finish=next(n for n in reconcile['nodes'] if n['name']=='Record runtime outcome')['parameters']['query']
+    assert "state IN ('dispatching','running','uncertain')" in finish
     assert "'result:'||id::text||':'||state" in finish
     assert "WHEN state='uncertain' THEN 'thought'" in finish
     assert "coalesce(envelope->>'signal','')<>'stop'" in finish

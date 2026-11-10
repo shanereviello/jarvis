@@ -172,7 +172,7 @@ if(result.state==='interrupt_requested')result={...result,state:'running'};
 return [{json:{event_id:source.event_id,runtime_result:result}}];"""
     finish=f"""WITH updated AS (
  UPDATE linear_bridge.codex_events SET state=$2::jsonb->>'state',runtime_result=$2::jsonb,updated_at=now()
- WHERE {select} AND id=$1::uuid RETURNING *)
+ WHERE {select} AND id=$1::uuid AND state IN ('dispatching','running','uncertain') RETURNING *)
  INSERT INTO linear_bridge.codex_outbox(organization_id,app_user_id,session_id,source_key,content)
  SELECT organization_id,app_user_id,session_id,'result:'||id::text||':'||state,
  jsonb_build_object('type',CASE WHEN state='completed' THEN 'response' WHEN state='uncertain' THEN 'thought' ELSE 'error' END,'body',

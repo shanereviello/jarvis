@@ -76,7 +76,7 @@ assert.equal(verified(viewer(uid(20)),source)[0].json.permitted,false);
   assert.equal(options.headers.get('CF-Access-Client-Id'),env.CF_ACCESS_CLIENT_ID);
   assert.equal(options.headers.get('CF-Access-Client-Secret'),env.CF_ACCESS_CLIENT_SECRET);
   assert.equal(new TextDecoder().decode(options.body),raw);
-  assert.equal(options.redirect,'error');return new Response('ok',{status:200});
+  assert.equal(options.redirect,'manual');return new Response('ok',{status:200});
  };
  const request=(text=raw,signature=sig)=>new Request('https://agents.example.com/webhooks/codex',
   {method:'POST',headers:{'linear-delivery':uid(7),'linear-signature':signature},body:text});
@@ -158,8 +158,18 @@ def probe():
         except ValueError:pass
         else:raise ValueError('concurrent worktree dispatch accepted')
         assert sql("SELECT count(*) FROM linear_bridge.codex_events WHERE state='dispatching';").strip()=='1'
+        # A delayed reconcile response must not reopen an operator-reconciled
+        # terminal event or enqueue a new misleading uncertain activity.
+        sql("UPDATE linear_bridge.codex_events SET state='failed' WHERE id='"+first_id+"';")
+        before=sql('SELECT count(*) FROM linear_bridge.codex_outbox;').strip()
+        finish=next(n for n in package['workflows']['reconcile']['nodes']
+                    if n['name']=='Record runtime outcome')['parameters']['query']
+        sql("PREPARE stale(uuid,jsonb) AS "+finish+"; EXECUTE stale('"+first_id+
+            "','{\"state\":\"uncertain\"}'::jsonb); DEALLOCATE stale;")
+        assert sql("SELECT state FROM linear_bridge.codex_events WHERE id='"+first_id+"';").strip()=='failed'
+        assert sql('SELECT count(*) FROM linear_bridge.codex_outbox;').strip()==before
         print(json.dumps(dict(postgres_accept_replay=True,changed_source_refused=True,workspace_serialization=True,
-            single_event_and_initial_reply=True,workflow_queries_prepared=True,
+            single_event_and_initial_reply=True,workflow_queries_prepared=True,stale_reconcile_does_not_reopen=True,
             production_databases_changed=False,fixture_container=name)),flush=True)
     finally:
         if started:run(['docker','rm','-f',name])

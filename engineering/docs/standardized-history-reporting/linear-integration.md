@@ -117,6 +117,16 @@ agent-origin or handoff verification. Delegation acceptance remains open; its
 impact may extend beyond REV-49. This observation does not establish a percentage
 of functionality complete or verify live model execution or either handoff.
 
+The first operator-authorized read-only model test did not start: changing the
+runtime policy without a matching journal caused startup refusal. The original
+disabled runtime was restored. The transport event remains uncertain and was
+not retried. Runtime journal inspection found no turn for that dispatch. A
+source fix guards terminal bridge states against delayed reconciliation writes;
+isolated PostgreSQL and full n8n fixture acceptance passed, but this safeguard
+and an audited no-turn reconciliation are not yet deployed. A separate empty
+journal with a different policy was also verified in a no-model fixture; it is
+not a migration or a production acceptance of live coding.
+
 Focused tests use actual private HTTP, SQLite restart and a synthetic stdio child,
 without real models. **probe_n8n_codex.py --isolated-containers** uses installed
 images with pull=never, no network/production mounts and disposable PostgreSQL.
