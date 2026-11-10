@@ -32,7 +32,7 @@ def test_reporting_reference_and_verified_private_capture_browser(projects,proje
     raw='VISIBLE-CAPTURE-RESULT\n<img src=x onerror="window.injected=true">\nUnicode: Ω\n'.encode()+b'X'*(9*65536)
     for offset in range(0,len(raw),65536):evidence.upload(upload(raw[offset:offset+65536]))
     capture=manifest(projects,raw);reporting.submit(capture)
-    unmapped=manifest(projects,b'',context=False);unmapped['body']['artifact_id']='cap_'+'9'*32;reporting.submit(unmapped)
+    unmapped=manifest(projects,raw,context=False);unmapped['body']['artifact_id']='cap_'+'9'*32;reporting.submit(unmapped)
     app=web('app').create_app(project_reader,access(key));errors=[];corrupt=[False]
     with ThreadPoolExecutor(max_workers=1) as requests,playwright.sync_playwright() as p:
         browser=p.chromium.launch();page=browser.new_page(viewport={'width':1440,'height':1100})
@@ -72,6 +72,13 @@ def test_reporting_reference_and_verified_private_capture_browser(projects,proje
         page.get_by_role('button',name='Scope details and history',exact=True).click()
         page.get_by_role('heading',name='Unmapped captured evidence',exact=True).wait_for()
         playwright.expect(page.locator('#detail')).to_contain_text('Unmapped; explicit association required')
+        page.get_by_role('button',name='Inspect captured evidence v1',exact=True).click()
+        page.get_by_role('heading',name='Captured engineering evidence',exact=True).wait_for()
+        page.get_by_role('button',name='Preview captured text',exact=True).click()
+        playwright.expect(page.locator('#detail pre')).to_contain_text('VISIBLE-CAPTURE-RESULT')
+        with page.expect_download() as unmapped_download:
+            page.get_by_role('button',name='Download verified full export',exact=True).click()
+        path=tmp_path/'unmapped.md';unmapped_download.value.save_as(path);assert path.read_bytes()==raw
         browser.close()
     assert not errors
 

@@ -24,16 +24,31 @@ def project_reader(projects):
         private_read=['jarvis'], write=[], category_read=['jarvis-non-git'], category_write=[])]}
     service = module('access').Access(projects.store, policy)
     calls = []
-    def call(message):
+    def dispatch(message):
         calls.append(message)
         # The real Unix transport sorts JSON keys in both directions. Preserve
         # that boundary here so browser/API fixtures consume actual wire order.
         contract = module('contract')
         request = contract.decode(contract.encoded(message))
         return contract.decode(contract.encoded(service.dispatch(1000, request)), max_bytes=2 * 1024 * 1024)
+    class Transport:
+        @staticmethod
+        def call(socket,uid,message):
+            return dispatch(message)
+    def call(message):
+        return web('entry').read_call(Transport,{'history_socket':'fixture','history_uid':995},message)
     reader = web('history').Reader(['jarvis'], call, ['jarvis-non-git'])
     reader.calls = calls
     return reader
+
+
+def test_dashboard_transport_refuses_writes():
+    class Transport:
+        @staticmethod
+        def call(socket,uid,message):
+            raise AssertionError('write reached transport')
+    with pytest.raises(ValueError,match='reads only'):
+        web('entry').read_call(Transport,{'history_socket':'fixture','history_uid':995},{'method':'reporting_submit'})
 
 
 def url(view, **query):
