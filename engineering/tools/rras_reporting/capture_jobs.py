@@ -19,7 +19,10 @@ import capture_intake as intake
 def configuration(path):
     path=intake.private(path)
     if path.stat().st_size>1024*1024:raise ValueError('bounded private configuration required')
-    value=intake.local('contract').decode(path.read_bytes())
+    return validate_configuration(intake.local('contract').decode(path.read_bytes()))
+
+
+def validate_configuration(value):
     if (type(value) is not dict or set(value)!={'contract','spool','service_socket','service_uid','jobs'} or
             value['contract'] not in ('engineering-capture-jobs.v1','engineering-capture-jobs.v2') or type(value['service_uid']) is not int or
             value['service_uid']<0 or type(value['jobs']) is not list or not 1<=len(value['jobs'])<=32):

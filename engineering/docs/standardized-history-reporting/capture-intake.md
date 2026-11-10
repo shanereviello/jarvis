@@ -141,3 +141,27 @@ reports version 0.159.0 and the `hooks` feature as enabled. Those facts do not
 establish that a hook fires for this desktop session, supplies the right source
 on resume or rotation, or has authority to assign a project. A bounded,
 model-free compatibility test is still needed before relying on that interface.
+
+## Desktop registration prototype — November 10, 2026
+
+`desktop_capture.py` is a passive, uninstalled source prototype. A lifecycle
+event may register an exact native file only when its current working directory
+matches an explicit operator-configured workspace. An isolated scheduled pass
+reuses the existing collector and durable spool. Its configured repository scope
+is explicit; the resulting records have no project or work association. Exact
+source paths produce distinct segment identities. Removing a workspace from the
+policy skips its existing registrations without deleting them. The registry and
+spool are caller-owned private directories. Hook events are not retained, and no
+prompt or conversation content is printed by registration.
+
+The installed Codex CLI 0.159.0 was run in an isolated temporary HOME with a
+synthetic hook, a dummy credential and an unreachable localhost-only provider.
+The fixture observed one `SessionStart` event with a transcript path and the
+expected synthetic working directory. No real provider or paid model was used.
+This confirms that CLI fixture only: the actual desktop client, existing chat,
+hook trust flow, source rotation and production deployment are still unverified.
+[OpenAI's hook documentation](https://learn.chatgpt.com/docs/hooks) describes
+the transcript path as a convenience and cautions that transcript format can
+change. The prototype therefore still checks the selected file's exact session
+identity, preserves source-coverage gaps, and does not treat hook data as authority
+to assign work.
