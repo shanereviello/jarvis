@@ -53,7 +53,7 @@ def job_for(value,event):
     if type(event) is not dict or event.get('hook_event_name') not in ('SessionStart','UserPromptSubmit','Stop','SessionEnd'):
         raise ValueError('supported desktop lifecycle event required')
     cwd=event.get('cwd');source=event.get('transcript_path');session=event.get('session_id')
-    if cwd not in value['workspaces'] or source is None:return None
+    if not selected_workspace(value,cwd) or source is None:return None
     if type(session) is not str or str(uuid.UUID(session))!=session:raise ValueError('exact session identity required')
     if type(source) is not str:raise ValueError('exact transcript path required')
     p=Path(source);root=Path(value['native_root'])
@@ -68,6 +68,13 @@ def job_for(value,event):
             source_segment=segment)])
 
 
+def selected_workspace(value,cwd):
+    if type(cwd) is not str:return False
+    path=Path(cwd)
+    if not path.is_absolute() or path.resolve()!=path:return False
+    return any(path.is_relative_to(Path(root)) for root in value['workspaces'])
+
+
 def register(value,event):
     job=job_for(value,event)
     if job is None:return dict(registered=False,reason='workspace_or_transcript_not_selected')
@@ -78,7 +85,10 @@ def register(value,event):
         intake.private(lock);fcntl.flock(fd,fcntl.LOCK_EX)
         if destination.exists() or destination.is_symlink():
             intake.private(destination)
-            if destination.read_bytes()!=raw:raise ValueError('registered desktop source changed')
+            old=intake.local('contract').decode(destination.read_bytes())
+            if (type(old) is not dict or set(old)!={'workspace','job'} or old['job']!=job or
+                    not selected_workspace(value,old['workspace'])):
+                raise ValueError('registered desktop source changed')
             return dict(registered=False,reason='already_registered')
         names=[x.name for x in registry.iterdir() if re.fullmatch('[0-9a-f]{32}\\.json',x.name)]
         if len(names)>=4096:raise ValueError('desktop registry capacity reached')
@@ -116,7 +126,7 @@ def run_once(value,*,send=None,limit=32):
             if path.stat().st_size>1024*1024:raise ValueError('bounded desktop registry entry required')
             envelope=intake.local('contract').decode(path.read_bytes())
             if type(envelope) is not dict or set(envelope)!={'workspace','job'}:raise ValueError('exact desktop registry entry required')
-            if envelope['workspace'] not in value['workspaces']:
+            if not selected_workspace(value,envelope['workspace']):
                 revoked+=1;continue
             item=capture_jobs.validate_configuration(envelope['job']);job=item['jobs'][0]
             reconstructed=job_for(value,dict(hook_event_name='SessionStart',cwd=envelope['workspace'],

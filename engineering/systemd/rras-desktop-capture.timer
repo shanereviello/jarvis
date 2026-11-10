@@ -1,6 +1,6 @@
 [Unit]
 Description=Run bounded desktop Codex evidence collection
-ConditionPathExists=/home/shanereviello/.local/state/rras-desktop-capture/config.json
+ConditionPathExists=/home/shanereviello/Documents/Codex/.rras-desktop-capture/config.json
 
 [Timer]
 OnBootSec=2min

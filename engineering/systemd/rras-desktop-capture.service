@@ -1,7 +1,7 @@
 [Unit]
 Description=Passive selected desktop Codex evidence collection
 After=rras-engineering-history.service
-ConditionPathExists=/home/shanereviello/.local/state/rras-desktop-capture/config.json
+ConditionPathExists=/home/shanereviello/Documents/Codex/.rras-desktop-capture/config.json
 
 [Service]
 Type=oneshot
@@ -10,7 +10,7 @@ Group=1000
 UMask=0077
 Environment=PATH=/usr/bin:/bin HOME=/nonexistent LANG=C.UTF-8
 UnsetEnvironment=OPENAI_API_KEY ANTHROPIC_API_KEY GH_TOKEN GITHUB_TOKEN CODEX_HOME
-ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/desktop_capture.py run-once --config /home/shanereviello/.local/state/rras-desktop-capture/config.json --limit 4
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/desktop_capture.py run-once --config /home/shanereviello/Documents/Codex/.rras-desktop-capture/config.json --limit 4
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=
@@ -20,7 +20,7 @@ PrivateTmp=yes
 PrivateDevices=yes
 ProtectHome=read-only
 ProtectSystem=strict
-ReadWritePaths=/home/shanereviello/.local/state/rras-desktop-capture
+ReadWritePaths=/home/shanereviello/Documents/Codex/.rras-desktop-capture
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes

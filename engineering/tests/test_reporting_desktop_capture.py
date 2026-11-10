@@ -36,6 +36,8 @@ def test_exact_selection_registration_and_segment_rotation(selected):
     assert m.register(policy,first)['reason']=='already_registered'
     assert not m.register(policy,dict(first,cwd=str(path)))['registered']
     assert not m.register(policy,dict(first,transcript_path=None))['registered']
+    nested=path/'workspace'/'nested';nested.mkdir()
+    assert m.register(policy,dict(first,cwd=str(nested)))['reason']=='already_registered'
     assert m.register(policy,dict(first,transcript_path=str(path/'native'/'second.jsonl')))['registered']
     jobs=[json.loads(p.read_text())['job']['jobs'][0] for p in (path/'registry').glob('*.json')]
     assert len(jobs)==2 and jobs[0]['session']==jobs[1]['session']

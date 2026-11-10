@@ -146,7 +146,7 @@ model-free compatibility test is still needed before relying on that interface.
 
 `desktop_capture.py` is a passive, uninstalled source prototype. A lifecycle
 event may register an exact native file only when its current working directory
-matches an explicit operator-configured workspace. An isolated scheduled pass
+is an explicit operator-configured workspace or a directory beneath it. An isolated scheduled pass
 reuses the existing collector and durable spool. Its configured repository scope
 is explicit; the resulting records have no project or work association. Exact
 source paths produce distinct segment identities. Removing a workspace from the
