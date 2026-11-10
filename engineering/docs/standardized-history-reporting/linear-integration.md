@@ -129,7 +129,7 @@ describes the artificial root and distinguishes the session's responsible human
 from a source comment; the artificial-root field is marked internal and must be
 rechecked for compatibility if Linear changes it.
 
-An uninstalled source correction accepts this specific shape only when the
+A source correction accepts this specific shape only when the
 authenticated app, workspace, session and issue match; the signed root ID matches
 the native artificial root and its reverse session link; the responsible human
 matches both the native creator and the independent user read; and there is no
@@ -138,8 +138,13 @@ comments still require the existing correlated handoff proof. The resulting
 observation records the root as the session thread, leaves the triggering actor
 unknown, records the responsible human separately, and infers no human approval.
 Synthetic unit and n8n engine tests cover
-the accepted shape and adversarial mismatches. Live deployment, human delegation
-and the remaining cross-agent scenarios are not yet accepted.
+the accepted shape and adversarial mismatches. On November 10 the operator
+switched the live dispatch to the corrected inactive-copy candidate. A fresh
+human delegation on REV-49 reached the execution-disabled policy and returned
+the expected refusal; its retained observation identified the artificial-root
+basis, left the triggering actor unknown, and inferred no human approval. This
+did not start a model. Live paid execution and the remaining cross-agent
+scenarios still require acceptance.
 
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
