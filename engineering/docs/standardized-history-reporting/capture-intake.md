@@ -103,8 +103,10 @@ may also prevent verbatim matches. No visible source message was unmatched in
 the November 4 file under that comparison. Reasoning is excluded, and complete
 tool/media coverage is not established.
 
-The first stored chunk of each artifact passed a scoped API digest readback. A
-full 171-chunk readback was stopped after several minutes; whole-artifact
-readback remains unverified. Each chunk upload and the artifact manifest did
-receive matching custody receipts. The records are unassigned because the chat
-covers multiple efforts; its artifacts do not assert a single work membership.
+Each chunk upload and artifact manifest received matching custody receipts.
+An initial single-chunk readback was stopped after several minutes. After the
+bounded batch-read deployment, a full scoped readback verified all 171 chunks and
+the exact full-artifact digests in 33.4 seconds. This validates retained bytes,
+not the completeness of the collector's source coverage. The records are
+unassigned because the chat covers multiple efforts; its artifacts do not assert
+a single work membership.
