@@ -45,7 +45,8 @@ class Launch:
     def parameters(self,session,dispatch=None):
         local('codex_runtime').identifier(session)
         tool=dict(command=str(self.python),args=self.arguments(session,dispatch),enabled=True,required=False,
-            enabled_tools=self.names(),startup_timeout_sec=15,tool_timeout_sec=15)
+            enabled_tools=self.names(),startup_timeout_sec=15,tool_timeout_sec=15,
+            tools={'engineering_checkpoint': {'approval_mode': 'approve'}})
         return dict(config=dict(mcp_servers=dict(engineering_checkpoint=tool)),developerInstructions=(
             'Use engineering_checkpoint at meaningful findings, choices, failed attempts, changes, validation and pauses. '
             'Use a stable distinct key per checkpoint. Report observations, reasons, evidence and next steps; '

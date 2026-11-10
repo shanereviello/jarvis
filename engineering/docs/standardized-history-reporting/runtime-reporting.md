@@ -41,6 +41,12 @@ architecture and active attempt. Callers cannot choose work or grant approval.
 Text is redacted before staging. Exact replay is safe; changed text under an
 existing key is refused. A terminal or unknown session cannot append an active
 checkpoint. No private history, execution or Linear credential is exposed.
+The runtime explicitly sets the Codex tool approval mode to `approve` for
+`engineering_checkpoint` only, allowing this scoped passive recorder to run
+without an interactive prompt. The separate handoff tool and all unrelated tools
+retain their own approval behavior. The broker still validates the native UID,
+active session and dispatch, installed work binding and checkpoint schema. The
+adapter continues to refuse server-initiated approval requests it cannot handle.
 
 The runtime applies the recorder's MCP configuration and checkpoint guidance on
 both thread start and resume. Before generation, it inspects the actual thread's

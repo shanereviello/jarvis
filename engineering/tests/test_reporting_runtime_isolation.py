@@ -62,6 +62,8 @@ def test_native_mcp_configuration_contains_no_parent_paths_or_bridge_credential(
     value=launch.parameters(uid(5),uid(4));args=value['config']['mcp_servers']['engineering_checkpoint']['args']
     assert args[-4:]==['--session',uid(5),'--dispatch',uid(4)]
     assert '--state' not in args and '--reporting-policy' not in args and '--bridge-token-file' not in args
+    tool=value['config']['mcp_servers']['engineering_checkpoint']
+    assert tool['tools']=={'engineering_checkpoint': {'approval_mode':'approve'}}
 
 
 def test_visible_native_result_is_redacted_before_transport_publication(runtime,policy):

@@ -103,6 +103,7 @@ def test_native_tool_has_no_private_transport_configuration(tmp_path):
     tool.socket=tmp_path/'broker.sock';tool.service_uid=os.getuid();tool.python=Path('/usr/bin/python3');tool.handoff_enabled=True
     params=tool.parameters(uid(5),uid(4));entry=params['config']['mcp_servers']['engineering_checkpoint']
     assert entry['enabled_tools']==['engineering_checkpoint','engineering_handoff']
+    assert entry['tools']=={'engineering_checkpoint': {'approval_mode':'approve'}}
     assert '--handoff' in entry['args']
     assert all(word not in str(params) for word in ('token_file','OAuth','handoffs.sqlite3'))
 
