@@ -19,8 +19,26 @@ The native coding service receives that one file using systemd
 `LoadCredential=`. `codex_app_server_entry.py` reads the named credential and
 starts the pinned App Server with a clean environment containing only its
 `RRAS_OPENAI_API_KEY` and fixed runtime paths. The private adapter and passive
-source reader receive no provider credential. To prepare the credential after
-the source has been reviewed and installed, the root operator would run:
+source reader receive no provider credential. The native Codex configuration
+must explicitly bind that environment variable to a custom OpenAI provider;
+the built-in `openai` provider did not consume it in testing with the pinned
+Codex 0.159.0 App Server. A network-isolated fixture confirmed that this
+configuration sends a synthetic credential to a loopback endpoint:
+
+```toml
+model_provider = "rras_openai"
+
+[model_providers.rras_openai]
+name = "RRAS OpenAI"
+base_url = "https://api.openai.com/v1"
+env_key = "RRAS_OPENAI_API_KEY"
+wire_api = "responses"
+```
+
+This does not validate the actual credential or authorize a model turn. Preserve
+other native settings and configure the provider only while execution is disabled.
+To prepare the credential after the source has been reviewed and installed, the
+root operator would run:
 
 ```bash
 sudo /opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python \
