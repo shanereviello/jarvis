@@ -202,7 +202,13 @@ def probe():
                     n['parameters']['url']='http://127.0.0.1:8899/hermes/v1/runs'
                 for ref in n.get('credentials',{}).values():ref['id']=credential_refs[ref['id']]
             print('Importing fixture '+name,flush=True)
-            workflows[name]=api('/rest/workflows',w)
+            if name=='hermes_future_sessions':
+                write('/tmp/future-sessions.json',[w])
+                run(['docker','exec','--user','node',n8n,'n8n','import:workflow','--input=/tmp/future-sessions.json'])
+                response=request('/rest/workflows/'+ids[name])
+                assert response['status']==200,response
+                workflows[name]=json.loads(response['body'])['data']
+            else:workflows[name]=api('/rest/workflows',w)
         remote=r"""const http=require('node:http');const state={calls:[],activities:[],requests:[],interrupts:[],comments:{},sessions:{},sessionMutations:0,commentMutations:0,active:null,complete:false,uncertain:false,losePublication:false,wrongActor:false};
 const uid=n=>'00000000-0000-0000-0000-'+n.toString(16).padStart(12,'0');
 http.createServer(async(req,res)=>{let raw='';for await(const x of req)raw+=x;let b=raw?JSON.parse(raw):{};
