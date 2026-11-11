@@ -21,6 +21,14 @@ a new turn must use an explicitly linked new session rather than pretending
 that the old thread has moved to a different checkout. A failed migration plan
 or policy mismatch refuses startup; no prior journal is reset.
 
+The v2 migration can retain `execution_authorized=false` while the runtime and
+issue-specific sockets are checked. A separate, plan-bound and journaled v2
+authority transition changes only the execution flag and its reference; it
+refuses changed workspace/work pins and unresolved turns. This permits checking
+the deployment without accidentally starting paid coding and supports a later
+explicit disable transition. Configuration/journal cutover and recovery still
+need independent host acceptance.
+
 Before production activation, all of the following remain necessary:
 
 - Prepare a separate native-owned checkout and task branch for each issue from a

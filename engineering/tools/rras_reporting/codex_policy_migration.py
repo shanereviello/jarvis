@@ -38,6 +38,23 @@ def locked(root):
     finally:os.close(fd)
 
 
+def settled(db):
+    if db.execute("SELECT 1 FROM turns WHERE state NOT IN ('completed','failed','interrupted') OR state IS NULL LIMIT 1").fetchone():
+        raise ValueError('active or uncertain turns require reconciliation before migration')
+
+
+def fingerprints(db):
+    runtime=local('codex_runtime')
+    fingerprints={}
+    for table,order in [('policy','body'),('sessions','session'),('turns','dispatch'),('events','sequence')]:
+        h=hashlib.sha256();count=0
+        for row in db.execute('SELECT * FROM '+table+' ORDER BY '+order):
+            item=[{'bytes':bytes(value).hex()} if isinstance(value,(bytes,bytearray,memoryview)) else value for value in row]
+            h.update(runtime.encoded(item));count+=1
+        fingerprints[table]=dict(count=count,sha256=h.hexdigest())
+    return fingerprints
+
+
 def snapshot(db, next_policy):
     runtime=local('codex_runtime');current=db.execute('SELECT body FROM policy').fetchall()
     if len(current)!=1:raise ValueError('one existing policy required')
@@ -48,18 +65,10 @@ def snapshot(db, next_policy):
         if old[key]!=new[key]:raise ValueError('migration cannot change existing identity or work pins')
     if db.execute("SELECT 1 FROM sqlite_master WHERE name IN ('legacy_sessions','policy_migrations')").fetchone():
         raise ValueError('prior migration state already exists')
-    if db.execute("SELECT 1 FROM turns WHERE state NOT IN ('completed','failed','interrupted') OR state IS NULL LIMIT 1").fetchone():
-        raise ValueError('active or uncertain turns require reconciliation before migration')
-    fingerprints={}
-    for table,order in [('policy','body'),('sessions','session'),('turns','dispatch'),('events','sequence')]:
-        h=hashlib.sha256();count=0
-        for row in db.execute('SELECT * FROM '+table+' ORDER BY '+order):
-            item=[{'bytes':bytes(value).hex()} if isinstance(value,(bytes,bytearray,memoryview)) else value for value in row]
-            h.update(runtime.encoded(item));count+=1
-        fingerprints[table]=dict(count=count,sha256=h.hexdigest())
+    settled(db);tables=fingerprints(db)
     evidence=dict(contract='codex-policy-migration-plan.v1',old_policy_sha256=hashlib.sha256(runtime.encoded(old)).hexdigest(),
-        new_policy_sha256=hashlib.sha256(runtime.encoded(new)).hexdigest(),tables=fingerprints,
-        legacy_sessions=fingerprints['sessions']['count'],models_started=0)
+        new_policy_sha256=hashlib.sha256(runtime.encoded(new)).hexdigest(),tables=tables,
+        legacy_sessions=tables['sessions']['count'],models_started=0)
     return evidence,old,new
 
 
@@ -80,5 +89,49 @@ def migrate(root,next_policy,expected_sha256):
         db.execute('INSERT INTO legacy_sessions(session,original_cwd) SELECT session,? FROM sessions',(old['cwd'],))
         db.execute('CREATE TABLE policy_migrations(old_body BLOB NOT NULL,new_body BLOB NOT NULL,plan_sha256 TEXT NOT NULL)')
         db.execute('INSERT INTO policy_migrations VALUES(?,?,?)',(runtime.encoded(old),runtime.encoded(new),digest))
+        for table in ('legacy_sessions','policy_migrations'):
+            for operation in ('UPDATE','DELETE'):
+                db.execute('CREATE TRIGGER retain_'+table+'_'+operation.lower()+' BEFORE '+operation+' ON '+table+" BEGIN SELECT RAISE(ABORT,'retained migration evidence'); END")
         db.execute('UPDATE policy SET body=?',(runtime.encoded(new),))
         return dict(migrated=True,plan_sha256=digest,legacy_sessions=value['legacy_sessions'],models_started=0)
+
+
+def authority_snapshot(db, next_policy):
+    runtime=local('codex_runtime');current=db.execute('SELECT body FROM policy').fetchall()
+    if len(current)!=1:raise ValueError('one existing policy required')
+    old=runtime.policy(json.loads(current[0][0]));new=runtime.policy(next_policy)
+    if old['contract']!='codex-runtime-policy.v2' or new['contract']!='codex-runtime-policy.v2':
+        raise ValueError('v2 policy required')
+    if old['execution_authorized']==new['execution_authorized']:
+        raise ValueError('explicit changed execution authority required')
+    for key in set(old)-{'execution_authorized','execution_authority_reference'}:
+        if old[key]!=new[key]:raise ValueError('authority change cannot change workspace or work pins')
+    settled(db)
+    previous=[]
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='policy_authorizations'").fetchone():
+        previous=[row[0] for row in db.execute('SELECT plan_sha256 FROM policy_authorizations ORDER BY sequence')]
+    value=dict(contract='codex-policy-authority-plan.v1',old_policy_sha256=hashlib.sha256(runtime.encoded(old)).hexdigest(),
+        new_policy_sha256=hashlib.sha256(runtime.encoded(new)).hexdigest(),tables=fingerprints(db),
+        prior_authorizations=previous,models_started=0)
+    return value,old,new
+
+
+def authority_plan(root,next_policy):
+    with locked(root) as db:
+        value,_,_=authority_snapshot(db,next_policy)
+        value['expected_sha256']=hashlib.sha256(local('codex_runtime').encoded(value)).hexdigest()
+        return value
+
+
+def change_authority(root,next_policy,expected_sha256):
+    runtime=local('codex_runtime')
+    with locked(root) as db:
+        value,old,new=authority_snapshot(db,next_policy)
+        digest=hashlib.sha256(runtime.encoded(value)).hexdigest()
+        if digest!=expected_sha256:raise ValueError('authority plan differs; inspect journal before retry')
+        db.execute('CREATE TABLE IF NOT EXISTS policy_authorizations(sequence INTEGER PRIMARY KEY,old_body BLOB NOT NULL,new_body BLOB NOT NULL,plan_sha256 TEXT NOT NULL)')
+        for operation in ('UPDATE','DELETE'):
+            db.execute('CREATE TRIGGER IF NOT EXISTS retain_policy_authorizations_'+operation.lower()+' BEFORE '+operation+" ON policy_authorizations BEGIN SELECT RAISE(ABORT,'retained authority evidence'); END")
+        db.execute('INSERT INTO policy_authorizations(old_body,new_body,plan_sha256) VALUES(?,?,?)',(runtime.encoded(old),runtime.encoded(new),digest))
+        db.execute('UPDATE policy SET body=?',(runtime.encoded(new),))
+        return dict(changed=True,execution_authorized=new['execution_authorized'],plan_sha256=digest,models_started=0)

@@ -229,6 +229,34 @@ def test_runtime_checks_policy_after_obtaining_journal_lock(tmp_path,policy,monk
         m.Runtime(root,policy,client_factory=lambda *a:Client())
 
 
+def test_workspace_authority_is_a_separate_audited_transition(tmp_path,policy):
+    migration=module('codex_policy_migration');policy['execution_authorized']=False
+    root=tmp_path/'authority-state';runtime=m.Runtime(root,policy,create=True);runtime.close()
+    v2=copy.deepcopy(policy);v2.update(contract='codex-runtime-policy.v2',sandbox='workspace-write',
+        workspaces={uid(3):str(tmp_path/'checkout')},native_sockets={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))})
+    first=migration.plan(root,v2);migration.migrate(root,v2,first['expected_sha256'])
+    enabled=copy.deepcopy(v2);enabled.update(execution_authorized=True,execution_authority_reference='Synthetic test authority')
+    bad=copy.deepcopy(enabled);bad['workspaces'][uid(3)]=str(tmp_path/'other')
+    with pytest.raises(ValueError,match='workspace or work pins'):migration.authority_plan(root,bad)
+    plan=migration.authority_plan(root,enabled)
+    with pytest.raises(ValueError,match='plan differs'):migration.change_authority(root,enabled,'0'*64)
+    assert migration.change_authority(root,enabled,plan['expected_sha256'])['execution_authorized'] is True
+    reverse=copy.deepcopy(enabled);reverse.update(execution_authorized=False,execution_authority_reference='Synthetic test revocation')
+    client=Client();active=m.Runtime(root,enabled,issue_client_factory=lambda *args:client)
+    active.dispatch(request(enabled))
+    with pytest.raises(ValueError,match='stop the runtime'):migration.authority_plan(root,reverse)
+    active.close()
+    with pytest.raises(ValueError,match='active or uncertain'):migration.authority_plan(root,reverse)
+    with migration.locked(root) as db:db.execute("UPDATE turns SET state='interrupted'")
+    plan=migration.authority_plan(root,reverse)
+    assert migration.change_authority(root,reverse,plan['expected_sha256'])['execution_authorized'] is False
+    with migration.locked(root) as db:
+        assert db.execute('SELECT COUNT(*) FROM policy_authorizations').fetchone()[0]==2
+        import sqlite3
+        with pytest.raises(sqlite3.IntegrityError):db.execute('DELETE FROM policy_authorizations')
+        with pytest.raises(sqlite3.IntegrityError):db.execute('DELETE FROM policy_migrations')
+
+
 def test_http_distinguishes_pre_dispatch_refusal_from_uncertain_execution(tmp_path,policy):
     policy['execution_authorized']=False;client=Client()
     value=m.Runtime(tmp_path/'disarmed-http',policy,create=True,client_factory=lambda *a:client)
