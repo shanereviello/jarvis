@@ -362,8 +362,10 @@ The Hermes history reader timed out during the planned outage, then completed
 with zero pending delivery after restart. The future-session timer remained
 enabled, and the scheduled and operator-triggered post-restart passes completed
 with zero failed or pending deliveries. This availability
-check does not establish coding-write behavior or a fresh interactive Jarvis
-regression after restart.
+check does not establish coding-write behavior. A later separately authorized
+Jarvis acknowledgement on REV-50 completed after restart, with two response
+events delivered through the Jarvis transport; capture verification is tracked
+separately.
 
 Coding admission and publication fixture tests were also rerun: 56 passed. The
 current direct Linear coding service points to `/srv/git/jarvis` on `main`,
