@@ -417,3 +417,12 @@ its retained Linear mapping receipt before installing it. History independently
 checks the project, architecture, work revision and assignment pins, but that
 check alone does not prove the issue mapping. Unknown issues remain unmapped.
 The source change is not evidence that any production mapping was enabled.
+
+On November 11 the operator approved installation of collector release
+`standardized-history-995ba1d2dd2f`. Its configuration binds REV-50 to the
+retained execution mapping receipt `300180bf8f4b472fd8dd83097cdde40dcf3fea32e009c6cd9d6aa0ad6e519447`,
+with an effective time of `2026-11-11T20:30:55.601260Z`. Installation verified
+the issue, organization, scope and exact context against the history service;
+the timer resumed and a passive pass succeeded. A new session created after
+that time is still needed to verify actual end-to-end association. Existing
+sessions and mappings for other issues were left unchanged.
