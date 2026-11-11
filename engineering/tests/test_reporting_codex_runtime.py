@@ -139,32 +139,41 @@ def test_issue_specific_workspaces_are_fixed_by_policy(tmp_path, policy):
     policy['issues'][uid(7)]=copy.deepcopy(policy['issues'][uid(3)])
     policy['issues'][uid(7)]['work_id']='wrk_'+'5'*32
     policy['workspaces']={uid(3):str(tmp_path/'issue-a'),uid(7):str(tmp_path/'issue-b')}
+    policy['native_sockets']={issue:str(tmp_path/('coding-'+issue+'.sock')) for issue in policy['issues']}
     class DistinctThreads(Client):
+        def __init__(self,issue):super().__init__();self.issue=issue
         def call(self,method,params):
             if method=='thread/start':
                 self.calls.append((method,params))
-                return dict(thread=dict(id='thread-'+str(sum(k=='thread/start' for k,_ in self.calls))))
+                return dict(thread=dict(id='thread-'+('1' if self.issue==uid(3) else '2')))
             return super().call(method,params)
-    client=DistinctThreads();value=m.Runtime(tmp_path/'state-v2',policy,create=True,client_factory=lambda *args:client)
+    clients={}
+    def factory(executable,cwd,issue):clients[issue]=DistinctThreads(issue);return clients[issue]
+    value=m.Runtime(tmp_path/'state-v2',policy,create=True,issue_client_factory=factory)
     try:
-        value.dispatch(request(policy));client.finish('completed');value.status(uid(4))
+        value.dispatch(request(policy));clients[uid(3)].finish('completed');value.status(uid(4))
         second=request(policy,number=8,session=9);second['issue_id']=uid(7);second['binding']=copy.deepcopy(policy['issues'][uid(7)])
         value.dispatch(second)
-        starts=[p for method,p in client.calls if method=='thread/start']
+        starts=[p for issue in (uid(3),uid(7)) for method,p in clients[issue].calls if method=='thread/start']
         assert [x['cwd'] for x in starts]==[policy['workspaces'][uid(3)],policy['workspaces'][uid(7)]]
+        assert clients[uid(3)].closed and not clients[uid(7)].closed
         assert m.issue_workspace(value.policy,uid(7))==policy['workspaces'][uid(7)]
     finally:value.close()
 
 
-@pytest.mark.parametrize('mode',['missing','extra','same','nested','relative'])
+@pytest.mark.parametrize('mode',['missing','extra','same','nested','relative','socket_missing','socket_shared','socket_swapped'])
 def test_issue_workspace_policy_refuses_ambiguous_or_overlapping_paths(tmp_path,policy,mode):
     policy['contract']='codex-runtime-policy.v2';policy['issues'][uid(7)]=copy.deepcopy(policy['issues'][uid(3)])
     policy['workspaces']={uid(3):str(tmp_path/'one'),uid(7):str(tmp_path/'two')}
+    policy['native_sockets']={issue:str(tmp_path/('coding-'+issue+'.sock')) for issue in policy['issues']}
     if mode=='missing':del policy['workspaces'][uid(7)]
     elif mode=='extra':policy['workspaces'][uid(9)]=str(tmp_path/'three')
     elif mode=='same':policy['workspaces'][uid(7)]=policy['workspaces'][uid(3)]
     elif mode=='nested':policy['workspaces'][uid(7)]=str(tmp_path/'one'/'child')
-    else:policy['workspaces'][uid(7)]='relative'
+    elif mode=='relative':policy['workspaces'][uid(7)]='relative'
+    elif mode=='socket_missing':del policy['native_sockets'][uid(7)]
+    elif mode=='socket_shared':policy['native_sockets'][uid(7)]=policy['native_sockets'][uid(3)]
+    else:policy['native_sockets'][uid(3)],policy['native_sockets'][uid(7)]=policy['native_sockets'][uid(7)],policy['native_sockets'][uid(3)]
     with pytest.raises(ValueError):m.policy(policy)
 
 
@@ -173,7 +182,7 @@ def test_explicit_workspace_migration_preserves_journal_and_never_resumes_legacy
     original=m.Runtime(root,policy,create=True,client_factory=lambda *args:client)
     first=request(policy);original.dispatch(first)
     v2=copy.deepcopy(policy);v2['contract']='codex-runtime-policy.v2'
-    v2['workspaces']={uid(3):str(tmp_path/'new-workspace')}
+    v2['workspaces']={uid(3):str(tmp_path/'new-workspace')};v2['native_sockets']={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))}
     with pytest.raises(ValueError,match='stop the runtime'):migration.plan(root,v2)
     client.finish('completed');original.status(first['dispatch_id']);original.close()
     with migration.locked(root) as db:
@@ -183,7 +192,7 @@ def test_explicit_workspace_migration_preserves_journal_and_never_resumes_legacy
     with pytest.raises(ValueError,match='plan differs'):migration.migrate(root,v2,'0'*64)
     result=migration.migrate(root,v2,plan['expected_sha256'])
     assert result['legacy_sessions']==1 and result['models_started']==0
-    replacement=Client();current=m.Runtime(root,v2,client_factory=lambda *args:replacement)
+    replacement=Client();current=m.Runtime(root,v2,issue_client_factory=lambda *args:replacement)
     try:
         assert current.dispatch(first)['state']=='completed'
         with pytest.raises(ValueError,match='legacy session'):
@@ -199,7 +208,7 @@ def test_workspace_migration_refuses_unsettled_work_or_changed_pins(tmp_path,pol
     migration=module('codex_policy_migration');root=tmp_path/'migration-state';client=Client()
     value=m.Runtime(root,policy,create=True,client_factory=lambda *args:client)
     value.dispatch(request(policy));value.close()
-    v2=copy.deepcopy(policy);v2['contract']='codex-runtime-policy.v2';v2['workspaces']={uid(3):str(tmp_path/'workspace')}
+    v2=copy.deepcopy(policy);v2['contract']='codex-runtime-policy.v2';v2['workspaces']={uid(3):str(tmp_path/'workspace')};v2['native_sockets']={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))}
     with pytest.raises(ValueError,match='active or uncertain'):migration.plan(root,v2)
     with migration.locked(root) as db:db.execute("UPDATE turns SET state='completed'")
     v2['issues'][uid(3)]['work_revision_sha256']='9'*64

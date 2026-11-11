@@ -72,9 +72,9 @@ def test_history_outage_replay_preserves_start_and_honest_terminal_reports(tmp_p
 
 def test_issue_workspace_is_retained_in_session_metadata(tmp_path,projects,evidence,reporting):
     policy,config,spool,_,request=setup(tmp_path,projects)
-    policy['contract']='codex-runtime-policy.v2';policy['workspaces']={uid(3):str(tmp_path/'issue-workspace')}
+    policy['contract']='codex-runtime-policy.v2';policy['workspaces']={uid(3):str(tmp_path/'issue-workspace')};policy['native_sockets']={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))}
     reporter=m.Reporter(config,policy);client=Client()
-    runtime=runtime_module.Runtime(tmp_path/'runtime-v2',policy,create=True,client_factory=lambda *a:client,reporter=reporter)
+    runtime=runtime_module.Runtime(tmp_path/'runtime-v2',policy,create=True,issue_client_factory=lambda *a:client,reporter=reporter)
     try:
         runtime.dispatch(request);client.finish('completed');runtime.status(uid(4))
         assert spool.flush(sender(reporting))['pending']==0

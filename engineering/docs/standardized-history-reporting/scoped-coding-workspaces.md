@@ -2,9 +2,12 @@
 
 The installed v1 runtime has one fixed `cwd` for every mapped issue and its
 execution policy remains disabled. The proposed v2 policy binds every admitted
-issue UUID to a distinct, non-overlapping canonical workspace. Dispatch and
-thread resume use the installed issue binding, never a path selected by the
-Linear message. Runtime session metadata records the actual selected workspace.
+issue UUID to a distinct, non-overlapping canonical workspace and a distinct
+issue-specific native socket. Dispatch and thread resume use the installed
+issue binding, never a path selected by the Linear message. Each candidate
+socket activates an App Server whose systemd working directory and only explicit
+repository writable path are that issue's checkout. Runtime session metadata
+records the actual selected workspace.
 The existing single-active-or-uncertain-executor rule remains conservative
 across the entire runtime.
 
@@ -47,3 +50,12 @@ allowed a file write in the selected fixture directory and returned a read-only
 filesystem error for a sibling directory. This does not test the native service
 identity, its systemd restrictions, App Server's effective sandbox profile, or
 all possible paths; those checks remain required before activation.
+
+An additional local App Server probe exposed why separate directories alone
+were insufficient: with a shared server started in another directory, granting
+the selected checkout in `writableRoots` also left the server's startup
+directory writable. Starting a distinct fixture App Server in the selected
+checkout allowed its own write and denied a sibling write, with no model turn.
+These operator-account tests do not establish production native-service
+isolation. The inactive per-issue unit candidate was checked by
+`systemd-analyze verify`; it has not been installed or activated.
