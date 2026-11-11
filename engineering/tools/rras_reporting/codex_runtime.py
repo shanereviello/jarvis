@@ -96,9 +96,11 @@ def journal_event(event):
 
 
 def policy(value):
-    if type(value) is not dict or set(value) != {'contract', 'organization_id', 'app_user_id',
+    fields = {'contract', 'organization_id', 'app_user_id',
             'execution_authorized', 'execution_authority_reference', 'binary', 'cwd',
-            'sandbox', 'issues'} or value['contract'] != 'codex-runtime-policy.v1':
+            'sandbox', 'issues'}
+    if (type(value) is not dict or value.get('contract') not in ('codex-runtime-policy.v1', 'codex-runtime-policy.v2') or
+            set(value) != fields | ({'workspaces'} if value.get('contract') == 'codex-runtime-policy.v2' else set())):
         raise ValueError('exact installed runtime policy required')
     identifier(value['organization_id']); identifier(value['app_user_id'])
     if type(value['execution_authorized']) is not bool:
@@ -127,7 +129,28 @@ def policy(value):
         if type(pin['architecture_version']) is not int or pin['architecture_version'] < 1:
             raise ValueError('positive architecture version required')
         bounded(pin['plan_id'], 96)
+    if value['contract'] == 'codex-runtime-policy.v2':
+        workspaces = value['workspaces']
+        if type(workspaces) is not dict or set(workspaces) != set(value['issues']):
+            raise ValueError('one fixed workspace per admitted issue required')
+        paths = []
+        for workspace in workspaces.values():
+            if type(workspace) is not str:
+                raise ValueError('canonical issue workspace required')
+            path = Path(workspace)
+            if not path.is_absolute() or path.resolve() != path or path == Path('/'):
+                raise ValueError('canonical issue workspace required')
+            if any(path == other or path in other.parents or other in path.parents for other in paths):
+                raise ValueError('distinct non-overlapping issue workspaces required')
+            paths.append(path)
     return json.loads(encoded(value))
+
+
+def issue_workspace(selected_policy, issue):
+    if issue not in selected_policy['issues']:
+        raise ValueError('admitted issue required')
+    return (selected_policy['workspaces'][issue] if selected_policy['contract'] == 'codex-runtime-policy.v2'
+            else selected_policy['cwd'])
 
 
 class AppServer:
@@ -308,9 +331,6 @@ class Runtime:
                     CREATE TABLE events(sequence INTEGER PRIMARY KEY,dispatch TEXT,body BLOB NOT NULL);
                 ''')
                 db.execute('INSERT INTO policy VALUES(?)', (encoded(self.policy),))
-        with self.connection() as db:
-            if db.execute('SELECT body FROM policy').fetchone()[0] != encoded(self.policy):
-                raise ValueError('installed policy differs; retain journal and reconcile migration')
         lock_path = self.root / 'runtime.lock'
         fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         try:
@@ -319,6 +339,13 @@ class Runtime:
         except BaseException:
             os.close(fd)
             raise ValueError('another adapter owns this runtime journal or lock is unsafe') from None
+        try:
+            with self.connection() as db:
+                if db.execute('SELECT body FROM policy').fetchone()[0] != encoded(self.policy):
+                    raise ValueError('installed policy differs; retain journal and reconcile migration')
+        except BaseException:
+            os.close(fd)
+            raise
         self.journal_lock = fd
         with self.connection() as db:
             # A new process must not rerun a dispatched turn after losing its stream.
@@ -393,6 +420,10 @@ class Runtime:
                     return self._public(existing)
                 prior = db.execute('SELECT * FROM sessions WHERE session=?', (session,)).fetchone()
                 if prior and prior['issue'] != issue: raise ValueError('session issue cannot change')
+                if prior and self.policy['contract'] == 'codex-runtime-policy.v2':
+                    legacy = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_sessions'").fetchone()
+                    if legacy and db.execute('SELECT 1 FROM legacy_sessions WHERE session=?',(session,)).fetchone():
+                        raise ValueError('legacy session retains its original workspace; start an explicitly linked new session')
                 if not prior: db.execute('INSERT INTO sessions(session,issue) VALUES(?,?)', (session, issue))
                 try:
                     db.execute('INSERT INTO turns(dispatch,session,issue,request,digest,state) VALUES(?,?,?,?,?,?)',
@@ -406,17 +437,18 @@ class Runtime:
                 if self.reporter is not None:
                     instructions=self.reporter.task_instructions(issue)
                     if instructions:checkpoint_parameters['developerInstructions']=checkpoint_parameters.get('developerInstructions','')+instructions
+                workspace = issue_workspace(self.policy, issue)
                 if prior and prior['thread']:
                     opened = client.call('thread/resume', dict(threadId=prior['thread'],
-                        cwd=self.policy['cwd'], sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))
+                        cwd=workspace, sandbox=self.policy['sandbox'], approvalPolicy='on-request',**checkpoint_parameters))
                     info=opened['thread']
                     if info['id'] != prior['thread']: raise ValueError('runtime thread changed')
                 else:
-                    opened = client.call('thread/start', dict(cwd=self.policy['cwd'],
+                    opened = client.call('thread/start', dict(cwd=workspace,
                         sandbox=self.policy['sandbox'], approvalPolicy='on-request', ephemeral=False,**checkpoint_parameters))
                     info=opened['thread']
                 thread = bounded(info['id'], 256); lineage = bounded(info['sessionId'],256) if info.get('sessionId') else None
-                if info.get('cwd') is not None and info['cwd']!=self.policy['cwd']:raise ValueError('native workspace differs')
+                if info.get('cwd') is not None and info['cwd']!=workspace:raise ValueError('native workspace differs')
                 with self.connection() as db:
                     db.execute('UPDATE sessions SET thread=?,lineage=? WHERE session=?', (thread,lineage,session))
                     db.execute('UPDATE turns SET thread=? WHERE dispatch=?', (thread,dispatch))
@@ -511,7 +543,7 @@ class Runtime:
                 self.client.close();self.client=None
             thread=self._client().call('thread/read',dict(threadId=row['thread'],includeTurns=True))['thread']
             if (type(thread) is not dict or thread.get('id')!=row['thread'] or
-                    thread.get('cwd')!=self.policy['cwd']):
+                    thread.get('cwd')!=issue_workspace(self.policy,row['issue'])):
                 raise ValueError('stored thread context differs')
             turns=thread.get('turns',[])
             if type(turns) is not list or any(type(t) is not dict for t in turns):

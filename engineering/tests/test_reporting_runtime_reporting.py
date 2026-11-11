@@ -70,6 +70,19 @@ def test_history_outage_replay_preserves_start_and_honest_terminal_reports(tmp_p
     finally:runtime.close()
 
 
+def test_issue_workspace_is_retained_in_session_metadata(tmp_path,projects,evidence,reporting):
+    policy,config,spool,_,request=setup(tmp_path,projects)
+    policy['contract']='codex-runtime-policy.v2';policy['workspaces']={uid(3):str(tmp_path/'issue-workspace')}
+    reporter=m.Reporter(config,policy);client=Client()
+    runtime=runtime_module.Runtime(tmp_path/'runtime-v2',policy,create=True,client_factory=lambda *a:client,reporter=reporter)
+    try:
+        runtime.dispatch(request);client.finish('completed');runtime.status(uid(4))
+        assert spool.flush(sender(reporting))['pending']==0
+        metadata=next(r['body'] for r,_ in events(reporting) if r['operation']=='session.describe')
+        assert metadata['workspace_identity']==policy['workspaces'][uid(3)]
+    finally:runtime.close()
+
+
 def test_reporting_capacity_failure_does_not_rerun_or_block_authorized_work(tmp_path,projects,evidence,reporting,monkeypatch):
     policy,config,spool,reporter,request=setup(tmp_path,projects)
     monkeypatch.setattr(reporter.intake,'MAX_ITEMS',0);client=Client()

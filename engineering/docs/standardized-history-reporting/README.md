@@ -18,6 +18,7 @@ is a separate historical designation, not an edit to the document.
 - [Passive Linear observation](linear-observation.md)
 - [Curated reporting profiles and MCP retrieval](curated-reporting.md)
 - [Automatic runtime reporting and selected background capture](runtime-reporting.md)
+- [Per-issue coding workspace candidate](scoped-coding-workspaces.md)
 - [Explicit native handoff transport and acceptance limits](native-handoff.md)
 - [Scoped native Jarvis reporting](hermes-runtime.md)
 - [Server runtime installation candidate](runtime-host-setup.md)
