@@ -439,4 +439,7 @@ existing REV-50 binding was preserved and the timer passed a passive check.
 The previous collector processed only one four-session page per timer pass.
 The source now supports up to four pages per pass, with a 60-second budget for
 starting additional pages and a durable cursor after each confirmed delivery.
-This bounded paging change still requires installation and live verification.
+The operator installed release `standardized-history-dcb60c0c030e`; a scheduled
+pass subsequently processed six sessions across two pages with no pending or
+failed deliveries. The capture policy and timer were preserved, and no model
+was started. This confirms the observed two-page case, not an unlimited backlog.
