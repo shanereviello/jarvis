@@ -8,6 +8,7 @@ is a separate historical designation, not an edit to the document.
 - SHA-256: `4ed76e0a493a5ae45bcc6154cb57fac3f1551644b1e823d5c96b1e2713365329`
 - Source baseline: `354a893999b5006bdf3c31175f4e52d8d0306478`
 - [Shared agent guidance](shared-agent-guidance.md)
+- [Recording an architecture decision](architecture-decisions.md)
 - [Linear work and decision templates](linear-templates.md)
 - [Capture evaluation](capture-evaluation.md)
 - [Linear integration and remaining installation steps](linear-integration.md)
