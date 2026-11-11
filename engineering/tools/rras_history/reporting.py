@@ -72,13 +72,14 @@ class Reporting:
 
     def events(self, db, selected=None):
         if db.execute('PRAGMA user_version').fetchone()[0] < 4: return []
+        reporting_contract = local('reporting_contract')
         sql, args = 'SELECT sequence,request,request_sha256,receipt FROM reporting_submissions', ()
         if selected is not None:
             local('projects').scope(selected); sql += ' WHERE scope_kind=? AND scope_id=?'
             args = (selected['kind'], selected['id'])
         result = []
         for seq, raw, digest, saved in db.execute(sql + ' ORDER BY sequence', args):
-            request = local('reporting_contract').validate(self.c.decode(raw)); receipt = self.c.decode(saved)
+            request = reporting_contract.validate(self.c.decode(raw)); receipt = self.c.decode(saved)
             if (len(result) >= MAX_EVENTS or self.c.encoded(request) != raw or self.c.digest(raw) != digest or
                     (selected is not None and request['scope'] != selected) or
                     receipt.get('sequence') != seq or receipt.get('request_sha256') != digest or

@@ -392,3 +392,14 @@ The original execution-disabled runtime and native service writable paths were
 restored. No commit, push, or issue-field update was made by the worker; the
 private checkout and review diff remain retained. This verifies one scoped
 write, not a generally enabled autonomous coding or publication workflow.
+
+The subsequent Jarvis acknowledgement regression completed on REV-50 and the
+Jarvis transport marked its two response activities sent. A future-session
+capture pass delivered three records without failure; the session's artifact
+manifest was located in the unassigned Jarvis scope. A complete byte-digest read
+through the history service did not finish before the socket closed, so the
+capture is not claimed as digest-verified. Investigation found that history
+replay reloaded and rebuilt reporting validation for every event. A source-only
+optimization reused the same validation machinery without changing receipt or
+scope checks. A 1,000-record synthetic replay returned identical records and
+improved from 4.87 seconds to 0.70 seconds; this is not a production benchmark.

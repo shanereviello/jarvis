@@ -125,10 +125,13 @@ SCHEMA = dict(obj(contract=dict(const='engineering-reporting.v1'), operation=cho
 SCHEMA['allOf'] = [{'if': {'properties': {'operation': {'const': operation}}},
                     'then': {'properties': {'body': ref(body)}}} for operation, body in OPERATIONS.items()]
 
+VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
+CONTRACT = local('contract')
+
 
 def validate(value):
-    c = local('contract'); value = c.decode(c.encoded(value))
-    Draft202012Validator(SCHEMA, format_checker=FormatChecker()).validate(value)
+    c = CONTRACT; value = c.decode(c.encoded(value))
+    VALIDATOR.validate(value)
     def inspect(item):
         if isinstance(item, str) and ('\0' in item or not item.strip()): raise ValueError('nonempty text without NUL required')
         if isinstance(item, dict):
