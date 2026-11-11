@@ -43,6 +43,32 @@ def request(projects, operation='mapping.record', *, project_mapping=False):
 def project_map(reporting, projects): return reporting.submit(request(projects, project_mapping=True))
 
 
+def test_imported_linear_decision_requires_explicit_separate_designation(reporting, projects):
+    """A decision observation retains its source but cannot designate a draft."""
+    save(projects, 2, '# Candidate architecture\n\nSynthetic review text.\n')
+    project = read(projects)
+    candidate = project['architecture'][-1]
+    decision = request(projects, 'decision.observe')
+    decision['context']['architecture'] = {k: candidate[k] for k in ('document_id', 'version', 'markdown_sha256')}
+    decision['context']['work'] = None
+    decision['source'] = dict(kind='imported', namespace='linear_comment', id='synthetic-comment')
+    decision['body'].update(kind='architecture', state='approved', attribution='imported_source',
+        attributed_author=dict(role='human', runtime='linear', source_actor_id=str(uuid.UUID(int=8))),
+        source_reference=dict(namespace='linear_comment', id='synthetic-comment', sha256='7' * 64),
+        decision_text='Synthetic operator approval of architecture version 2, SHA-256 ' + candidate['markdown_sha256'])
+    receipt = reporting.submit(decision)
+    assert reporting.submit(decision) == dict(inserted=False, receipt=receipt['receipt'])
+    assert read(projects)['governing_version'] == 1
+    assert receipt['receipt']['authority_granted'] is False
+    designate(projects, 2)
+    assert read(projects)['governing_version'] == 2
+    with reporting.store.connection() as db:
+        stored = [(r, rcpt) for r, rcpt in reporting.events(db) if r['operation'] == 'decision.observe']
+    assert len(stored) == 1
+    assert stored[0][0]['body']['source_reference'] == decision['body']['source_reference']
+    assert stored[0][0]['body']['attribution'] == 'imported_source'
+
+
 def test_upgrade_preserves_prior_bytes_schema_key_and_old_signed_views(projects):
     create(projects); save(projects); designate(projects); assignment(projects)
     old2 = projects.read(REPO, dict(view='project', project_id=P1))
