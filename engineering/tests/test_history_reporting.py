@@ -69,6 +69,25 @@ def test_imported_linear_decision_requires_explicit_separate_designation(reporti
     assert stored[0][0]['body']['attribution'] == 'imported_source'
 
 
+def test_linked_continuation_preserves_both_sessions_and_attribution(reporting, projects):
+    value = request(projects, 'session.relate')
+    value['source'] = dict(kind='agent_reported', namespace='interactive_continuation', id='fixture-reference')
+    value['body'].update(session=dict(namespace='codex', id='interactive-thread'),
+        relationship='continued_from', related_session=dict(namespace='codex', id='linear-thread'),
+        attempt_id=None, actor=dict(role='codex', runtime='interactive', source_actor_id=None),
+        reason='Explicit agent-reported linked continuation; no native resume is claimed.')
+    first = reporting.submit(value)
+    assert reporting.submit(value) == dict(inserted=False, receipt=first['receipt'])
+    with reporting.store.connection() as db:
+        rows = [r for r, _ in reporting.events(db) if r['operation'] == 'session.relate']
+    assert len(rows) == 1
+    assert rows[0]['body']['session']['id'] == 'interactive-thread'
+    assert rows[0]['body']['related_session']['id'] == 'linear-thread'
+    assert rows[0]['context'] == value['context']
+    assert rows[0]['source']['kind'] == 'agent_reported'
+    assert first['receipt']['authority_granted'] is False
+
+
 def test_upgrade_preserves_prior_bytes_schema_key_and_old_signed_views(projects):
     create(projects); save(projects); designate(projects); assignment(projects)
     old2 = projects.read(REPO, dict(view='project', project_id=P1))
