@@ -346,3 +346,20 @@ collector deliberately cycles its pagination cursor back to its fixed cutoff aft
 reaching the end so changes to older eligible sessions can be rediscovered; the
 capture spool deduplicates unchanged exports. This cycling is not a cursor reset
 caused by n8n recreation.
+
+### Live Codex availability with Hermes stopped — November 11
+
+The operator authorized a paid, read-only REV-50 availability test using a
+separate test journal. Hermes was stopped with a timed restart safeguard, and
+the operator directly mentioned Codex. Codex returned the requested repository
+README paragraph with no file or issue-field changes. The transport event was
+received at 15:09:24 UTC and completed at 15:09:45 UTC, between the container's
+stop at 15:08:56 UTC and restart at 15:11:17 UTC. The isolated journal recorded
+one completed turn. The original runtime and execution-disabled policy were
+restored, and the test journal was retained.
+
+The Hermes history reader timed out during the planned outage, then completed
+with zero pending delivery after restart. The future-session timer remained
+enabled; its first post-restart pass still needs verification. This availability
+check does not establish coding-write behavior or a fresh interactive Jarvis
+regression after restart.

@@ -34,13 +34,12 @@ under the operator's stated selections. They are not a claim of complete history
 Separately authorized read-only live tests verified direct Codex mention,
 delegation, follow-up in the same session, cancellation, repository read, and
 Jarvis-to-Codex and Codex-to-Jarvis handoff transport. Both handoffs' requested,
-acknowledged, and completed transitions were retained in owned history. After
+acknowledged, and completed transitions were retained in owned history. A read-only REV-50 request also completed while Hermes was stopped. After
 each test the original Codex runtime was restored with execution disabled; it is
 not enabled for general coding. The reverse-handoff reply's exact content has not
 been independently checked. See [integration evidence](linear-integration.md).
 
-Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis regression
-and Codex operation while Hermes is unavailable, real coding writes, broader
+Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis interaction regression after restart, real coding writes, broader
 project onboarding and overall closeout remain open. The selected n8n reader and
 handoff jobs now use an operator-approved host-loopback endpoint, avoiding their
 previous dependency on n8n’s changing container IP. A guarded n8n recreation
