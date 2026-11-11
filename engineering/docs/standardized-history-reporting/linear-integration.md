@@ -176,6 +176,21 @@ session and relationship records. The original execution-disabled runtime was
 restored. This verifies the observed read test, not repository writes, the
 previous rejected escalation path, or full coding-task acceptance.
 
+### Live Jarvis handoff attempt — November 10
+
+The operator requested a bounded Jarvis-to-Codex handoff on REV-50. Jarvis
+reported that the handoff tool was unavailable; no handoff was staged, and
+the isolated Codex runtime recorded no turn before the original disabled
+runtime was restored. The plugin and toolset are present in the installed
+configuration, and normal plugin discovery in a fresh Hermes process registered
+`engineering_handoff`. A private, read-only request using the existing n8n
+credential found neither the engineering toolset nor its handoff tool in the
+running API's toolset inventory. This is consistent with a live discovery or
+process-state issue, but does not prove a restart will resolve it. No service
+was restarted to reach this conclusion. The diagnostics were imported as
+inactive n8n workflows and did not launch models or alter the active workflows.
+Both live handoff directions remain unaccepted.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
