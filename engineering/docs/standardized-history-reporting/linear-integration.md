@@ -146,6 +146,27 @@ basis, left the triggering actor unknown, and inferred no human approval. This
 did not start a model. Live paid execution and the remaining cross-agent
 scenarios still require acceptance.
 
+### Live follow-up, cancellation and sandbox diagnosis — November 10
+
+An operator-authorized, isolated, read-only REV-50 test verified a Linear
+follow-up in the same agent session and native Codex thread. A separate request
+created a separate session and was not counted as continuation. A stop event and
+its active turn were both recorded as interrupted. The isolated journal retained
+four completed turns and one interrupted turn, and the original execution-disabled
+runtime was restored. These tests did not verify cross-agent handoff.
+
+Codex reported that a repository command failed while initializing its sandbox
+with a NETLINK_ROUTE socket error. A disposable service confirmed the existing
+address-family restriction blocked that socket; permitting AF_NETLINK allowed
+it. With AF_NETLINK and the other tested service restrictions, a disposable
+service successfully ran a harmless command in the actual Codex read-only
+sandbox without starting a model. The operator approved adding AF_NETLINK to
+new coding-service sessions. Effective systemd settings were read back with
+NoNewPrivileges, empty capability sets, ProtectHome and ProtectSystem preserved.
+AF_NETLINK permits the family generally, not only NETLINK_ROUTE. A live coding
+turn after this change remains unverified; the result does not establish that
+repository access or the rejected escalation path has been repaired.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
