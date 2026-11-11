@@ -211,6 +211,15 @@ were changed by that fixture. The container identity maps to host UID/GID
 account for that shared identity. Live tool registration and handoff acceptance
 remain pending.
 
+After operator approval, the installed configuration and scoped bridge token
+were made group-readable to Hermes, and the empty private queue was assigned
+to the Hermes UID. An audit retained the prior permissions and file digests;
+the adapter initialized as Hermes with file bytes preserved. Following an
+approved gateway restart, the running API's private inventory reported both
+`engineering_checkpoint` and `engineering_handoff` present and enabled. This
+establishes live tool registration, not successful handoff delivery; both live
+directions still need acceptance.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
