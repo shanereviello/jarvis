@@ -34,13 +34,29 @@ def exact_uuid(value):
 
 
 def main():
-    if len(sys.argv) != 7:
+    if len(sys.argv) not in (7, 8):
         raise ValueError('exact selected native context required')
-    _, organization, session, kind, identifier, cutoff, reference = sys.argv
+    _, organization, session, kind, identifier, cutoff, reference = sys.argv[:7]
+    context = None
+    if len(sys.argv) == 8:
+        if len(sys.argv[7].encode()) > 4096:
+            raise ValueError('bounded session context required')
+        context = capture_intake.local('contract').decode(sys.argv[7].encode(), max_bytes=4096)
+        if type(context) is not dict or type(context.get('work')) is not dict:
+            raise ValueError('exact issue work context required')
     exact_uuid(organization); exact_uuid(session)
     if (kind not in ('repository', 'non_git') or not re.fullmatch('[a-zA-Z0-9_-]{1,128}', identifier) or
             (kind == 'non_git' and identifier != 'jarvis-non-git')):
         raise ValueError('exact destination scope required')
+    if context is not None:
+        capture_intake.local('reporting_contract').validate(dict(
+            contract='engineering-reporting.v1', operation='source.observe',
+            client_event_key='future-context-validation', expected_head=None,
+            scope=dict(kind=kind, id=identifier), context=context,
+            source=dict(kind='imported', namespace='hermes_capture', id=None),
+            occurred_at=None, body=dict(source=dict(namespace='hermes', id=session),
+                source_observed_at=None, cursor=None, status='unknown', gaps=[],
+                detail='Validate explicit session-level work context.')))
     capture_collectors.authorization(reference)
     spool = capture_intake.Spool(SPOOL)
     alias = 'linear:' + organization + ':' + session
@@ -69,7 +85,7 @@ def main():
         db.close()
     result = capture_collectors.collect_hermes(spool, snapshot=snapshot,
         exporter='/opt/hermes/hermes_cli/session_export_md.py',
-        scope=dict(kind=kind, id=identifier), context=None, authorization_reference=reference)
+        scope=dict(kind=kind, id=identifier), context=context, authorization_reference=reference)
     print(json.dumps(dict(session_id=session, changed=result['changed'], models_started=0)))
 
 

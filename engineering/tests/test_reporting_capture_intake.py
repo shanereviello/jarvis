@@ -102,6 +102,19 @@ def test_unknown_association_stays_unmapped(spool,projects,evidence,reporting):
     assert view(projects)['project']['reporting']['record_count']==0
 
 
+def test_explicit_context_creates_new_version_preserving_unmapped_evidence(spool,projects,evidence,reporting):
+    first=stage(spool,projects,context=False)
+    assert spool.flush(sender(reporting))['pending']==0
+    second=stage(spool,projects,context=True)
+    assert spool.flush(sender(reporting))['pending']==0
+    records=[(r,receipt) for r,receipt in events(reporting) if r['operation']=='artifact.record']
+    assert first['artifact_id']==second['artifact_id']
+    assert [r['body']['version'] for r,_ in records]==[1,2]
+    assert records[0][0]['context'] is None
+    assert records[1][0]['context']==manifest(projects,b'')['context']
+    assert records[1][0]['expected_head']==records[0][1]['request_sha256']
+
+
 def test_wrong_receipt_retains_frozen_request_for_reconciliation(spool,projects,evidence,reporting):
     stage(spool,projects);send=sender(reporting)
     def corrupt(message):

@@ -408,3 +408,12 @@ and capture timers were preserved. The live session artifact's complete byte
 digest then verified; an independent read took about three seconds. The
 artifact is currently unassigned in the Jarvis scope even though the source
 session came from REV-50. This is not yet a verified project/work association.
+
+The future-session collector has source support for an explicit issue-to-work
+context with a fixed effective time. Earlier sessions remain unassigned; later
+sessions carry the pinned architecture, work revision and assignment as
+session-level context. A deployment must verify each issue/context pair against
+its retained Linear mapping receipt before installing it. History independently
+checks the project, architecture, work revision and assignment pins, but that
+check alone does not prove the issue mapping. Unknown issues remain unmapped.
+The source change is not evidence that any production mapping was enabled.

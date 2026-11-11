@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from jsonschema.exceptions import ValidationError
 
 PATH = Path(__file__).resolve().parents[1] / 'tools/rras_reporting/hermes_capture_selection.py'
 spec = importlib.util.spec_from_file_location('hermes_capture_selection', PATH)
@@ -152,6 +153,47 @@ class FutureSessionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             worker(dict(request, page=dict(contract='hermes-future-session-page.v1', sessions=[row(), row()])))
         self.assertEqual(len(calls), 1)
+
+    def test_explicit_issue_context_is_carried_only_for_the_matching_issue(self):
+        calls = []
+        context = dict(project_id='prj_' + '1' * 32,
+            architecture=dict(document_id='doc_' + '2' * 32, version=4, markdown_sha256='3' * 64),
+            work=dict(work_item_id='wrk_' + '4' * 32, work_revision_sha256='5' * 64,
+                      assignment_sha256='6' * 64))
+        mapping = {ISSUE: dict(scope=dict(kind='repository', id='jarvis'), context=context, effective_after=CUTOFF)}
+        def execute(argv, **kwargs):
+            calls.append(argv)
+            output = json.dumps(dict(session_id=SESSION, changed=True, models_started=0)).encode()
+            return type('Result', (), dict(returncode=0, stdout=output))()
+        worker = transport.existing_hermes_worker(organization_id=ORG, cutoff=CUTOFF, mappings=mapping,
+            authorization_reference='synthetic fixture', entry_source=b'synthetic', execute=execute)
+        request = dict(page=dict(contract='hermes-future-session-page.v1', sessions=[row()]),
+            after_time=CUTOFF, after_id='00000000-0000-0000-0000-000000000000')
+        worker(request)
+        self.assertEqual(calls[0][-5:-3], ['repository', 'jarvis'])
+        self.assertEqual(json.loads(calls[0][-1]), context)
+        calls.clear()
+        later_mapping = {ISSUE: dict(scope=dict(kind='repository', id='jarvis'), context=context,
+                                    effective_after='2026-11-10T18:00:01Z')}
+        before = transport.existing_hermes_worker(organization_id=ORG, cutoff=CUTOFF, mappings=later_mapping,
+            authorization_reference='synthetic fixture', entry_source=b'synthetic', execute=execute)
+        before(request)
+        self.assertEqual(calls[0][-4:-2], ['repository', 'jarvis'])
+        self.assertNotIn(json.dumps(context, sort_keys=True, separators=(',', ':')), calls[0])
+        calls.clear()
+        unknown = dict(row(), issue_id='00000000-0000-4000-8000-000000000099')
+        worker(dict(request, page=dict(contract='hermes-future-session-page.v1', sessions=[unknown])))
+        self.assertEqual(calls[0][-4:-2], ['non_git', 'jarvis-non-git'])
+        self.assertNotIn(json.dumps(context, sort_keys=True, separators=(',', ':')), calls[0])
+
+    def test_issue_context_requires_complete_work_and_architecture_pins(self):
+        args = dict(organization_id=ORG, cutoff=CUTOFF, authorization_reference='synthetic fixture',
+                    entry_source=b'synthetic', execute=lambda *args, **kwargs: None)
+        for context in (None, {}, {'work': {}}, {'project_id': 'bad', 'work': {}}):
+            with self.subTest(context=context), self.assertRaises((ValueError, ValidationError)):
+                transport.existing_hermes_worker(
+                    mappings={ISSUE: dict(scope=dict(kind='repository', id='jarvis'), context=context,
+                                          effective_after=CUTOFF)}, **args)
 
 
 

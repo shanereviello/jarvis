@@ -59,13 +59,36 @@ def existing_hermes_worker(*, organization_id, cutoff, mappings, authorization_r
             not 1 <= len(authorization_reference) <= 256 or
             not re.fullmatch(r'(?:hermes|rras-hermes-future-fixture-[0-9a-f]{12})', container)):
         raise ValueError('fixed selected native worker configuration required')
-    for issue, scope in mappings.items():
+    selected_mappings = {}
+    for issue, mapping in mappings.items():
         selector.identifier(issue)
+        if type(mapping) is not dict:
+            raise ValueError('fixed explicit issue scope required')
+        effective_after = None
+        if set(mapping) == {'scope', 'context', 'effective_after'}:
+            scope, context = mapping['scope'], mapping['context']
+            effective_after = selector.timestamp(mapping['effective_after'])
+            if effective_after < selector.timestamp(cutoff):
+                raise ValueError('mapping cannot predate the capture cutoff')
+            if type(context) is not dict or type(context.get('work')) is not dict:
+                raise ValueError('exact issue work context required')
+            # Validate the same bounded context contract used by retained history.
+            local('capture_intake').local('reporting_contract').validate(dict(
+                contract='engineering-reporting.v1', operation='source.observe',
+                client_event_key='future-context-validation', expected_head=None,
+                scope=scope, context=context,
+                source=dict(kind='imported', namespace='hermes_capture', id=None),
+                occurred_at=None, body=dict(source=dict(namespace='hermes', id=issue),
+                    source_observed_at=None, cursor=None, status='unknown', gaps=[],
+                    detail='Validate explicit session-level work context.')))
+        else:
+            scope, context = mapping, None
         if (type(scope) is not dict or set(scope) != {'kind', 'id'} or
                 scope['kind'] not in ('repository', 'non_git') or type(scope['id']) is not str or
                 not re.fullmatch(r'[a-zA-Z0-9_-]{1,128}', scope['id']) or
                 (scope['kind'] == 'non_git' and scope['id'] != 'jarvis-non-git')):
             raise ValueError('fixed explicit issue scope required')
+        selected_mappings[issue] = (scope, context, effective_after)
     def invoke(request):
         if type(request) is not dict or set(request) != {'page', 'after_time', 'after_id'}:
             raise ValueError('bounded selected native page required')
@@ -73,11 +96,16 @@ def existing_hermes_worker(*, organization_id, cutoff, mappings, authorization_r
                                     after_time=request['after_time'], after_id=request['after_id'])
         output = []
         for row in rows:
-            scope = mappings.get(row['issue_id'], dict(kind='non_git', id='jarvis-non-git'))
+            scope, context, effective_after = selected_mappings.get(row['issue_id'],
+                (dict(kind='non_git', id='jarvis-non-git'), None, None))
+            if effective_after is not None and selector.timestamp(row['created_at']) <= effective_after:
+                context = None
             args = ['/usr/bin/docker', 'exec', '--user', '1000:1000', '-i', container, '/usr/bin/env', '-i',
                     'PATH=/usr/bin:/bin', 'HOME=/tmp', 'HERMES_HOME=/opt/data', 'LANG=C.UTF-8',
                     '/opt/hermes/.venv/bin/python', '-I', '-B', '-', organization_id,
                     row['agent_session_id'], scope['kind'], scope['id'], cutoff, authorization_reference]
+            if context is not None:
+                args.append(json.dumps(context, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False))
             result = execute(args, input=entry_source, capture_output=True, timeout=120)
             if result.returncode or len(result.stdout) > 4096:
                 raise ValueError('selected Hermes export failed; retain source and queue')
