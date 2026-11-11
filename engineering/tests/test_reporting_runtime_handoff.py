@@ -92,18 +92,18 @@ def test_queue_loss_replays_original_admission_and_never_deletes(tmp_path):
 
 
 def test_native_tool_has_no_private_transport_configuration(tmp_path):
-    # The isolated test virtualenv is deliberately user-writable and cannot
-    # stand in for the root-owned interpreter required on the production host.
     module=m.local('runtime_checkpoint_mcp')
+    untrusted=tmp_path/'writable-python';untrusted.write_text('#!/bin/sh\n');untrusted.chmod(0o777)
     with pytest.raises(ValueError,match='trusted installed MCP Python'):
-        module.BrokerLaunch(tmp_path/'broker.sock',os.getuid(),sys.executable,handoff=True)
+        module.BrokerLaunch(tmp_path/'broker.sock',os.getuid(),untrusted,handoff=True)
     # Exercise only the public MCP configuration shape without pretending the
     # test interpreter passed the production trust check.
     tool=module.BrokerLaunch.__new__(module.BrokerLaunch)
     tool.socket=tmp_path/'broker.sock';tool.service_uid=os.getuid();tool.python=Path('/usr/bin/python3');tool.handoff_enabled=True
     params=tool.parameters(uid(5),uid(4));entry=params['config']['mcp_servers']['engineering_checkpoint']
     assert entry['enabled_tools']==['engineering_checkpoint','engineering_handoff']
-    assert entry['tools']=={'engineering_checkpoint': {'approval_mode':'approve'}}
+    assert entry['tools']=={'engineering_checkpoint': {'approval_mode':'approve'},
+                            'engineering_handoff': {'approval_mode':'approve'}}
     assert '--handoff' in entry['args']
     assert all(word not in str(params) for word in ('token_file','OAuth','handoffs.sqlite3'))
 

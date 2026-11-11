@@ -229,6 +229,19 @@ isolated Codex journal recorded one completed turn and the original disabled
 runtime was restored. This establishes the tested direction only; the live
 Codex-to-Jarvis direction remains to be accepted.
 
+In the first live Codex-to-Jarvis test, Codex reported that its
+`engineering_handoff` MCP call was rejected. The test turn completed but no
+outgoing handoff was staged; the isolated journal was retained and the original
+execution-disabled runtime restored. The installed launcher explicitly sets
+approval mode for `engineering_checkpoint` only, while its parent declines
+unhandled approval requests. A candidate adds the same explicit setting solely
+for `engineering_handoff` when the installed handoff policy enables that tool.
+The exact issue/work/session pins, transport checks, recipient, quiescence,
+loop limit, human-approval distinction and remaining approval handling are
+unchanged. Focused tests and the offline cross-UID App Server fixture pass.
+Live confirmation of the reported rejection and of the candidate remains
+outstanding; no reverse handoff acceptance is claimed.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
