@@ -167,6 +167,15 @@ AF_NETLINK permits the family generally, not only NETLINK_ROUTE. A live coding
 turn after this change remains unverified; the result does not establish that
 repository access or the rejected escalation path has been repaired.
 
+After that change, a no-model service diagnostic reported read access to the
+actual Jarvis README from a read-only Codex sandbox. In a separately authorized
+isolated REV-50 turn, the operator requested the README's first three lines and
+reported receiving the matching content. The transport and test journal recorded
+one completed turn; the owned history contained matching checkpoint, attempt,
+session and relationship records. The original execution-disabled runtime was
+restored. This verifies the observed read test, not repository writes, the
+previous rejected escalation path, or full coding-task acceptance.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
