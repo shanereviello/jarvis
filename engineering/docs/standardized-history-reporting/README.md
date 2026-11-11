@@ -43,8 +43,8 @@ Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis regress
 and Codex operation while Hermes is unavailable, real coding writes, broader
 project onboarding and overall closeout remain open. The selected n8n reader and
 handoff jobs now use an operator-approved host-loopback endpoint, avoiding their
-previous dependency on n8n’s changing container IP. A real post-cutover n8n
-recreation remains untested. Both older Jarvis
+previous dependency on n8n’s changing container IP. A guarded n8n recreation
+passed with the loopback binding and passive readers intact. Both older Jarvis
 projects have explicitly retrospective, unapproved architecture drafts; no
 historical agreement was inferred. See [current validation](v04-validation.md).
 

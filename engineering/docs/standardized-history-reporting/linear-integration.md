@@ -333,5 +333,7 @@ to other host-loopback services as well. Four passive readers passed, five
 unauthenticated routes returned 403, and all five timers remained enabled and
 active. A disposable container on a separate Docker network could not connect
 to the production endpoint through the gateway. This check does not establish
-isolation from every possible network path. A real post-cutover n8n recreation
-and host reboot remain untested; no model turn was started by the cutover.
+isolation from every possible network path. A separately guarded post-cutover n8n recreation then passed: the image and
+loopback binding were preserved, all five unauthenticated routes were denied,
+and four passive readers passed without resetting queues or cursors. The host
+reboot remains untested; no model turn was started by either check.
