@@ -360,6 +360,13 @@ restored, and the test journal was retained.
 
 The Hermes history reader timed out during the planned outage, then completed
 with zero pending delivery after restart. The future-session timer remained
-enabled; its first post-restart pass still needs verification. This availability
+enabled, and the scheduled and operator-triggered post-restart passes completed
+with zero failed or pending deliveries. This availability
 check does not establish coding-write behavior or a fresh interactive Jarvis
 regression after restart.
+
+Coding admission and publication fixture tests were also rerun: 56 passed. The
+current direct Linear coding service points to `/srv/git/jarvis` on `main`,
+which the dedicated native account does not own or have write permission to.
+These fixture results do not establish live coding-write acceptance. A separate
+task checkout and scoped write test are needed before enabling writes.
