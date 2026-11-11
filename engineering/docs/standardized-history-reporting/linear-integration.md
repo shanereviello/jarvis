@@ -240,8 +240,24 @@ The exact issue/work/session pins, transport checks, recipient, quiescence,
 loop limit, human-approval distinction and remaining approval handling are
 unchanged. Focused tests and the offline cross-UID App Server fixture pass.
 The retained test session confirmed an `mcpServer/elicitation/request` and a
-failed handoff call with the reported rejection. The candidate remains
-undeployed and live reverse-handoff acceptance remains outstanding.
+failed handoff call with the reported rejection. Following operator approval,
+the candidate was installed and activated while execution remained disabled.
+
+On November 11 a separately authorized isolated REV-50 test staged a Codex
+handoff, confirmed source quiescence and comment publication, and bound and
+acknowledged the Jarvis recipient session. The Jarvis run and handoff reached
+completed state. Codex's original disabled runtime was restored. After the
+passive reader recovered, owned history retained the requested, acknowledged,
+and completed records for the exact handoff. This verifies the tested transport
+and history path; it does not independently establish the content of the reply.
+
+During that test, the n8n container's private IP differed from the pinned
+handoff delivery and passive-reader job addresses. An operator-applied update
+preserved the existing queue and cursors, delivered the same retained handoff,
+and corrected the handoff-history and Linear-observer reader addresses. Both
+readers subsequently completed passes without pending deliveries. The jobs
+still use pinned addresses: another container address change requires an
+operator correction, so this is a remaining operational reliability gap.
 
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
