@@ -239,8 +239,9 @@ for `engineering_handoff` when the installed handoff policy enables that tool.
 The exact issue/work/session pins, transport checks, recipient, quiescence,
 loop limit, human-approval distinction and remaining approval handling are
 unchanged. Focused tests and the offline cross-UID App Server fixture pass.
-Live confirmation of the reported rejection and of the candidate remains
-outstanding; no reverse handoff acceptance is claimed.
+The retained test session confirmed an `mcpServer/elicitation/request` and a
+failed handoff call with the reported rejection. The candidate remains
+undeployed and live reverse-handoff acceptance remains outstanding.
 
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
