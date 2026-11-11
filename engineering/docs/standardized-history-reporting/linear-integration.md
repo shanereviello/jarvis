@@ -426,3 +426,9 @@ the issue, organization, scope and exact context against the history service;
 the timer resumed and a passive pass succeeded. A new session created after
 that time is still needed to verify actual end-to-end association. Existing
 sessions and mappings for other issues were left unchanged.
+
+The operator-authorized new REV-50 Jarvis session was captured on a subsequent
+pass. Its artifact was linked to the mapped project, work item and architecture
+version 4, and its complete retained content digest verified. The record states
+that the association is session-level; it does not assert that every exchange
+in a session necessarily concerns that work.
