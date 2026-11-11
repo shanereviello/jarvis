@@ -21,28 +21,31 @@ is a separate historical designation, not an edit to the document.
 - [Scoped native Jarvis reporting](hermes-runtime.md)
 - [Server runtime installation candidate](runtime-host-setup.md)
 
-## Current deployment status — November 9, 2026
+## Current deployment status — November 11, 2026
 
 The history service, reporting dashboard, selected Linear observer, Jarvis history
-reader, and n8n transport workflows are active. The operator verified the new
-reporting dashboard in an authenticated browser. The approved structured-field
-profile and 17 reviewed records are published to Jarvis; the three earlier
-curated entries remain visible. The Codex bridge and sockets are enabled at boot,
-with native coding execution still disabled. The capture timer remains disabled.
-A separately authorized read-only REV-48 mention completed through the separate
-Codex app, and a subsequent authorized test produced an agent checkpoint retained
-in history (receipt `rcp_2a6d26b9599b4acd8eb85036e40b3df8`). After both tests the
-original execution-disabled runtime and journal were restored. Native execution
-is not enabled for general use. Both older Jarvis projects now have explicitly
-retrospective, unapproved architecture drafts; the two newer projects have
-governing versions. No historical agreement was inferred.
+reader, and n8n transport workflows are active. The operator verified reporting
+and evidence preview/download in an authenticated browser. The approved
+structured-field profile and 17 reviewed records were published to Jarvis, and
+the three earlier curated entries were preserved. Desktop Codex capture, selected
+Linear Codex capture, and future Linear-linked Hermes capture have been enabled
+under the operator's stated selections. They are not a claim of complete history.
 
-Live delegation from a Linear system thread was deferred after an origin-check
-failure. Actual server reboot, direct follow-ups, both live handoff directions,
-real cancellation and outage/recovery, continued curated publication, selected
-source capture and overall closeout remain unverified. The real-session pilot
-permission covered one named chat only; it did not authorize automatic capture
-of other sessions. See [current validation](v04-validation.md).
+Separately authorized read-only live tests verified direct Codex mention,
+delegation, follow-up in the same session, cancellation, repository read, and
+Jarvis-to-Codex and Codex-to-Jarvis handoff transport. Both handoffs' requested,
+acknowledged, and completed transitions were retained in owned history. After
+each test the original Codex runtime was restored with execution disabled; it is
+not enabled for general coding. The reverse-handoff reply's exact content has not
+been independently checked. See [integration evidence](linear-integration.md).
+
+Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis regression
+and Codex operation while Hermes is unavailable, real coding writes, broader
+project onboarding and overall closeout remain open. The selected n8n reader and
+handoff jobs use pinned private addresses and needed operator correction after an
+address change; another change would interrupt them again. Both older Jarvis
+projects have explicitly retrospective, unapproved architecture drafts; no
+historical agreement was inferred. See [current validation](v04-validation.md).
 
 The sections below include earlier implementation notes for provenance; where
 an earlier operational state differs, this current status takes precedence.
