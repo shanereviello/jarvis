@@ -59,3 +59,14 @@ checkout allowed its own write and denied a sibling write, with no model turn.
 These operator-account tests do not establish production native-service
 isolation. The inactive per-issue unit candidate was checked by
 `systemd-analyze verify`; it has not been installed or activated.
+
+The operator subsequently ran the disposable two-issue App Server fixture as
+`rras-codex-native` under systemd restrictions and with networking disabled.
+Both directions passed: each actual App Server thread selected its own fixture
+directory, could write there, and was denied a write to the other fixture
+directory. No model or production configuration was involved. The operator
+also staged eight separate clean native-owned, remote-free task checkouts at
+commit `65b6ceef7ff28222b6e96112c7f7f43a8c2919ba`. The canonical checkout and
+the earlier uncommitted REV-50 acceptance checkout were preserved. These are
+staged paths only; production socket units, runtime migration and paid coding
+remain inactive and require their own validation and authorization.
