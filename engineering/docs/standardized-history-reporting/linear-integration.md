@@ -432,3 +432,11 @@ pass. Its artifact was linked to the mapped project, work item and architecture
 version 4, and its complete retained content digest verified. The record states
 that the association is session-level; it does not assert that every exchange
 in a session necessarily concerns that work.
+
+The remaining seven configured issues were then bound to their independently
+verified mapping receipts, effective `2026-11-11T21:24:31.912752Z`; the
+existing REV-50 binding was preserved and the timer passed a passive check.
+The previous collector processed only one four-session page per timer pass.
+The source now supports up to four pages per pass, with a 60-second budget for
+starting additional pages and a durable cursor after each confirmed delivery.
+This bounded paging change still requires installation and live verification.

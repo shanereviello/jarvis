@@ -137,6 +137,44 @@ class FutureSessionTests(unittest.TestCase):
                 coordinator.save_cursor(root, cursor)
             self.assertEqual(pending.read_bytes(), b'conflicting cursor')
 
+    def test_bounded_pass_drains_next_page_and_saves_each_confirmed_cursor(self):
+        zero = '00000000-0000-0000-0000-000000000000'
+        cursor = dict(after_time=CUTOFF, after_id=zero)
+        rows = []
+        for i in range(5):
+            session = '00000000-0000-4000-8000-' + str(i + 10).zfill(12)
+            rows.append(dict(row(), agent_session_id=session, hermes_session_id='linear:' + ORG + ':' + session,
+                             created_at='2026-11-10T18:00:0' + str(i + 1) + 'Z'))
+        saved=[]
+        def query(current):
+            after=(current['after_time'],current['after_id'])
+            selected=[r for r in rows if (r['created_at'],r['agent_session_id']) > after][:4]
+            return dict(contract='hermes-future-session-page.v1',sessions=selected)
+        def worker(request):
+            return dict(contract='hermes-future-capture-page.v1',models_started=0,
+                        sessions=[dict(session_id=r['agent_session_id'],changed=True) for r in request['page']['sessions']])
+        result=coordinator.run_bounded(organization_id=ORG,cutoff=CUTOFF,cursor=cursor,query=query,
+            worker=worker,flush=lambda:dict(failed=0,pending=0),save=lambda value:saved.append(dict(value)))
+        self.assertEqual((result['pages'],result['sessions']),(2,5))
+        self.assertEqual(saved[0],dict(after_time=rows[3]['created_at'],after_id=rows[3]['agent_session_id']))
+        self.assertEqual(saved[1],cursor)
+
+    def test_bounded_pass_keeps_confirmed_cursor_when_later_delivery_fails(self):
+        zero='00000000-0000-0000-0000-000000000000';cursor=dict(after_time=CUTOFF,after_id=zero)
+        rows=[]
+        for i in range(4):
+            session='00000000-0000-4000-8000-'+str(i+10).zfill(12)
+            rows.append(dict(row(),agent_session_id=session,hermes_session_id='linear:'+ORG+':'+session,
+                             created_at='2026-11-10T18:00:0'+str(i+1)+'Z'))
+        pages=[rows,[dict(row(),created_at='2026-11-10T18:00:05Z')]];saved=[];deliveries=iter([0,1])
+        def query(_):return dict(contract='hermes-future-session-page.v1',sessions=pages.pop(0))
+        def worker(request):return dict(contract='hermes-future-capture-page.v1',models_started=0,
+            sessions=[dict(session_id=r['agent_session_id'],changed=True) for r in request['page']['sessions']])
+        with self.assertRaises(ValueError):
+            coordinator.run_bounded(organization_id=ORG,cutoff=CUTOFF,cursor=cursor,query=query,worker=worker,
+                flush=lambda:dict(failed=0,pending=next(deliveries)),save=lambda value:saved.append(dict(value)))
+        self.assertEqual(saved,[dict(after_time=rows[-1]['created_at'],after_id=rows[-1]['agent_session_id'])])
+
     def test_worker_uses_unmapped_category_and_checks_the_whole_page(self):
         calls = []
         def execute(argv, **kwargs):

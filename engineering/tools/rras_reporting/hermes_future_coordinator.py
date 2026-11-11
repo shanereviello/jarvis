@@ -7,6 +7,7 @@ activation is created by this module.
 import importlib.util
 import os
 from pathlib import Path
+import time
 import uuid
 
 
@@ -45,6 +46,29 @@ def run_once(*, organization_id, cutoff, cursor, query, worker, flush):
     next_cursor = (dict(after_time=rows[-1]['created_at'], after_id=rows[-1]['agent_session_id'])
                    if len(rows) == 4 else dict(after_time=cutoff, after_id=str(uuid.UUID(int=0))))
     return dict(cursor=next_cursor, sessions=len(rows), delivery=delivery, models_started=0)
+
+
+def run_bounded(*, organization_id, cutoff, cursor, query, worker, flush, save,
+                maximum_pages=4, budget_seconds=60, clock=time.monotonic):
+    """Drain a bounded part of one cycle, committing each confirmed page."""
+    if type(maximum_pages) is not int or not 1 <= maximum_pages <= 4:
+        raise ValueError('bounded page count required')
+    if type(budget_seconds) is not int or not 1 <= budget_seconds <= 60:
+        raise ValueError('bounded page start budget required')
+    started = clock(); current = dict(cursor); pages = []
+    while len(pages) < maximum_pages and (not pages or clock() - started < budget_seconds):
+        result = run_once(organization_id=organization_id, cutoff=cutoff, cursor=current,
+                          query=query, worker=worker, flush=flush)
+        save(result['cursor'])
+        pages.append(result)
+        current = result['cursor']
+        if result['sessions'] < 4:
+            break
+    delivery = dict(pages[-1]['delivery'])
+    if all(type(page['delivery'].get('delivered')) is int for page in pages):
+        delivery['delivered'] = sum(page['delivery']['delivered'] for page in pages)
+    return dict(cursor=current, sessions=sum(page['sessions'] for page in pages),
+                pages=len(pages), delivery=delivery, models_started=0)
 
 
 def save_cursor(directory, cursor):

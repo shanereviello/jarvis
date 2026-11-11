@@ -96,9 +96,9 @@ def main():
             if len(result.stdout)>65536:raise ValueError('bounded history delivery result required')
             return local('capture_intake').local('contract').decode(result.stdout,max_bytes=65536)
         coordinator=local('hermes_future_coordinator')
-        result=coordinator.run_once(organization_id=config['organization_id'],cutoff=config['cutoff'],
-            cursor=cursor,query=reader,worker=worker,flush=deliver)
-        coordinator.save_cursor(state,result['cursor'])
+        result=coordinator.run_bounded(organization_id=config['organization_id'],cutoff=config['cutoff'],
+            cursor=cursor,query=reader,worker=worker,flush=deliver,
+            save=lambda value:coordinator.save_cursor(state,value))
         print(json.dumps(result,allow_nan=False))
     finally:os.close(fd)
 
