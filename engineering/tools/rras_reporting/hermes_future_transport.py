@@ -25,7 +25,8 @@ def reader(url, token):
         address = ipaddress.ip_address(parsed.hostname)
     except (ValueError, TypeError) as exc:
         raise ValueError('private registry address required') from exc
-    if (parsed.scheme != 'http' or address not in ipaddress.ip_network('172.19.0.0/16') or
+    if (parsed.scheme != 'http' or not (address == ipaddress.ip_address('127.0.0.1') or
+                                        address in ipaddress.ip_network('172.19.0.0/16')) or
             parsed.port != 5678 or parsed.path != ROUTE or parsed.username or parsed.password or
             parsed.query or parsed.fragment or type(token) is not bytes or not 32 <= len(token) <= 256 or
             not all(33 <= value <= 126 for value in token)):

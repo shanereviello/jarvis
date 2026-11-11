@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 PATH = Path(__file__).resolve().parents[1] / 'tools/rras_reporting/hermes_capture_selection.py'
 spec = importlib.util.spec_from_file_location('hermes_capture_selection', PATH)
@@ -30,6 +31,46 @@ def row(created='2026-11-10T18:00:01Z'):
 
 
 class FutureSessionTests(unittest.TestCase):
+    def test_metadata_reader_accepts_only_the_explicit_loopback_or_private_bridge(self):
+        token = b'x' * 32
+        route = '/webhook/rras-hermes-future-session-metadata'
+        for host in ('127.0.0.1', '172.19.0.8'):
+            with self.subTest(host=host):
+                self.assertTrue(callable(transport.reader(f'http://{host}:5678{route}', token)))
+        for host in ('127.0.0.2', '172.20.0.1', '192.168.30.3', 'localhost'):
+            with self.subTest(host=host), self.assertRaises(ValueError):
+                transport.reader(f'http://{host}:5678{route}', token)
+        for url in (f'http://127.0.0.1:5679{route}',
+                    'http://127.0.0.1:5678/webhook/unrelated',
+                    f'http://127.0.0.1:5678{route}?extra=1'):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                transport.reader(url, token)
+
+    def test_loopback_metadata_reader_sends_the_existing_authenticated_request(self):
+        page = dict(contract='hermes-future-session-page.v1', sessions=[])
+        cursor = dict(after_time=CUTOFF, after_id='00000000-0000-0000-0000-000000000000')
+        class Response:
+            status = 200
+            def read(self, limit):
+                return json.dumps(page).encode()
+        class Connection:
+            def __init__(self, host, port, timeout):
+                self.address = (host, port, timeout)
+                calls.append(self)
+            def request(self, method, path, body, headers):
+                self.requested = (method, path, json.loads(body), headers)
+            def getresponse(self):
+                return Response()
+            def close(self):
+                pass
+        calls = []
+        with patch.object(transport.http.client, 'HTTPConnection', Connection):
+            query = transport.reader('http://127.0.0.1:5678' + transport.ROUTE, b'x' * 32)
+            self.assertEqual(query(cursor), page)
+        self.assertEqual(calls[0].address, ('127.0.0.1', 5678, 20))
+        self.assertEqual(calls[0].requested[:3], ('POST', transport.ROUTE, cursor))
+        self.assertEqual(calls[0].requested[3]['Authorization'], 'Bearer ' + 'x' * 32)
+
     def test_only_sessions_created_strictly_after_fixed_cutoff_are_eligible(self):
         for created in ('2026-11-10T17:59:59Z', CUTOFF):
             self.assertIsNone(selection.select(row(created), organization_id=ORG, cutoff=CUTOFF))

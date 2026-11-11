@@ -310,3 +310,22 @@ References: [Linear agents](https://linear.app/developers/agents),
 [webhooks](https://linear.app/developers/webhooks),
 [n8n OAuth](https://docs.n8n.io/integrations/builtin/credentials/linear/),
 [Codex App Server](https://learn.chatgpt.com/docs/app-server).
+
+### n8n address drift and private endpoint evaluation — November 11
+
+The passive handoff and history readers initially used n8n's Docker-assigned IP.
+When that changed, the two Hermes readers could no longer reach their endpoints.
+The operator restored their current private IP and the bound future-capture policy;
+both readers then passed a passive run. This remains a temporary repair.
+
+A disposable gateway-binding fixture survived container recreation, but another
+Docker network could connect to that gateway listener. The gateway proposal was
+therefore not deployed. A separate fixture binding only to host loopback was
+reachable from the host but not through the gateway from either tested Docker
+network. This is a limited fixture result, not a complete network isolation audit.
+The future-session reader now accepts the exact `127.0.0.1:5678` address in
+source as well as its existing private bridge addresses; tests preserve its fixed
+route, token and port checks. This change is not deployed. A production loopback
+cutover would also require explicit systemd network-policy changes for each reader,
+which admit connections to other services on host loopback, and an n8n container
+recreation. Those access and operational consequences require review before cutover.
