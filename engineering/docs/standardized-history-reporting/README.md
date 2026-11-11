@@ -42,8 +42,9 @@ been independently checked. See [integration evidence](linear-integration.md).
 Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis regression
 and Codex operation while Hermes is unavailable, real coding writes, broader
 project onboarding and overall closeout remain open. The selected n8n reader and
-handoff jobs use pinned private addresses and needed operator correction after an
-address change; another change would interrupt them again. Both older Jarvis
+handoff jobs now use an operator-approved host-loopback endpoint, avoiding their
+previous dependency on n8n’s changing container IP. A real post-cutover n8n
+recreation remains untested. Both older Jarvis
 projects have explicitly retrospective, unapproved architecture drafts; no
 historical agreement was inferred. See [current validation](v04-validation.md).
 

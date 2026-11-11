@@ -316,7 +316,8 @@ References: [Linear agents](https://linear.app/developers/agents),
 The passive handoff and history readers initially used n8n's Docker-assigned IP.
 When that changed, the two Hermes readers could no longer reach their endpoints.
 The operator restored their current private IP and the bound future-capture policy;
-both readers then passed a passive run. This remains a temporary repair.
+both readers then passed a passive run. The temporary address repair was later
+replaced by the loopback cutover described below.
 
 A disposable gateway-binding fixture survived container recreation, but another
 Docker network could connect to that gateway listener. The gateway proposal was
@@ -325,7 +326,12 @@ reachable from the host but not through the gateway from either tested Docker
 network. This is a limited fixture result, not a complete network isolation audit.
 The future-session reader now accepts the exact `127.0.0.1:5678` address in
 source as well as its existing private bridge addresses; tests preserve its fixed
-route, token and port checks. This change is not deployed. A production loopback
-cutover would also require explicit systemd network-policy changes for each reader,
-which admit connections to other services on host loopback, and an n8n container
-recreation. Those access and operational consequences require review before cutover.
+route, token and port checks. After operator approval, n8n was recreated with
+port 5678 bound to `127.0.0.1`, and the five host-side services were configured
+to use that endpoint. The approved systemd policy allows those services to connect
+to other host-loopback services as well. Four passive readers passed, five
+unauthenticated routes returned 403, and all five timers remained enabled and
+active. A disposable container on a separate Docker network could not connect
+to the production endpoint through the gateway. This check does not establish
+isolation from every possible network path. A real post-cutover n8n recreation
+and host reboot remain untested; no model turn was started by the cutover.
