@@ -30,6 +30,10 @@ structured-field profile and 17 reviewed records were published to Jarvis, and
 the three earlier curated entries were preserved. Desktop Codex capture, selected
 Linear Codex capture, and future Linear-linked Hermes capture have been enabled
 under the operator's stated selections. They are not a claim of complete history.
+Future Jarvis sessions on REV-46 through REV-53 now receive their verified
+issue/work/architecture context, effective from each mapping's installation;
+earlier sessions remain unchanged. A real REV-50 session and its retained bytes
+were verified. The collector now drains multiple bounded pages in one pass.
 
 Separately authorized read-only live tests verified direct Codex mention,
 delegation, follow-up in the same session, cancellation, repository read, and
@@ -48,6 +52,9 @@ previous dependency on n8n’s changing container IP. A guarded n8n recreation
 passed with the loopback binding and passive readers intact. Both older Jarvis
 projects have explicitly retrospective, unapproved architecture drafts; no
 historical agreement was inferred. See [current validation](v04-validation.md).
+
+For the remaining acceptance scenarios and their evidence, see
+[v0.4 acceptance status](v04-acceptance-status-20261111.md).
 
 The sections below include earlier implementation notes for provenance; where
 an earlier operational state differs, this current status takes precedence.
