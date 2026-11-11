@@ -220,6 +220,15 @@ approved gateway restart, the running API's private inventory reported both
 establishes live tool registration, not successful handoff delivery; both live
 directions still need acceptance.
 
+A subsequently authorized REV-50 Jarvis-to-Codex live test completed: the
+transport confirmed the source comment, bound the recipient session, verified
+the correlated agent-origin handoff without inferring human approval, and sent
+Codex's completed response. Owned history retained requested, acknowledged and
+completed handoff records with separate Jarvis and Codex attribution. The
+isolated Codex journal recorded one completed turn and the original disabled
+runtime was restored. This establishes the tested direction only; the live
+Codex-to-Jarvis direction remains to be accepted.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
