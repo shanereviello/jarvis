@@ -191,6 +191,26 @@ was restarted to reach this conclusion. The diagnostics were imported as
 inactive n8n workflows and did not launch models or alter the active workflows.
 Both live handoff directions remain unaccepted.
 
+With the operator's approval, Hermes was subsequently restarted after the
+recorded Linear-linked runs and handoff queue were idle. The container returned
+to running state, but two read-only inventory checks after restart still did
+not list the engineering toolset. The restart therefore did not resolve the
+observed gap; no new model turn or handoff was initiated. The precise discovery
+failure remains under investigation.
+
+Normal discovery under the actual Hermes container identity then identified a
+concrete installation defect: the private reporting configuration is owned by
+root with mode 0600 inside a root-only directory, so Hermes UID 1000 cannot
+read it and plugin loading fails. Its private queue is also owned by root,
+although the queue implementation requires the caller's ownership. The queue
+was observed empty and healthy. A synthetic, no-network fixture using a
+root-controlled group-readable config and a caller-owned private queue
+successfully initialized the adapter as Hermes UID 1000. No live permissions
+were changed by that fixture. The container identity maps to host UID/GID
+1000, also the operator's account, so any production permission change must
+account for that shared identity. Live tool registration and handoff acceptance
+remain pending.
+
 The first operator-authorized read-only model test did not start: changing the
 runtime policy without a matching journal caused startup refusal. The original
 disabled runtime was restored. The transport event remains uncertain and was
