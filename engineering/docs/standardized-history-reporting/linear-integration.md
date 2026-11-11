@@ -337,3 +337,12 @@ isolation from every possible network path. A separately guarded post-cutover n8
 loopback binding were preserved, all five unauthenticated routes were denied,
 and four passive readers passed without resetting queues or cursors. The host
 reboot remains untested; no model turn was started by either check.
+
+The focused model-free recovery, handoff and n8n handoff suites were rerun on
+November 11 with local networking and a private user runtime directory: 50 tests
+passed. They cover journal restart, uncertain dispatch, replay and cancellation,
+but do not substitute for a live uncertain-delivery test. The future Hermes
+collector deliberately cycles its pagination cursor back to its fixed cutoff after
+reaching the end so changes to older eligible sessions can be rediscovered; the
+capture spool deduplicates unchanged exports. This cycling is not a cursor reset
+caused by n8n recreation.
