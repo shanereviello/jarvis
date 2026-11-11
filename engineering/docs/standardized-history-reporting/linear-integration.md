@@ -370,3 +370,23 @@ current direct Linear coding service points to `/srv/git/jarvis` on `main`,
 which the dedicated native account does not own or have write permission to.
 These fixture results do not establish live coding-write acceptance. A separate
 task checkout and scoped write test are needed before enabling writes.
+
+### Isolated live coding-write acceptance — November 11
+
+The operator authorized one paid REV-50 coding test in a dedicated native-owned
+checkout at baseline `4ec58cf23e14bbecf65fc94c48f7beea6b3776c9`, on
+`codex/rev50-cursor-regression-20261111`, without a Git remote. A transient
+model-free sandbox check first confirmed the native identity could write there
+while the live main checkout was not writable. The temporary runtime policy and
+native service write path were limited to this checkout and one selected issue.
+
+Codex added a regression test for the future Hermes collector's four-row cursor
+advance and empty-page wrap. The single-file uncommitted diff was independently
+checked, and all 11 focused tests passed in a network-isolated service using the
+pinned Python environment. Codex's own run used the older system `jsonschema`
+and reported three pre-existing test errors; independent validation resolved
+that environment discrepancy. The test journal recorded one completed turn.
+The original execution-disabled runtime and native service writable paths were
+restored. No commit, push, or issue-field update was made by the worker; the
+private checkout and review diff remain retained. This verifies one scoped
+write, not a generally enabled autonomous coding or publication workflow.

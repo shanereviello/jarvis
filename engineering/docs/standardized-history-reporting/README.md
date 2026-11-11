@@ -36,10 +36,12 @@ delegation, follow-up in the same session, cancellation, repository read, and
 Jarvis-to-Codex and Codex-to-Jarvis handoff transport. Both handoffs' requested,
 acknowledged, and completed transitions were retained in owned history. A read-only REV-50 request also completed while Hermes was stopped. After
 each test the original Codex runtime was restored with execution disabled; it is
-not enabled for general coding. The reverse-handoff reply's exact content has not
+not enabled for general coding. A separate REV-50 live test made one uncommitted
+regression-test change in a private, remote-free checkout; independent scoped
+validation passed all 11 tests. The reverse-handoff reply's exact content has not
 been independently checked. See [integration evidence](linear-integration.md).
 
-Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis interaction regression after restart, real coding writes, broader
+Actual server reboot, live restart/uncertain-delivery recovery, a Jarvis interaction regression after restart, broader
 project onboarding and overall closeout remain open. The selected n8n reader and
 handoff jobs now use an operator-approved host-loopback endpoint, avoiding their
 previous dependency on n8n’s changing container IP. A guarded n8n recreation
