@@ -1,6 +1,7 @@
 """Registered jobs rotate fairly and cannot expand the installed source policy."""
 import json
 import os
+import copy
 from pathlib import Path
 import pytest
 from test_reporting_runtime_reporting import setup,m,projects,store,reporting
@@ -25,6 +26,20 @@ def test_rotation_visits_every_registered_source_without_native_discovery(tmp_pa
     assert len(sources)==6 and len(set(sources))==5
     assert list((tmp_path/'native').iterdir())==[]
     assert (jobs/'.cursor.json').stat().st_mode & 0o777==0o600
+
+
+def test_registered_sources_remain_selectable_with_issue_scoped_v2_policy(tmp_path,projects,reporting):
+    original,jobs=registered(tmp_path,projects,1)
+    policy=copy.deepcopy(original.policy)
+    policy.update(contract='codex-runtime-policy.v2',
+        workspaces={uid(3):str(tmp_path/'issue-workspace')},
+        native_sockets={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))})
+    runtime=m.local('codex_runtime')
+    reporter=m.Reporter(original.configuration,runtime.policy(policy))
+    selected=m.local('runtime_capture_jobs').selected(reporter,1)
+    assert len(selected)==1
+    assert selected[0]['jobs'][0]['context']==original.configuration['contexts'][uid(3)]
+    assert len(list(jobs.glob('*.json')))==2  # registered job and retained cursor
 
 
 @pytest.mark.parametrize('field',['source','binary','context','service_socket','authorization_reference'])
