@@ -1,5 +1,6 @@
 """Opt-in disposable Postgres acceptance; never connects to production."""
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -34,7 +35,7 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
         def sql(text,ok=True):return run(['docker','exec','-i',name,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],text,ok)
         sql('CREATE SCHEMA linear_bridge;'+(root/'contracts/linear-codex-n8n-v1.sql').read_text())
         sql((root/'contracts/linear-codex-planning-v1.sql').read_text())
-        ids=[str(uuid.UUID(int=n)) for n in range(1,10)]
+        ids=[str(uuid.UUID(int=n)) for n in range(1,14)]
         org,app,session,issue,delivery=ids[:5]
         sql(f"INSERT INTO linear_bridge.codex_apps VALUES('{org}','{app}');")
         event=dict(contract='codex-planning-event.v1',mode='planning',organization_id=org,app_user_id=app,
@@ -57,5 +58,41 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
         assert sql('SELECT count(*) FROM linear_bridge.codex_planning_events;')=='1'
         assert sql('SELECT count(*) FROM linear_bridge.codex_planning_outbox;')=='1'
         assert sql('SELECT count(*) FROM linear_bridge.codex_events;')=='1'
+        path=root/'tools/rras_reporting/n8n_planning_dispatch.py'
+        spec=importlib.util.spec_from_file_location('planning_dispatch_postgres_fixture',path)
+        renderer=importlib.util.module_from_spec(spec);spec.loader.exec_module(renderer)
+        config=dict(contract='codex-n8n-config.v1',organization_id=org,app_user_id=app,oauth_client_id='a'*32,
+            agent_actor_ids=[app,ids[8]],issues={issue:dict(project_id='prj_'+'1'*32,work_id='wrk_'+'2'*32,
+            plan_id='FIXTURE',work_revision_sha256='3'*64,architecture_version=1,architecture_sha256='4'*64)},
+            n8n_redirect_url='https://n8n.example.com/rest/oauth2-credential/callback',
+            verified_webhook_url='https://example.com/webhooks/codex',runtime_origin='http://127.0.0.1:8766',
+            credentials=dict(postgres='pg',edge_header='edge',runtime_header='runtime',codex_oauth='oauth'))
+        workflows=renderer.render(config,'http://172.19.0.1:8767','planning')['workflows']
+        nodes=lambda name:{n['name']:n for n in workflows[name]['nodes']}
+        event_id=sql('SELECT id FROM linear_bridge.codex_planning_events;')
+        assert event_id in sql(nodes('dispatch')['Select retained planning event']['parameters']['query'])
+        running=json.dumps(dict(dispatch=event_id,state='running'))
+        finish=nodes('dispatch')['Retain planning result']['parameters']['query']
+        sql(f"PREPARE finish(uuid,jsonb) AS {finish}; EXECUTE finish('{event_id}',$x${running}$x$::jsonb);")
+        assert sql('SELECT state FROM linear_bridge.codex_planning_events;')=='running'
+        assert event_id in sql(nodes('reconcile')['Select retained planning event']['parameters']['query'])
+        completed=json.dumps(dict(dispatch=event_id,state='completed',result='Fixture response'))
+        finish=nodes('reconcile')['Retain planning result']['parameters']['query']
+        sql(f"PREPARE finish(uuid,jsonb) AS {finish}; EXECUTE finish('{event_id}',$x${completed}$x$::jsonb);")
+        assert sql('SELECT state FROM linear_bridge.codex_planning_events;')=='completed'
+        assert sql('SELECT count(*) FROM linear_bridge.codex_planning_outbox;')=='2'
+        sql(nodes('outbound')['Claim Codex reply']['parameters']['query'])
+        outbox_id=sql("SELECT id FROM linear_bridge.codex_planning_outbox WHERE state='uncertain';")
+        finish=nodes('outbound')['Retain publication outcome']['parameters']['query']
+        sql(f"PREPARE finish(uuid,text,text) AS {finish}; EXECUTE finish('{outbox_id}','sent',NULL);")
+        assert sql("SELECT count(*) FROM linear_bridge.codex_planning_outbox WHERE state='sent';")=='1'
+        follow=dict(event,action='prompted',source_key='prompt:follow',message='Continue')
+        assert sql(accept(ids[9],follow))=='t'
+        sql("UPDATE linear_bridge.codex_planning_events SET state='running' WHERE source_key='prompt:follow';")
+        target=sql("SELECT id FROM linear_bridge.codex_planning_events WHERE source_key='prompt:follow';")
+        stop=dict(event,action='prompted',source_key='prompt:stop',message='Stop',signal='stop')
+        assert sql(accept(ids[10],stop))=='t'
+        assert target in sql(nodes('stop')['Select retained planning event']['parameters']['query'])
+        assert sql("SELECT state FROM linear_bridge.codex_planning_events WHERE source_key='prompt:stop';")=='dispatching'
     finally:
         if started:subprocess.run(['docker','rm','-f',name],capture_output=True,timeout=30)

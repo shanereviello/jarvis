@@ -65,7 +65,7 @@ const scope=Object.hasOwn(mapped,project)?mapped[project]:fallback;
 if(!scope)return [{json:{permitted:false}}];
 const resolution={organization_id:policy.organization_id,project_id:project,scope};
 const result=verifyPlanningOrigin({...saved.envelope,agent:'codex'},reply,policy,resolution);
-return [{json:result.permitted?{contract:'codex-planning-origin.v1',dispatch_id:saved.id,...result}:{permitted:false}}];"""
+return [{json:result.permitted?{contract:'codex-planning-origin.v1',dispatch_id:saved.id,issue_id:saved.envelope.issue_id,message:saved.envelope.message,signal:saved.envelope.signal??null,...result}:{permitted:false}}];"""
     node('Verify selected planning origin','code',2,dict(mode='runOnceForAllItems',jsCode=assess))
     node('Respond with verified origin','respondToWebhook',1.4,dict(respondWith='json',responseBody='={{ $json }}',options=dict(responseCode=200)))
     connections={a['name']:dict(main=[[dict(node=b['name'],type='main',index=0)]]) for a,b in zip(nodes,nodes[1:])}

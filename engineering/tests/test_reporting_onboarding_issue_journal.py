@@ -71,3 +71,11 @@ def test_uncertain_result_requires_exact_verified_reconciliation(journal):
     assert not journal.reconcile(ORIGIN,'PLAN-01',PROPOSAL,ISSUE,verify)['reconciled']
     with pytest.raises(ValueError):
         journal.reconcile(ORIGIN,'PLAN-01',PROPOSAL,'00000000-0000-4000-8000-000000000004',verify)
+
+
+def test_restart_marks_inflight_creation_uncertain_without_resending(journal):
+    sha=module.digest(dict(team_id=TEAM,proposal=PROPOSAL))
+    with journal.connection() as db:
+        db.execute('INSERT INTO issue_creation VALUES(?,?,?,?,?,NULL)',(ORG,PROJECT,'PLAN-01',sha,'creating'));db.commit()
+    assert journal.recover_after_exclusive_start()=={'uncertain':1,'automatically_retried':0}
+    assert journal.create_once(ORIGIN,'PLAN-01',PROPOSAL,lambda _:pytest.fail('must not retry'),lambda _:None)['state']=='uncertain'

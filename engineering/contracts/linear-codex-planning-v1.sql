@@ -10,6 +10,7 @@ CREATE TABLE linear_bridge.codex_planning_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid NOT NULL, app_user_id uuid NOT NULL,
   session_id uuid NOT NULL, source_key text NOT NULL, envelope jsonb NOT NULL,
   state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','dispatching','running','completed','interrupted','failed','uncertain')),
+  runtime_result jsonb,
   received_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (organization_id,app_user_id,source_key),
   FOREIGN KEY (organization_id,app_user_id,session_id) REFERENCES linear_bridge.codex_planning_sessions(organization_id,app_user_id,session_id)
@@ -24,6 +25,7 @@ CREATE TABLE linear_bridge.codex_planning_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid NOT NULL,app_user_id uuid NOT NULL,
   session_id uuid NOT NULL,source_key text NOT NULL,content jsonb NOT NULL,
   state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','uncertain','sent','dead_letter')),
+  reason text,
   created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(organization_id,app_user_id,source_key),
   FOREIGN KEY(organization_id,app_user_id,session_id) REFERENCES linear_bridge.codex_planning_sessions(organization_id,app_user_id,session_id)

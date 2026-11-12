@@ -44,14 +44,20 @@ class Reader:
             return json.loads(body,object_pairs_hook=pairs,parse_constant=lambda _:(_ for _ in ()).throw(ValueError('invalid reader response')))
         finally:connection.close()
 
-    def origin(self,dispatch):
-        d=local('onboarding_drafts');d.identifier(dispatch)
+    def origin(self,dispatch,issue_id,*,message=None,session=None,stop=False):
+        d=local('onboarding_drafts');d.identifier(dispatch);d.identifier(issue_id)
         result=self.request('origin',{'dispatch_id':dispatch})
-        if (type(result) is not dict or set(result)!={'contract','dispatch_id','permitted','human_approval_inferred','origin'} or
+        if (type(stop) is not bool or type(result) is not dict or set(result)!={'contract','dispatch_id','issue_id','message','signal','permitted','human_approval_inferred','origin'} or
                 result['contract']!='codex-planning-origin.v1' or result['dispatch_id']!=dispatch or
+                result['issue_id']!=issue_id or
+                type(result['message']) is not str or len(result['message'].encode('utf-8'))>65536 or
+                (message is not None and result['message']!=message) or
+                (result['signal']!='stop' if stop else result['signal'] not in (None,'continue')) or
                 result['permitted'] is not True or result['human_approval_inferred'] is not False):
             raise ValueError('planning origin unavailable')
-        return d.verified(result['origin'])
+        origin=d.verified(result['origin'])
+        if session is not None and origin['source_session']!=session:raise ValueError('planning session differs')
+        return origin
 
     def issue(self,dispatch,origin,issue_id):
         d=local('onboarding_drafts');d.identifier(dispatch);d.identifier(issue_id);origin=d.verified(origin)

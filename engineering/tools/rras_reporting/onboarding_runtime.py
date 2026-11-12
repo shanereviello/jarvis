@@ -180,6 +180,18 @@ class Runtime:
             return dict(dispatch=dispatch,state=terminal)
         return dict(dispatch=dispatch,state=row[0])
 
+    def status(self,dispatch):
+        local('onboarding_drafts').identifier(dispatch)
+        if self.lock_fd is None:raise ValueError('exclusive planning lock required')
+        with self.connection() as db:
+            row=db.execute('SELECT state,result FROM planning_turns WHERE dispatch=?',(dispatch,)).fetchone()
+        if row is None:raise ValueError('unknown planning dispatch')
+        if row[0] in ('running','interrupt_requested'):
+            self.collect(dispatch)
+            with self.connection() as db:
+                row=db.execute('SELECT state,result FROM planning_turns WHERE dispatch=?',(dispatch,)).fetchone()
+        return dict(dispatch=dispatch,state=row[0],result=row[1],execution_authorized=False)
+
     def recover_after_exclusive_start(self):
         """Retain ambiguous previous work after acquiring the service lock."""
         if self.lock_fd is None:raise ValueError('exclusive planning lock required')

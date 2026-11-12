@@ -108,3 +108,11 @@ class IssueJournal:
         except sqlite3.IntegrityError:
             raise ValueError('issue identity already bound') from None
         return dict(state='complete',issue_id=candidate,reconciled=True)
+
+    def recover_after_exclusive_start(self):
+        """Mark interrupted creates uncertain after acquiring the service lock."""
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            count=db.execute("UPDATE issue_creation SET state='uncertain' WHERE state='creating'").rowcount
+            db.commit()
+        return dict(uncertain=count,automatically_retried=0)
