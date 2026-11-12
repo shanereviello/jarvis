@@ -41,15 +41,17 @@ class Verifier:
         if type(response) is not dict or set(response)!={'viewer_id','organization_id','comment'} or response['viewer_id']!=self.viewer_id or response['organization_id']!=self.organization_id:
             raise ValueError('native reader identity differs')
         comment=response['comment']
-        fields={'id','author_id','author_is_app','issue_id','team_id','project_id','body','created_at','updated_at'}
+        fields={'id','author_id','author_is_app','issue_id','team_id','project_id','body','created_at',
+                'edited_at','bot_actor','external_user','on_behalf_of','archived_at'}
         if type(comment) is not dict or set(comment)!=fields or comment['id']!=evidence['comment_id']:
             raise ValueError('exact native comment required')
         if (comment['author_id'] not in self.humans or comment['author_is_app'] is not False or
                 comment['issue_id']!=review['issue_id'] or comment['team_id']!=review['team_id'] or
-                comment['project_id']!=review['linear_project_id']):
+                comment['project_id']!=review['linear_project_id'] or comment['bot_actor'] is not None or
+                comment['external_user'] is not None or comment['on_behalf_of'] is not None or comment['archived_at'] is not None):
             raise ValueError('human or project attribution differs')
         if (type(comment['created_at']) is not str or not comment['created_at'] or
-                comment['created_at']!=comment['updated_at']):
+                comment['edited_at'] is not None):
             raise ValueError('edited or unverifiable decision refused')
         expected=f"I approve architecture version {review['version']} sha256 {review['markdown_sha256']}"
         if type(comment['body']) is not str or comment['body'].strip()!=expected:
