@@ -27,8 +27,9 @@ the deployment without accidentally starting paid coding and supports a later
 explicit disable transition. The disabled configuration and journal cutover
 passed host readiness and unauthenticated-denial checks; the operator then
 authorized execution for the eight mapped issues. A live read-only REV-50
-request completed in its assigned checkout; writing and the other seven issue
-workspaces remain to be verified through the new runtime.
+request completed in its assigned checkout, followed by a successful reported
+temporary-file write and cleanup. The other seven issue workspaces remain to
+be verified live through the new runtime.
 
 The scoped deployment depends on the following checks and decisions:
 
@@ -79,4 +80,6 @@ commit `65b6ceef7ff28222b6e96112c7f7f43a8c2919ba`. The canonical checkout and
 the earlier uncommitted REV-50 acceptance checkout were preserved. The
 v2 runtime and its eight socket units are now active. Paid coding has been
 authorized for the mapped issues. One read-only REV-50 request completed and
-its captured evidence was verified; a live write remains to be validated.
+its captured evidence was verified; a second REV-50 session reported a
+successful temporary-file write and cleanup, and its work association was read
+back from owned history.

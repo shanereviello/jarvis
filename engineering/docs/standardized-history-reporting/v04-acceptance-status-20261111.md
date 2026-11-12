@@ -30,9 +30,11 @@ the eight mapped issues; the journaled authority transition completed and the
 runtime and eight issue-specific sockets are active. The transition script
 started no model and verified unauthenticated denial. A paid, read-only REV-50
 Linear request completed from its assigned checkout and its captured evidence
-was verified in owned history. Live write behavior and the other seven
-production workspaces remain unverified. No hard per-turn or spending cap is
-enforced.
+was verified in owned history. A second REV-50 session reported creating,
+reading, and removing its own temporary file with a clean checkout; transport
+recorded completion and owned history recorded its work and workspace. The
+other seven production workspaces remain unverified live. No hard per-turn or
+spending cap is enforced.
 
 The collector uses a fixed session-creation cutoff for each issue mapping; it
 will not silently reassign older captured evidence. A work association describes
