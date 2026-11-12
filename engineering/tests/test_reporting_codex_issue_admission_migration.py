@@ -2,7 +2,7 @@ import importlib.util
 from pathlib import Path
 import sqlite3
 import pytest
-from test_reporting_onboarding_admission import inputs,policy
+from test_reporting_onboarding_admission import inputs,policy,AUTH
 from test_reporting_codex_runtime import m
 
 path=Path(__file__).resolve().parents[1]/'tools/rras_reporting/codex_issue_admission_migration.py'
@@ -15,7 +15,7 @@ def test_offline_one_issue_admission_is_audited_and_preserves_prior_state(tmp_pa
     runtime=m.Runtime(root,current,create=True,issue_client_factory=lambda *_:None);runtime.close()
     checks=[]
     def evidence(v):checks.append(('evidence',v['issue_id']));return True
-    def authority(v):checks.append(('authority',v['issue_id']));return True
+    def authority(v):checks.append(('authority',v['issue_id']));return AUTH
     plan=module.plan(root,request,evidence,authority)
     with pytest.raises(ValueError,match='plan differs'):module.apply(root,request,evidence,authority,'0'*64)
     result=module.apply(root,request,evidence,authority,plan['expected_sha256'])
@@ -33,7 +33,7 @@ def test_offline_one_issue_admission_is_audited_and_preserves_prior_state(tmp_pa
 def test_admission_refuses_unverified_or_unsettled_runtime(tmp_path,policy):
     current,request=inputs(tmp_path,policy);root=tmp_path/'state'
     active=m.Runtime(root,current,create=True,issue_client_factory=lambda *_:None)
-    with pytest.raises(ValueError,match='stop the runtime'):module.plan(root,request,lambda _:True,lambda _:True)
+    with pytest.raises(ValueError,match='stop the runtime'):module.plan(root,request,lambda _:True,lambda _:AUTH)
     active.close()
-    with pytest.raises(ValueError,match='execution evidence'):module.plan(root,request,lambda _:False,lambda _:True)
+    with pytest.raises(ValueError,match='execution evidence'):module.plan(root,request,lambda _:False,lambda _:AUTH)
     with pytest.raises(ValueError,match='execution authority'):module.plan(root,request,lambda _:True,lambda _:False)

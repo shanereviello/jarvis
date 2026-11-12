@@ -48,7 +48,13 @@ def candidate(current,request,verify,verify_authority):
     # Existing global runtime authority may cover only prior issues. An
     # approved architecture or a previously enabled runtime does not itself
     # authorize paid execution for this new issue.
-    if verify_authority(copy.deepcopy(value)) is not True:raise ValueError('issue execution authority not verified')
+    authority=verify_authority(copy.deepcopy(value))
+    if (type(authority) is not dict or set(authority)!={'authorized','grant_id','reference','policy_sha256'} or
+            authority['authorized'] is not True or type(authority['grant_id']) is not str or
+            not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',authority['grant_id']) or
+            type(authority['reference']) is not str or not 1<=len(authority['reference'].strip())<=512 or
+            type(authority['policy_sha256']) is not str or not re.fullmatch('[0-9a-f]{64}',authority['policy_sha256'])):
+        raise ValueError('issue execution authority not verified')
     pin={key:value[key] for key in ('project_id','work_id','plan_id','work_revision_sha256','architecture_version','architecture_sha256')}
     policy['issues'][value['issue_id']]=pin
     policy['workspaces'][value['issue_id']]=value['workspace']
@@ -56,4 +62,4 @@ def candidate(current,request,verify,verify_authority):
     result=runtime.policy(policy)
     return dict(policy=result,decision_receipt_sha256=value['decision_receipt_sha256'],
                 assignment_sha256=value['assignment_sha256'],baseline_commit=value['baseline_commit'],
-                policy_installed=False,execution_authority_changed=False)
+                authority=authority,policy_installed=False,execution_authority_changed=False)

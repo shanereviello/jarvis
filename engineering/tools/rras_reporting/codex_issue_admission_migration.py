@@ -36,7 +36,7 @@ def snapshot(db,request,verify,verify_authority):
     value=dict(contract='codex-issue-admission-plan.v1',issue_id=request['issue_id'],
         old_policy_sha256=hashlib.sha256(runtime.encoded(current)).hexdigest(),
         new_policy_sha256=hashlib.sha256(runtime.encoded(candidate)).hexdigest(),
-        evidence_sha256=hashlib.sha256(runtime.encoded(request)).hexdigest(),tables=migration.fingerprints(db),
+        evidence_sha256=hashlib.sha256(runtime.encoded(request)).hexdigest(),authority=result['authority'],tables=migration.fingerprints(db),
         prior_admissions=prior,models_started=0,policy_installed=False)
     return value,current,candidate
 
@@ -56,12 +56,12 @@ def apply(root,request,verify,verify_authority,expected_sha256):
         digest=hashlib.sha256(runtime.encoded(value)).hexdigest()
         if digest!=expected_sha256:raise ValueError('admission plan differs; reconcile before retry')
         db.execute('CREATE TABLE IF NOT EXISTS policy_issue_admissions(sequence INTEGER PRIMARY KEY,issue_id TEXT NOT NULL UNIQUE, '
-                   'old_body BLOB NOT NULL,new_body BLOB NOT NULL,evidence_sha256 TEXT NOT NULL,plan_sha256 TEXT NOT NULL)')
+                   'old_body BLOB NOT NULL,new_body BLOB NOT NULL,evidence_sha256 TEXT NOT NULL,authority_body BLOB NOT NULL,plan_sha256 TEXT NOT NULL)')
         for operation in ('UPDATE','DELETE'):
             db.execute('CREATE TRIGGER IF NOT EXISTS retain_issue_admissions_'+operation.lower()+' BEFORE '+operation+
                        " ON policy_issue_admissions BEGIN SELECT RAISE(ABORT,'retained issue admission evidence'); END")
-        db.execute('INSERT INTO policy_issue_admissions(issue_id,old_body,new_body,evidence_sha256,plan_sha256) VALUES(?,?,?,?,?)',
-                   (request['issue_id'],runtime.encoded(old),runtime.encoded(new),value['evidence_sha256'],digest))
+        db.execute('INSERT INTO policy_issue_admissions(issue_id,old_body,new_body,evidence_sha256,authority_body,plan_sha256) VALUES(?,?,?,?,?,?)',
+                   (request['issue_id'],runtime.encoded(old),runtime.encoded(new),value['evidence_sha256'],runtime.encoded(value['authority']),digest))
         db.execute('UPDATE policy SET body=?',(runtime.encoded(new),))
         return dict(journal_updated=True,issue_id=request['issue_id'],plan_sha256=digest,policy_installed=False,models_started=0)
 
