@@ -1,7 +1,6 @@
-# Per-issue Codex workspaces — source candidate
+# Per-issue Codex workspaces — disabled deployment
 
-The installed v1 runtime has one fixed `cwd` for every mapped issue and its
-execution policy remains disabled. The proposed v2 policy binds every admitted
+The installed v2 runtime's execution policy remains disabled. Its policy binds every admitted
 issue UUID to a distinct, non-overlapping canonical workspace and a distinct
 issue-specific native socket. Dispatch and thread resume use the installed
 issue binding, never a path selected by the Linear message. Each candidate
@@ -11,8 +10,7 @@ records the actual selected workspace.
 The existing single-active-or-uncertain-executor rule remains conservative
 across the entire runtime.
 
-This is a source candidate, not activated service configuration. The explicit
-journal migration requires the runtime to be stopped and exclusively locked,
+The explicit journal migration requires the runtime to be stopped and exclusively locked,
 refuses active or uncertain turns and changed organization, app, executable or
 work pins, and binds its plan to fingerprints of the existing journal rows and
 new policy. It preserves the old sessions, turns and events. Existing sessions
@@ -26,10 +24,11 @@ issue-specific sockets are checked. A separate, plan-bound and journaled v2
 authority transition changes only the execution flag and its reference; it
 refuses changed workspace/work pins and unresolved turns. This permits checking
 the deployment without accidentally starting paid coding and supports a later
-explicit disable transition. Configuration/journal cutover and recovery still
-need independent host acceptance.
+explicit disable transition. The disabled configuration and journal cutover
+passed host readiness and unauthenticated-denial checks; live paid execution
+and acceptance remain outstanding.
 
-Before production activation, all of the following remain necessary:
+Before enabling production execution, the following checks and decisions apply:
 
 - Prepare a separate native-owned checkout and task branch for each issue from a
   verified baseline, without exposing operator credentials or the canonical
@@ -65,8 +64,8 @@ the selected checkout in `writableRoots` also left the server's startup
 directory writable. Starting a distinct fixture App Server in the selected
 checkout allowed its own write and denied a sibling write, with no model turn.
 These operator-account tests do not establish production native-service
-isolation. The inactive per-issue unit candidate was checked by
-`systemd-analyze verify`; it has not been installed or activated.
+isolation. At that stage the inactive per-issue unit candidate passed
+`systemd-analyze verify` before installation.
 
 The operator subsequently ran the disposable two-issue App Server fixture as
 `rras-codex-native` under systemd restrictions and with networking disabled.
@@ -75,6 +74,6 @@ directory, could write there, and was denied a write to the other fixture
 directory. No model or production configuration was involved. The operator
 also staged eight separate clean native-owned, remote-free task checkouts at
 commit `65b6ceef7ff28222b6e96112c7f7f43a8c2919ba`. The canonical checkout and
-the earlier uncommitted REV-50 acceptance checkout were preserved. These are
-staged paths only; production socket units, runtime migration and paid coding
-remain inactive and require their own validation and authorization.
+the earlier uncommitted REV-50 acceptance checkout were preserved. The
+disabled v2 runtime and its eight socket units are now active; paid coding
+remains disabled and requires separate authorization and live validation.

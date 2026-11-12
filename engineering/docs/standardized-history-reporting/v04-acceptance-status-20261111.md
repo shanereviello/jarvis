@@ -23,6 +23,14 @@ project. Earlier acceptance snapshots remain retained.
 | Reference interface and Jarvis retrieval | The authenticated dashboard's existing project/reporting and private evidence preview/download paths passed operator checks. A reviewed structured-field snapshot was published and read through the actual Hermes MCP; this does not imply automatic publication of every future record. |
 | Closeout | The detailed as-built, final work dispositions, merged source/baseline and complete acceptance evidence still need reconciliation. Source and production releases must be compared explicitly; the feature branch contains post-baseline commits. |
 
+The issue-specific v2 runtime was installed with execution disabled. The
+runtime is active, eight issue-specific sockets are listening, and the cutover
+verified unauthenticated denial. The cutover started no model. Its previous
+policy and journal were backed up privately, and the migration receipt is
+retained. This confirms the disabled deployment only; paid execution in the
+eight new production workspaces and live end-to-end acceptance of those
+workspaces remain pending separate authorization and testing.
+
 The collector uses a fixed session-creation cutoff for each issue mapping; it
 will not silently reassign older captured evidence. A work association describes
 the session context and does not prove every message belongs to that work. The
