@@ -22,6 +22,14 @@ const resolution={organization_id:id(1),project_id:id(8),scope:{kind:'repository
 let accepted=verifyPlanningOrigin(envelope,reply,policy,resolution);
 assert.equal(accepted.permitted,true);assert.equal(accepted.human_approval_inferred,false);
 assert.equal(accepted.origin.project_identifier,id(8));
+const issueReply={statusCode:200,body:{data:{viewer:{id:id(3),organization:{id:id(1)}},
+ issue:{id:id(10),identifier:'ENG-10',url:'https://linear.app/fixture/issue/ENG-10',team:{id:id(4)},project:{id:id(8)}}}}};
+assert.equal(verifyPlanningIssue(accepted.origin,id(10),issueReply,policy).permitted,true);
+for(const change of [
+ x=>x.body.data.issue.project.id=id(9),x=>x.body.data.issue.team.id=id(9),
+ x=>x.body.data.viewer.id=id(2),x=>x.body.data.issue.id=id(11),
+ x=>x.body.data.issue.url='https://linear.app/fixture/issue/ENG-10?token=secret',
+]) {const x=structuredClone(issueReply);change(x);assert.equal(verifyPlanningIssue(accepted.origin,id(10),x,policy).permitted,false);}
 for(const change of [
  x=>x.reply.body.data.sourceActor.app=true,
  x=>x.reply.body.data.sourceActor.id=id(2),

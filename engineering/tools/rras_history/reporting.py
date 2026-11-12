@@ -129,6 +129,30 @@ class Reporting:
         return dict(project_id=match['context']['project_id'],scope=match['scope'],
                     team_id=match['body']['linear']['team_id'])
 
+    def planning_issue_binding(self, organization_id, linear_issue_id, allowed_scopes):
+        """Internal scope-filtered lookup of an exact Linear execution issue."""
+        for value in (organization_id,linear_issue_id):
+            try:
+                if type(value) is not str or str(uuid.UUID(value))!=value:raise ValueError('UUID required')
+            except (ValueError,AttributeError):raise ValueError('canonical Linear identity required') from None
+        if type(allowed_scopes) is not list or not allowed_scopes:raise ValueError('explicit planning scopes required')
+        selected=[local('projects').scope(scope) for scope in allowed_scopes]
+        if len({(scope['kind'],scope['id']) for scope in selected})!=len(selected):raise ValueError('duplicate planning scopes refused')
+        with self.store.connection() as db:events=self.events(db)
+        latest={}
+        for request,receipt in events:
+            if request['operation']=='mapping.record':latest[self.entity(request)]=request
+        matches=[request for request in latest.values() if request['body']['kind']=='execution'
+                 and request['body']['linear']['organization_id']==organization_id
+                 and request['body']['linear']['issue_id']==linear_issue_id]
+        if len(matches)>1:raise ValueError('planning binding unavailable')
+        if not matches:return None
+        match=matches[0]
+        if match['scope'] not in selected:raise ValueError('planning binding unavailable')
+        return dict(project_id=match['context']['project_id'],scope=match['scope'],
+                    team_id=match['body']['linear']['team_id'],linear_project_id=match['body']['linear']['project_id'],
+                    plan_id=match['body']['plan_id'],work_id=match['context']['work']['work_item_id'])
+
     def check_context(self, db, request):
         context = request['context']
         if context is None: return
@@ -199,6 +223,18 @@ class Reporting:
                     (linear['organization_id'],linear['project_id'])).fetchone()
                 if reserved is not None and tuple(reserved)!=(linear['team_id'],request['context']['project_id'],
                                                               request['scope']['kind'],request['scope']['id']):
+                    raise ValueError('planning binding unavailable')
+            if body['kind']=='execution' and db is not None and db.execute('PRAGMA user_version').fetchone()[0]>=6:
+                linear=body['linear'];context=request['context']
+                reserved=db.execute('SELECT linear_project_id,team_id,project_id,plan_id,work_id,scope_kind,scope_id '
+                    'FROM onboarding_work_reservations WHERE organization_id=? AND linear_issue_id=?',
+                    (linear['organization_id'],linear['issue_id'])).fetchone()
+                expected=(linear['project_id'],linear['team_id'],context['project_id'],body['plan_id'],
+                          context['work']['work_item_id'],request['scope']['kind'],request['scope']['id'])
+                if reserved is not None and tuple(reserved)!=expected:raise ValueError('planning binding unavailable')
+                by_plan=db.execute('SELECT organization_id,linear_issue_id,work_id FROM onboarding_work_reservations '
+                    'WHERE project_id=? AND plan_id=?',(context['project_id'],body['plan_id'])).fetchone()
+                if by_plan is not None and tuple(by_plan)!=(linear['organization_id'],linear['issue_id'],context['work']['work_item_id']):
                     raise ValueError('planning binding unavailable')
             latest = {}
             for r, receipt in events:

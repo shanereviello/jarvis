@@ -44,3 +44,23 @@ function verifyPlanningOrigin(envelope, reply, policy, resolution) {
     project_identifier:/^P-[A-Z0-9]+-[0-9]+$/.test(project.identifier || '') ? project.identifier : project.id,project_url:project.url,
     scope:{kind:resolution.scope.kind,id:resolution.scope.id},source_session:session.id,source_actor:actor.id,agent:envelope.agent}};
 }
+
+// A separate native Linear read resolves each proposed issue. The caller must
+// select the issue UUID from its protected request, not from the model's claim.
+function verifyPlanningIssue(origin, expectedIssueId, reply, policy) {
+  const deny = () => ({permitted:false});
+  const uuid = x => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x);
+  if (!origin || !policy || !uuid(expectedIssueId) || !['jarvis','codex'].includes(origin.agent) ||
+      !policy.agents || !uuid(policy.agents[origin.agent]) || origin.organization_id!==policy.organization_id) return deny();
+  const data=reply?.body?.data, issue=data?.issue;
+  if (reply?.statusCode!==200 || reply.body?.errors || data?.viewer?.id!==policy.agents[origin.agent] ||
+      data?.viewer?.organization?.id!==origin.organization_id || issue?.id!==expectedIssueId ||
+      issue?.project?.id!==origin.project_id || issue?.team?.id!==origin.team_id ||
+      typeof issue?.identifier!=='string' || !/^[A-Z0-9]+-[0-9]+$/.test(issue.identifier)) return deny();
+  let url;
+  try { url=new URL(issue.url); } catch (_) { return deny(); }
+  if (url.protocol!=='https:' || url.host!=='linear.app' || url.username || url.password ||
+      url.search || url.hash || !url.pathname.startsWith('/')) return deny();
+  return {permitted:true,issue:{organization_id:origin.organization_id,team_id:origin.team_id,
+    project_id:origin.project_id,id:issue.id,identifier:issue.identifier,url:issue.url}};
+}

@@ -17,6 +17,13 @@ DDL=(
        PRIMARY KEY(organization_id,linear_project_id))''',
     "CREATE TRIGGER onboarding_reservation_no_update BEFORE UPDATE ON onboarding_reservations BEGIN SELECT RAISE(ABORT,'immutable onboarding reservation'); END",
     "CREATE TRIGGER onboarding_reservation_no_delete BEFORE DELETE ON onboarding_reservations BEGIN SELECT RAISE(ABORT,'immutable onboarding reservation'); END",
+    '''CREATE TABLE onboarding_work_reservations(
+       organization_id TEXT NOT NULL,linear_issue_id TEXT NOT NULL,linear_project_id TEXT NOT NULL,
+       team_id TEXT NOT NULL,project_id TEXT NOT NULL,plan_id TEXT NOT NULL,work_id TEXT NOT NULL UNIQUE,
+       scope_kind TEXT NOT NULL,scope_id TEXT NOT NULL,PRIMARY KEY(organization_id,linear_issue_id),
+       UNIQUE(project_id,plan_id))''',
+    "CREATE TRIGGER onboarding_work_reservation_no_update BEFORE UPDATE ON onboarding_work_reservations BEGIN SELECT RAISE(ABORT,'immutable onboarding work reservation'); END",
+    "CREATE TRIGGER onboarding_work_reservation_no_delete BEFORE DELETE ON onboarding_work_reservations BEGIN SELECT RAISE(ABORT,'immutable onboarding work reservation'); END",
 )
 
 
@@ -82,6 +89,8 @@ class Reservations:
             if prior is not None:
                 if tuple(prior)!=expected:raise ValueError('planning binding unavailable')
                 return dict(inserted=False,project_id=project_id,authority_granted=False)
+            if db.execute('SELECT 1 FROM onboarding_reservations WHERE project_id=?',(project_id,)).fetchone():
+                raise ValueError('planning binding unavailable')
             reporting=local('reporting').Reporting(self.store);events=reporting.events(db);latest={}
             for request,receipt in events:
                 if request['operation']=='mapping.record':latest[reporting.entity(request)]=request
@@ -104,3 +113,50 @@ class Reservations:
                        (organization_id,linear_project_id,team_id,project_id,scope['kind'],scope['id']))
             db.commit()
         self.store.sync();return dict(inserted=True,project_id=project_id,authority_granted=False)
+
+    def reserve_work(self,organization_id,linear_project_id,team_id,project_id,scope,plan_id,linear_issue_id,work_id):
+        for value in (organization_id,linear_project_id,team_id,linear_issue_id):canonical(value)
+        if (type(project_id) is not str or not re.fullmatch('prj_[0-9a-f]{32}',project_id) or
+                type(work_id) is not str or not re.fullmatch('wrk_[0-9a-f]{32}',work_id) or
+                type(plan_id) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',plan_id)):
+            raise ValueError('exact project, plan and work identity required')
+        scope=local('projects').scope(scope)
+        expected=(linear_project_id,team_id,project_id,plan_id,work_id,scope['kind'],scope['id'])
+        with self.store.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if db.execute('PRAGMA user_version').fetchone()[0]!=6:raise ValueError('explicit reservation upgrade required')
+            parent=db.execute('SELECT team_id,project_id,scope_kind,scope_id FROM onboarding_reservations '
+                              'WHERE organization_id=? AND linear_project_id=?',(organization_id,linear_project_id)).fetchone()
+            if parent is None or tuple(parent)!=(team_id,project_id,scope['kind'],scope['id']):
+                raise ValueError('planning binding unavailable')
+            prior=db.execute('SELECT linear_project_id,team_id,project_id,plan_id,work_id,scope_kind,scope_id '
+                             'FROM onboarding_work_reservations WHERE organization_id=? AND linear_issue_id=?',
+                             (organization_id,linear_issue_id)).fetchone()
+            if prior is not None:
+                if tuple(prior)!=expected:raise ValueError('planning binding unavailable')
+                return dict(inserted=False,work_id=work_id,authority_granted=False)
+            if db.execute('SELECT 1 FROM onboarding_work_reservations WHERE (project_id=? AND plan_id=?) OR work_id=?',
+                          (project_id,plan_id,work_id)).fetchone():
+                raise ValueError('planning binding unavailable')
+            reporting=local('reporting').Reporting(self.store);latest={}
+            for request,receipt in reporting.events(db):
+                if request['operation']=='mapping.record':latest[reporting.entity(request)]=request
+            matched_existing=False
+            for request in latest.values():
+                if request['body']['kind']!='execution':continue
+                linear=request['body']['linear'];ctx=request['context'];work=ctx['work']
+                same_issue=(linear['organization_id'],linear['issue_id'])==(organization_id,linear_issue_id)
+                same_plan=(ctx['project_id'],request['body']['plan_id'])==(project_id,plan_id)
+                same_work=work['work_item_id']==work_id
+                if (same_issue or same_plan or same_work) and (not (same_issue and same_plan and same_work) or
+                    (linear['project_id'],linear['team_id'])!=(linear_project_id,team_id) or request['scope']!=scope):
+                    raise ValueError('planning binding unavailable')
+                if same_issue and same_plan and same_work:matched_existing=True
+            existing=[r for r,_,_,_ in self.store.rows(db) if r['operation'].startswith('work.') and r['body']['work_item_id']==work_id]
+            if existing and not matched_existing:raise ValueError('planning binding unavailable')
+            if db.execute('SELECT count(*) FROM onboarding_work_reservations').fetchone()[0]>=100000:
+                raise ValueError('planning reservation capacity reached')
+            db.execute('INSERT INTO onboarding_work_reservations VALUES(?,?,?,?,?,?,?,?,?)',
+                       (organization_id,linear_issue_id,linear_project_id,team_id,project_id,plan_id,work_id,scope['kind'],scope['id']))
+            db.commit()
+        self.store.sync();return dict(inserted=True,work_id=work_id,authority_granted=False)

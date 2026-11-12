@@ -81,7 +81,8 @@ class Access:
             raise ValueError('invalid service message')
         grant = self.grants[peer_uid]
         method = message['method']
-        if method in ('planning_reserve','planning_binding','planning_project_submit','planning_reporting_submit'):
+        if method in ('planning_reserve','planning_binding','planning_project_submit','planning_reporting_submit',
+                      'planning_issue_binding','planning_work_reserve','planning_work_submit','planning_membership_submit'):
             return self.planning(peer_uid,grant,message)
         if method == 'workspace_scopes' and set(message) == {'method'}:
             scopes = [{'kind': 'repository', 'id': name} for name in grant['private_read']]
@@ -178,6 +179,12 @@ class Access:
                 message['organization_id'],message['linear_project_id'],scopes)
             if binding is not None and binding['team_id'] not in grant['planning_teams']:raise ValueError('access refused')
             return binding
+        if method=='planning_issue_binding' and set(message)=={'method','organization_id','linear_issue_id'}:
+            if message['organization_id']!=grant['planning_organization_id']:raise ValueError('access refused')
+            binding=local('reporting').Reporting(self.store).planning_issue_binding(
+                message['organization_id'],message['linear_issue_id'],scopes)
+            if binding is not None and binding['team_id'] not in grant['planning_teams']:raise ValueError('access refused')
+            return binding
         if method=='planning_reserve' and set(message)=={'method','organization_id','linear_project_id','team_id','project_id','scope'}:
             selected=local('projects').scope(message['scope'])
             if selected not in scopes:raise ValueError('access refused')
@@ -188,6 +195,57 @@ class Access:
             expected='prj_'+uuid.uuid5(uuid.NAMESPACE_URL,'rras-onboarding-v1:'+organization+':'+linear).hex
             if message['project_id']!=expected:raise ValueError('access refused')
             return reservations.reserve(organization,linear,message['team_id'],expected,selected)
+        if method=='planning_work_reserve' and set(message)=={'method','organization_id','linear_project_id','team_id','project_id','scope','plan_id','linear_issue_id','work_id'}:
+            selected=local('projects').scope(message['scope']);plan=message['plan_id']
+            if (selected not in scopes or message['organization_id']!=grant['planning_organization_id'] or
+                    message['team_id'] not in grant['planning_teams'] or type(plan) is not str or
+                    not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',plan)):raise ValueError('access refused')
+            organization=local('onboarding_reservations').canonical(message['organization_id'])
+            linear=local('onboarding_reservations').canonical(message['linear_project_id'])
+            expected_project='prj_'+uuid.uuid5(uuid.NAMESPACE_URL,'rras-onboarding-v1:'+organization+':'+linear).hex
+            expected_work='wrk_'+uuid.uuid5(uuid.NAMESPACE_URL,'rras-onboarding-work-v1:'+organization+':'+linear+':'+plan).hex
+            if message['project_id']!=expected_project or message['work_id']!=expected_work:raise ValueError('access refused')
+            projects=local('projects').Projects(self.store)
+            project=projects.read(selected,{'view':'project','project_id':expected_project})['project']
+            if project['governing_version'] is not None:raise ValueError('access refused')
+            draft=projects.read(selected,{'view':'architecture','project_id':expected_project,'version':1})['document']
+            if not re.search(r'(?<![A-Za-z0-9_.-])'+re.escape(plan)+r'(?![A-Za-z0-9_.-])',draft['markdown']):raise ValueError('access refused')
+            return reservations.reserve_work(organization,linear,message['team_id'],expected_project,selected,plan,message['linear_issue_id'],expected_work)
+        if method in ('planning_work_submit','planning_membership_submit') and set(message)=={'method','project_id','plan_id','request'}:
+            plan=message['plan_id'];project_id=message['project_id']
+            if type(plan) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,95}',plan):raise ValueError('access refused')
+            if method=='planning_work_submit':
+                request=local('contract').validate(copy.deepcopy(message['request']))
+                if request['operation']!='work.create' or request['body']['revision']!=1 or request['expected_head'] is not None:
+                    raise ValueError('access refused')
+                selected=local('contract').scope(request['body']);work_id=request['body']['work_item_id']
+            else:
+                request=local('projects').validate(copy.deepcopy(message['request']))
+                if request['operation'] not in ('membership.assign','membership.designate') or request['project_id']!=project_id:
+                    raise ValueError('access refused')
+                if (request['operation']=='membership.assign' and request['body']['architecture_version'] is not None) or (
+                        request['operation']=='membership.designate' and request['body']['architecture_version']!=1):
+                    raise ValueError('access refused')
+                selected=request['scope'];work_id=request['body']['work_item_id']
+            if selected not in scopes or request['source']['kind']!='agent_reported' or request['source']['namespace']!='linear_'+agent:
+                raise ValueError('access refused')
+            with self.store.connection() as db:
+                if db.execute('PRAGMA user_version').fetchone()[0]!=6:raise ValueError('access refused')
+                reserved=db.execute('SELECT organization_id,linear_project_id,team_id,scope_kind,scope_id FROM onboarding_reservations WHERE project_id=?',
+                                    (project_id,)).fetchone()
+                if (reserved is None or reserved[0]!=grant['planning_organization_id'] or reserved[2] not in grant['planning_teams']
+                        or tuple(reserved[3:])!=(selected['kind'],selected['id'])):raise ValueError('access refused')
+                expected='wrk_'+uuid.uuid5(uuid.NAMESPACE_URL,'rras-onboarding-work-v1:'+reserved[0]+':'+reserved[1]+':'+plan).hex
+                if work_id!=expected:raise ValueError('access refused')
+                projects=local('projects').Projects(self.store);events=projects.events(db);items,_=projects.replay(events)
+                project=items.get(project_id)
+                if project is None or project['scope']!=selected or project['governing_version'] is not None:
+                    raise ValueError('access refused')
+                draft=[r for r,_ in events if r['project_id']==project_id and r['operation']=='architecture.save' and r['body']['version']==1]
+                if len(draft)!=1 or not re.search(r'(?<![A-Za-z0-9_.-])'+re.escape(plan)+r'(?![A-Za-z0-9_.-])',draft[0]['body']['markdown']):
+                    raise ValueError('access refused')
+            if method=='planning_work_submit':return self.store.submit(request,peer_uid=peer_uid)
+            return local('projects').Projects(self.store).submit(request,peer_uid=peer_uid)
         if method in ('planning_project_submit','planning_reporting_submit') and set(message)=={'method','request'}:
             if method=='planning_project_submit':
                 request=local('projects').validate(copy.deepcopy(message['request']))
@@ -198,8 +256,8 @@ class Access:
                 project_id=request['project_id'];selected=request['scope']
             else:
                 request=local('reporting_contract').validate(copy.deepcopy(message['request']))
-                if (request['operation']!='mapping.record' or request['body']['kind']!='project' or
-                        request['body']['version']!=1 or request['context']['work'] is not None):raise ValueError('access refused')
+                if (request['operation']!='mapping.record' or request['body']['kind'] not in ('project','execution') or
+                        request['body']['version']!=1):raise ValueError('access refused')
                 project_id=request['context']['project_id'];selected=request['scope']
             if selected not in scopes or request['source']['kind']!='agent_reported' or request['source']['namespace']!='linear_'+agent:
                 raise ValueError('access refused')
@@ -216,11 +274,20 @@ class Access:
             if method=='planning_reporting_submit':
                 linear=request['body']['linear']
                 if (linear['organization_id'],linear['project_id'],linear['team_id'])!=tuple(reserved[:3]):raise ValueError('access refused')
-                expected_mapping='map_'+uuid.uuid5(uuid.NAMESPACE_URL,'rras-onboarding-v1:'+reserved[0]+':'+reserved[1]).hex
+                kind=request['body']['kind'];plan=request['body']['plan_id']
+                identity='rras-onboarding-v1:'+reserved[0]+':'+reserved[1]
+                if kind=='execution':identity='rras-onboarding-work-v1:'+reserved[0]+':'+reserved[1]+':'+plan
+                expected_mapping='map_'+uuid.uuid5(uuid.NAMESPACE_URL,identity).hex
                 if (request['body']['mapping_id']!=expected_mapping or request['context']['architecture']['document_id']!=expected_document
                         or request['context']['architecture']['version']!=1):raise ValueError('access refused')
                 project=local('projects').Projects(self.store).read(selected,{'view':'project','project_id':project_id})['project']
                 if project['governing_version'] is not None:raise ValueError('access refused')
+                if kind=='execution':
+                    expected_work='wrk_'+uuid.uuid5(uuid.NAMESPACE_URL,identity).hex
+                    if request['context']['work']['work_item_id']!=expected_work:raise ValueError('access refused')
+                    draft=local('projects').Projects(self.store).read(selected,{'view':'architecture','project_id':project_id,'version':1})['document']
+                    if not re.search(r'(?<![A-Za-z0-9_.-])'+re.escape(plan)+r'(?![A-Za-z0-9_.-])',draft['markdown']):
+                        raise ValueError('access refused')
                 return local('reporting').Reporting(self.store).submit(request,peer_uid=peer_uid)
             return local('projects').Projects(self.store).submit(request,peer_uid=peer_uid)
         raise ValueError('access refused')

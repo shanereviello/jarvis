@@ -7,6 +7,8 @@ uniqueness and return authoritative absence, rather than interpreting a read
 failure as absence.
 """
 import hashlib
+import importlib.util
+from pathlib import Path
 import re
 import uuid
 from urllib.parse import urlsplit
@@ -93,17 +95,27 @@ class DraftWriter:
         self.grants, self.verify_origin, self.store = grants, verify_origin, store
 
     def save(self, peer_uid, evidence, value):
-        if type(peer_uid) is not int or peer_uid not in self.grants: raise ValueError('planning peer refused')
-        origin = verified(self.verify_origin(evidence))
-        grant = self.grants[peer_uid]
-        if (type(grant) is not dict or set(grant) != {'agent', 'organization_id', 'team_id', 'scopes'}
-                or grant['agent'] != origin['agent'] or grant['organization_id'] != origin['organization_id']
-                or grant['team_id'] != origin['team_id'] or origin['scope'] not in grant['scopes']):
-            raise ValueError('planning scope or identity refused')
+        origin = authorize(self.grants,self.verify_origin,peer_uid,evidence)
         draft = proposal(value)
         org, linear = origin['organization_id'], origin['project_id']
         project_id, document_id = identity('prj_', org, linear), identity('doc_', org, linear)
         digest = hashlib.sha256(draft['markdown'].encode('utf-8')).hexdigest()
+        source = {'kind': 'agent_reported', 'namespace': 'linear_'+origin['agent'], 'id': origin['source_session']}
+        common = {'contract':'engineering-project.v1','project_id':project_id,'scope':origin['scope'],
+                  'occurred_at':None,'source':source}
+        create = dict(common, operation='project.create', client_event_key='onboard-project:'+project_id,
+            expected_head=None, body={'revision':1,'name':draft['name'],'overview':draft['overview'],
+            'intended_outcome':draft['intended_outcome'],'in_scope':draft['in_scope'],
+            'out_of_scope':draft['out_of_scope'],'owner':None,'change_summary':'Create Linear-linked draft project.'})
+        save = dict(common, operation='architecture.save', client_event_key='onboard-draft:'+project_id,
+            expected_head='0'*64, body={'document_id':document_id,'version':1,'previous_sha256':None,
+            'title':draft['name']+' architecture','change_summary':'Retain first unapproved draft.',
+            'markdown':draft['markdown'],'source_reference':'linear:agent-session:'+origin['source_session']+':human:'+origin['source_actor']})
+        # Validate both envelopes before making the permanent identity reservation.
+        path=Path(__file__).resolve().parent.parent/'rras_history'/'projects.py'
+        spec=importlib.util.spec_from_file_location('onboarding_draft_projects',path)
+        projects=importlib.util.module_from_spec(spec);spec.loader.exec_module(projects)
+        projects.validate(create);projects.validate(save)
         self.store.reserve(origin, project_id)
         binding = self.store.binding(org, linear)
         if binding is not None and (binding['project_id'] != project_id or binding['scope'] != origin['scope']
@@ -112,14 +124,7 @@ class DraftWriter:
         existing = self.store.project(origin['scope'], project_id)
         if binding is not None and existing is None:
             raise ValueError('binding points to unavailable project; reconcile explicitly')
-        source = {'kind': 'agent_reported', 'namespace': 'linear_'+origin['agent'], 'id': origin['source_session']}
-        common = {'contract':'engineering-project.v1','project_id':project_id,'scope':origin['scope'],
-                  'occurred_at':None,'source':source}
         if existing is None:
-            create = dict(common, operation='project.create', client_event_key='onboard-project:'+project_id,
-                expected_head=None, body={'revision':1,'name':draft['name'],'overview':draft['overview'],
-                'intended_outcome':draft['intended_outcome'],'in_scope':draft['in_scope'],
-                'out_of_scope':draft['out_of_scope'],'owner':None,'change_summary':'Create Linear-linked draft project.'})
             self.store.submit_project(create)
             existing = self.store.project(origin['scope'], project_id)
         if existing is None or existing['scope'] != origin['scope'] or existing['governing_version'] is not None:
@@ -128,10 +133,7 @@ class DraftWriter:
             raise ValueError('existing project differs; reconcile explicitly')
         documents = existing['architecture']
         if not documents:
-            save = dict(common, operation='architecture.save', client_event_key='onboard-draft:'+project_id,
-                expected_head=existing['head'], body={'document_id':document_id,'version':1,'previous_sha256':None,
-                'title':draft['name']+' architecture','change_summary':'Retain first unapproved draft.',
-                'markdown':draft['markdown'],'source_reference':'linear:agent-session:'+origin['source_session']+':human:'+origin['source_actor']})
+            save['expected_head']=existing['head']
             self.store.submit_project(save)
             existing = self.store.project(origin['scope'], project_id)
             documents = existing['architecture']
@@ -148,3 +150,13 @@ class DraftWriter:
             raise ValueError('mapping outcome uncertain; reconcile before retry')
         return {'project_id':project_id,'document_id':document_id,'version':1,'markdown_sha256':digest,
                 'plan_ids':draft['plan_ids'],'designation':'draft','execution_authorized':False}
+
+
+def authorize(grants,verify_origin,peer_uid,evidence):
+    if type(peer_uid) is not int or peer_uid not in grants:raise ValueError('planning peer refused')
+    origin=verified(verify_origin(evidence));grant=grants[peer_uid]
+    if (type(grant) is not dict or set(grant)!={'agent','organization_id','team_id','scopes'} or
+            grant['agent']!=origin['agent'] or grant['organization_id']!=origin['organization_id'] or
+            grant['team_id']!=origin['team_id'] or origin['scope'] not in grant['scopes']):
+        raise ValueError('planning scope or identity refused')
+    return origin

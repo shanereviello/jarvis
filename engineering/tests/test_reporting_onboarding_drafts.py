@@ -219,6 +219,14 @@ def test_reservations_are_append_only_and_replayable(setup_draft):
         with pytest.raises(sqlite3.IntegrityError):db.execute('DELETE FROM onboarding_reservations')
 
 
+def test_oversized_utf8_draft_does_not_consume_project_identity(setup_draft):
+    writer,fixture,origin,draft=setup_draft
+    invalid=dict(draft,markdown='# PLAN-01\n'+'😀'*40000)
+    with pytest.raises(ValueError):writer.save(1234,object(),invalid)
+    with fixture.projects.store.connection() as db:
+        assert db.execute('SELECT count(*) FROM onboarding_reservations').fetchone()[0]==0
+
+
 def test_planning_over_actual_unix_transport_does_not_grant_designation(env):
     import os
     _,store,_=env
