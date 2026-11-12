@@ -23,6 +23,9 @@ HTML=b'''<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Confi
 <p>I confirm I personally authored this exact Linear approval.</p><button id="confirm" type="button">Confirm authorship</button></section>
 <p id="status" role="status"></p></main><script src="/assets/attestation.js" defer></script></body></html>'''
 JS=b'''"use strict";let challenge=null;const byId=x=>document.getElementById(x);const status=byId("status");
+const params=new URLSearchParams(location.search),uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+for(const [key,id] of [["review_id","review"],["comment_id","comment"]]){const values=params.getAll(key);if(values.length===1&&uuid.test(values[0]))byId(id).value=values[0]}
+if(location.search)history.replaceState(null,"",location.pathname);
 async function request(url,body){const r=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw Error("unavailable");return r.json()}
 byId("load").addEventListener("click",async()=>{challenge=null;byId("details").hidden=true;status.textContent="Loading decision...";
  try{const value=await request("/api/attestation/begin",{review_id:byId("review").value.trim(),comment_id:byId("comment").value.trim()});

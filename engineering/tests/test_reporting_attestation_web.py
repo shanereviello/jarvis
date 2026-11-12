@@ -32,3 +32,12 @@ def test_authenticated_attestation_browser_flow_and_origin_refusal(tmp_path,setu
             again=await client.post('/api/attestation/confirm',headers=good,json={'challenge':begin.json()['challenge'],'statement':STATEMENT})
             assert again.status_code==403
     asyncio.run(run())
+
+
+def test_browser_script_is_valid_javascript():
+    import os,shutil,subprocess,pytest
+    node=shutil.which('node')
+    if not node and os.environ.get('SHRR_NODE_DOCKER')!='1':pytest.skip('Node required')
+    command=[node,'--check'] if node else ['docker','exec','-i','n8n','node','--check']
+    result=subprocess.run(command,input=module.JS,capture_output=True,timeout=15)
+    assert result.returncode==0,result.stderr.decode()
