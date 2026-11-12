@@ -17,7 +17,7 @@ class Transport:
         if type(token) is not bytes or not 32<=len(token)<=256 or not all(33<=x<=126 for x in token):raise ValueError('private operator credential required')
         p=urlsplit(url)
         if (p.scheme!='http' or p.hostname!='127.0.0.1' or p.username or p.password or p.query or p.fragment or
-                p.port is None or p.path!='/webhook/rras-operator-comment-'+app_id):
+                p.port is None or not 1<=p.port<=65535 or p.path!='/webhook/rras-operator-comment-'+app_id):
             raise ValueError('fixed loopback operator endpoint required')
         self.port,self.path,self.token=p.port,p.path,token
 

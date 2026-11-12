@@ -28,4 +28,5 @@ def test_loopback_reader_uses_exact_query_and_private_header():
         assert seen==[(f'/webhook/rras-operator-comment-{app}','Bearer '+token.decode(),{'comment_id':comment})]
         with pytest.raises(ValueError):transport({'query':'mutation{}','variables':{'id':comment}})
         with pytest.raises(ValueError):module.Transport(url.replace('127.0.0.1','192.168.1.1'),app,token)
+        with pytest.raises(ValueError):module.Transport(f'http://127.0.0.1:0/webhook/rras-operator-comment-{app}',app,token)
     finally:server.shutdown();thread.join();server.server_close()
