@@ -31,9 +31,25 @@ def test_review_pins_exact_retained_document_and_decision(tmp_path,setup_draft):
         edited_at=None,bot_actor=None,external_user=None,on_behalf_of=None,archived_at=None)
     reader=lambda _:dict(viewer_id=uid(9),organization_id=uid(1),comment=comment)
     verifier=linear_decision.Verifier(reader,registry.read,uid(1),uid(9),[uid(5)])
-    approved=decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO]).approve(dict(comment_id=uid(8),review_id=review_id))
+    recorder=decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO])
+    coordinator_path=path.with_name('onboarding_operator_decision.py')
+    coordinator_spec=importlib.util.spec_from_file_location('operator_decision_fixture',coordinator_path)
+    coordinator=importlib.util.module_from_spec(coordinator_spec);coordinator_spec.loader.exec_module(coordinator)
+    request=dict(comment_id=uid(8),review_id=review_id)
+    approved=coordinator.Coordinator(recorder,registry).approve(request)
     assert approved['version']==1 and not approved['execution_authorized']
     assert fixture.project(REPO,draft['project_id'])['governing_version']==1
+    assert coordinator.Coordinator(recorder,registry).approve(request)==approved
+    assert registry.decision_review(approved['decision_receipt_sha256'])==review_id
+    attestation_path=path.with_name('onboarding_human_attestation.py')
+    attestation_spec=importlib.util.spec_from_file_location('human_attestation_fixture',attestation_path)
+    attestation=importlib.util.module_from_spec(attestation_spec);attestation_spec.loader.exec_module(attestation)
+    with fixture.projects.store.connection() as db:
+        events=fixture.reporting.events(db)
+    retained=next(dict(submission=r,receipt=receipt) for r,receipt in events if r['operation']=='decision.observe')
+    assert attestation.Verifier(registry.decision_review,verifier.verify)(retained)
+    comment['body']='modified after approval'
+    with pytest.raises(ValueError):attestation.Verifier(registry.decision_review,verifier.verify)(retained)
     with pytest.raises(ValueError):registry.read(uid(99))
 
 

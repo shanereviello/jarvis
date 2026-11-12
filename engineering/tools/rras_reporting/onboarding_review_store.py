@@ -28,6 +28,9 @@ class ReviewStore:
         db.execute('CREATE TABLE architecture_reviews (review_id TEXT PRIMARY KEY, payload TEXT NOT NULL, sha256 TEXT NOT NULL)')
         db.execute("CREATE TRIGGER architecture_reviews_no_update BEFORE UPDATE ON architecture_reviews BEGIN SELECT RAISE(ABORT,'immutable review'); END")
         db.execute("CREATE TRIGGER architecture_reviews_no_delete BEFORE DELETE ON architecture_reviews BEGIN SELECT RAISE(ABORT,'immutable review'); END")
+        db.execute('CREATE TABLE architecture_review_decisions (receipt TEXT PRIMARY KEY, review_id TEXT NOT NULL REFERENCES architecture_reviews(review_id))')
+        db.execute("CREATE TRIGGER architecture_review_decisions_no_update BEFORE UPDATE ON architecture_review_decisions BEGIN SELECT RAISE(ABORT,'immutable review binding'); END")
+        db.execute("CREATE TRIGGER architecture_review_decisions_no_delete BEFORE DELETE ON architecture_review_decisions BEGIN SELECT RAISE(ABORT,'immutable review binding'); END")
         db.commit()
 
     def prepare(self,origin,issue_id,version):
@@ -66,3 +69,19 @@ class ReviewStore:
         with self.connection() as db:row=db.execute('SELECT payload,sha256 FROM architecture_reviews WHERE review_id=?',(review_id,)).fetchone()
         if row is None or hashlib.sha256(row[0].encode('utf-8')).hexdigest()!=row[1]:raise ValueError('review unavailable or corrupt')
         return json.loads(row[0])
+
+    def bind_decision(self,receipt,review_id):
+        import re
+        if type(receipt) is not str or not re.fullmatch('[0-9a-f]{64}',receipt):raise ValueError('exact decision receipt required')
+        self.read(review_id)
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row=db.execute('SELECT review_id FROM architecture_review_decisions WHERE receipt=?',(receipt,)).fetchone()
+            if row is None:db.execute('INSERT INTO architecture_review_decisions VALUES(?,?)',(receipt,review_id))
+            elif row[0]!=review_id:raise ValueError('decision review binding differs')
+            db.commit()
+
+    def decision_review(self,receipt):
+        with self.connection() as db:row=db.execute('SELECT review_id FROM architecture_review_decisions WHERE receipt=?',(receipt,)).fetchone()
+        if row is None:raise ValueError('decision review binding unavailable')
+        return row[0]
