@@ -98,6 +98,37 @@ class Reporting:
         key = fields.get(request['operation'])
         return (request['operation'], body[key]) if key else None
 
+    def planning_project_binding(self, organization_id, linear_project_id, allowed_scopes):
+        """Internal global lookup; callers must enforce authenticated scope grants.
+
+        A foreign binding is refused without disclosing its identity or scope.
+        This helper is not exposed by the Unix API on its own.
+        """
+        for value in (organization_id,linear_project_id):
+            try:
+                if type(value) is not str or str(uuid.UUID(value)) != value: raise ValueError('UUID required')
+            except (ValueError,AttributeError):
+                raise ValueError('canonical Linear identity required') from None
+        if type(allowed_scopes) is not list or not allowed_scopes:
+            raise ValueError('explicit planning scopes required')
+        selected=[local('projects').scope(scope) for scope in allowed_scopes]
+        if len({(scope['kind'],scope['id']) for scope in selected}) != len(selected):
+            raise ValueError('duplicate planning scopes refused')
+        with self.store.connection() as db:
+            events=self.events(db)
+        latest={}
+        for request,receipt in events:
+            if request['operation']=='mapping.record':latest[self.entity(request)]=request
+        matches=[request for request in latest.values() if request['body']['kind']=='project'
+                 and request['body']['linear']['organization_id']==organization_id
+                 and request['body']['linear']['project_id']==linear_project_id]
+        if len(matches)>1:raise ValueError('planning binding unavailable')
+        if not matches:return None
+        match=matches[0]
+        if match['scope'] not in selected:raise ValueError('planning binding unavailable')
+        return dict(project_id=match['context']['project_id'],scope=match['scope'],
+                    team_id=match['body']['linear']['team_id'])
+
     def check_context(self, db, request):
         context = request['context']
         if context is None: return
@@ -124,7 +155,7 @@ class Reporting:
                    for r, rcpt in events):
             raise ValueError('exact retained project/work/architecture assignment required')
 
-    def check_entity(self, request, events):
+    def check_entity(self, request, events, db=None):
         entity = self.entity(request)
         previous = [(r, receipt) for r, receipt in events if entity is not None and self.entity(r) == entity]
         body = request['body']
@@ -161,6 +192,14 @@ class Reporting:
         elif previous and request['operation'] == 'checkpoint.report':
             raise ValueError('report ID already retained; corrections append a new attributed report')
         if request['operation'] == 'mapping.record':
+            if body['kind']=='project' and db is not None and db.execute('PRAGMA user_version').fetchone()[0]>=6:
+                linear=body['linear']
+                reserved=db.execute('SELECT team_id,project_id,scope_kind,scope_id FROM onboarding_reservations '
+                    'WHERE organization_id=? AND linear_project_id=?',
+                    (linear['organization_id'],linear['project_id'])).fetchone()
+                if reserved is not None and tuple(reserved)!=(linear['team_id'],request['context']['project_id'],
+                                                              request['scope']['kind'],request['scope']['id']):
+                    raise ValueError('planning binding unavailable')
             latest = {}
             for r, receipt in events:
                 if r['operation'] == 'mapping.record': latest[self.entity(r)] = r
@@ -200,7 +239,7 @@ class Reporting:
         principal = os.getuid() if peer_uid is None else -peer_uid
         with self.store.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0] not in (4,5): raise ValueError('explicit reporting upgrade required')
+            if db.execute('PRAGMA user_version').fetchone()[0] not in (4,5,6): raise ValueError('explicit reporting upgrade required')
             duplicate = db.execute('SELECT request,receipt FROM reporting_submissions WHERE principal=? AND operation=? AND client_key=?',
                                    (principal, request['operation'], request['client_event_key'])).fetchone()
             if duplicate:
@@ -208,7 +247,7 @@ class Reporting:
                 return dict(inserted=False, receipt=self.c.decode(duplicate[1]))
             events = self.events(db)
             if len(events) >= MAX_EVENTS: raise ValueError('reporting event capacity reached; retain pending delivery')
-            self.check_context(db, request); self.check_entity(request, events)
+            self.check_context(db, request); self.check_entity(request, events, db)
             if request['operation']=='artifact.record':
                 local('evidence').Evidence(self.store).verify_manifest(db,request['scope'],request['body'])
             stamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')

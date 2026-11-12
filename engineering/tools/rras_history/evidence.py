@@ -153,7 +153,7 @@ class Evidence:
         principal=os.getuid() if peer_uid is None else -peer_uid
         with self.store.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0]!=5:raise ValueError('explicit evidence upgrade required')
+            if db.execute('PRAGMA user_version').fetchone()[0] not in (5,6):raise ValueError('explicit evidence upgrade required')
             prior=db.execute('SELECT request_sha256,receipt FROM evidence_uploads WHERE principal=? AND client_key=?',
                 (principal,value['client_event_key'])).fetchone()
             if prior:
@@ -194,7 +194,7 @@ class Evidence:
         self.store.sync();return dict(inserted=True,receipt=receipt)
 
     def verify_manifest(self,db,selected,body):
-        if db.execute('PRAGMA user_version').fetchone()[0]!=5:raise ValueError('private evidence byte intake upgrade required')
+        if db.execute('PRAGMA user_version').fetchone()[0] not in (5,6):raise ValueError('private evidence byte intake upgrade required')
         digest=hashlib.sha256()
         for chunk in body['chunks']:
             row=db.execute('SELECT byte_length FROM evidence_chunks WHERE scope_kind=? AND scope_id=? AND chunk_sha256=?',
