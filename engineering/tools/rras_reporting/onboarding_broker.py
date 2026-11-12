@@ -16,18 +16,26 @@ def local(name):
 
 
 class Broker:
-    def __init__(self,grants,session_lookup,issue_read,store,*,issue_journal=None,issue_create=None):
+    def __init__(self,grants,session_lookup,issue_read,store,*,issue_journal=None,issue_create=None,review_prepare=None):
         if type(grants) is not dict or not grants or not callable(session_lookup) or not callable(issue_read):
             raise ValueError('protected planning grants and readers required')
         if (issue_journal is None)!=(issue_create is None) or (issue_create is not None and not callable(issue_create)):
             raise ValueError('paired protected issue creation required')
+        if review_prepare is not None and not callable(review_prepare):raise ValueError('protected review preparation required')
         self.grants,self.session_lookup,self.issue_read,self.store=grants,session_lookup,issue_read,store
         self.issue_journal,self.issue_create=issue_journal,issue_create
+        self.review_prepare=review_prepare
 
     def dispatch(self,peer_uid,message):
         if type(peer_uid) is not int or peer_uid not in self.grants or type(message) is not dict:
             raise ValueError('planning peer refused')
         operation=message.get('operation')
+        if operation=='review.prepare':
+            if self.review_prepare is None or set(message)!={'operation','dispatch_id','issue_id','version'}:
+                raise ValueError('protected review preparation unavailable')
+            d=local('onboarding_drafts');dispatch=d.identifier(message['dispatch_id']);issue=d.identifier(message['issue_id'])
+            origin=d.authorize(self.grants,lambda _:self.session_lookup(peer_uid,dispatch),peer_uid,None)
+            return self.review_prepare(dispatch,origin,issue,message['version'])
         fields={'operation','dispatch_id','proposal'}
         if operation=='draft.work':fields.add('issue_id')
         elif operation not in ('draft.project','draft.issue'):raise ValueError('unknown planning operation')

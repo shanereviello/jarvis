@@ -58,3 +58,14 @@ def test_optional_issue_creation_uses_the_bound_dispatch(tmp_path,setup_work):
         issue_journal=journal,issue_create=create)
     result=broker.dispatch(1234,dict(operation='draft.issue',dispatch_id=uid(8),proposal=detail))
     assert result['state']=='complete' and calls==[(uid(8),origin,'PLAN-01')]
+
+
+def test_review_preparation_is_optional_and_dispatch_bound(setup_work):
+    writer,fixture,origin,issue,detail,draft,access=setup_work
+    request=dict(operation='review.prepare',dispatch_id=uid(8),issue_id=issue['id'],version=1)
+    broker=module.Broker(writer.grants,lambda *_:origin,lambda *_:issue,writer.store)
+    with pytest.raises(ValueError):broker.dispatch(1234,request)
+    calls=[];broker.review_prepare=lambda dispatch,selected,issue_id,version:calls.append((dispatch,selected,issue_id,version)) or {'execution_authorized':False}
+    assert not broker.dispatch(1234,request)['execution_authorized']
+    assert calls==[(uid(8),origin,issue['id'],1)]
+    with pytest.raises(ValueError):broker.dispatch(1234,dict(request,approval=True))

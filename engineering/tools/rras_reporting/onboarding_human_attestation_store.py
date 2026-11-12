@@ -90,7 +90,7 @@ class Store:
             if old is None:db.execute('INSERT INTO human_authorship_attestations VALUES(?,?,?,?,?,?,?)',row)
             elif old!=row[1:6]:raise ValueError('conflicting authorship attestation')
             db.commit()
-        return {'attested':True,'proof_sha256':proof,'execution_authorized':False}
+        return {'attested':True,'proof_sha256':proof,'review_id':pending['review_id'],'comment_id':pending['comment_id'],'execution_authorized':False}
 
     def verify_authorship(self,comment,review):
         proof=digest(comment,review)

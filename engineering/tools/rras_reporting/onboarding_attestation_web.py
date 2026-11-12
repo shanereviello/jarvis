@@ -29,7 +29,7 @@ byId("load").addEventListener("click",async()=>{challenge=null;byId("details").h
  challenge=value.challenge;byId("record").textContent="Project: "+value.linear_project_id+"\\nIssue: "+value.issue_id+"\\nArchitecture version: "+value.version+"\\nSHA-256: "+value.markdown_sha256+"\\nLinear approval:\\n"+value.source_text;byId("details").hidden=false;status.textContent=""}
  catch(_){status.textContent="Decision unavailable. Check the IDs and try again."}});
 byId("confirm").addEventListener("click",async()=>{if(!challenge)return;const selected=challenge;challenge=null;byId("confirm").disabled=true;
- try{await request("/api/attestation/confirm",{challenge:selected,statement:"I confirm I personally authored this exact Linear approval."});byId("details").hidden=true;status.textContent="Authorship confirmed. The architecture decision can now be recorded."}
+ try{const result=await request("/api/attestation/confirm",{challenge:selected,statement:"I confirm I personally authored this exact Linear approval."});byId("details").hidden=true;status.textContent=result.decision_recorded===true?"Authorship confirmed and architecture decision recorded.":"Authorship confirmed. The architecture decision can now be recorded."}
  catch(_){status.textContent="Confirmation unavailable. Reload the decision before trying again."}finally{byId("confirm").disabled=false}});'''
 
 

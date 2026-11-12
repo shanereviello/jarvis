@@ -21,6 +21,12 @@ def test_client_locks_dispatch_and_does_not_accept_actor_or_designation(tmp_path
     with pytest.raises(ValidationError):client.call('engineering_draft_project',{'proposal':proposal,'dispatch_id':dispatch})
     with pytest.raises(ValueError):client.call('architecture_designate',{})
     with pytest.raises(ValueError):client.call('engineering_draft_issue',{})
+    with pytest.raises(ValueError):client.call('engineering_prepare_review',{})
+    review=m.Client(tmp_path/'socket',1000,dispatch,allow_review=True);review.unix.call=client.unix.call
+    issue='00000000-0000-4000-8000-000000000002'
+    review.call('engineering_prepare_review',{'issue_id':issue,'version':1})
+    assert calls[-1][1]==dict(operation='review.prepare',dispatch_id=dispatch,issue_id=issue,version=1)
+    with pytest.raises(ValidationError):review.call('engineering_prepare_review',{'issue_id':issue,'version':0})
 
 
 def test_launch_only_enables_the_two_planning_tools(tmp_path):
@@ -35,6 +41,8 @@ def test_launch_only_enables_the_two_planning_tools(tmp_path):
     with pytest.raises(ValueError,match='unexpected'):launch.verify_inventory(Client(),'thread')
     enabled=m.Launch(tmp_path/'socket',1000,'/usr/bin/python3',allow_create=True).parameters(dispatch)
     assert 'engineering_draft_issue' in enabled['config']['mcp_servers']['engineering_planning']['enabled_tools']
+    reviewed=m.Launch(tmp_path/'socket',1000,'/usr/bin/python3',allow_review=True).parameters(dispatch)
+    assert 'engineering_prepare_review' in reviewed['config']['mcp_servers']['engineering_planning']['enabled_tools']
 
 
 def test_actual_mcp_stdio_exposes_only_planning_tools():
@@ -50,4 +58,20 @@ def test_actual_mcp_stdio_exposes_only_planning_tools():
                 await session.initialize()
                 result=await session.list_tools()
                 assert {tool.name for tool in result.tools}=={'engineering_draft_project','engineering_draft_work'}
+    anyio.run(run)
+
+
+def test_actual_mcp_stdio_exposes_review_only_when_enabled():
+    import anyio
+    from mcp import ClientSession,StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    dispatch='00000000-0000-4000-8000-000000000001'
+    params=StdioServerParameters(command=sys.executable,args=['-I',str(path),'--socket','/tmp/rras-planning-test.sock',
+        '--service-uid',str(os.getuid()),'--dispatch',dispatch,'--allow-review'])
+    async def run():
+        async with stdio_client(params) as (read,write):
+            async with ClientSession(read,write) as session:
+                await session.initialize()
+                result=await session.list_tools()
+                assert {tool.name for tool in result.tools}=={'engineering_draft_project','engineering_draft_work','engineering_prepare_review'}
     anyio.run(run)

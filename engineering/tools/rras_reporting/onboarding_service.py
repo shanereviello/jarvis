@@ -26,9 +26,11 @@ def initialize_empty(db):
 def assemble(config,connection,reader_token,bridge_token,*,creator_token=None,reader=None,history_rpc=None,client_factory=None,clock=time.time):
     required={'runtime_policy','team_id','scopes','history_socket','history_uid','broker_socket','native_socket','native_peer_uid',
               'mcp_python','lock_path','reader_origin_url','reader_issue_url','listen_address','listen_port'}
-    if type(config) is not dict or set(config) not in (required,required|{'issue_creator_url'}):
+    if type(config) is not dict or not required<=set(config) or set(config)-required-{'issue_creator_url','review_socket','review_peer_uid'}:
         raise ValueError('exact protected planning service configuration required')
+    if ('review_socket' in config)!=('review_peer_uid' in config):raise ValueError('paired protected review endpoint required')
     creation_enabled='issue_creator_url' in config
+    review_enabled='review_socket' in config
     if creation_enabled!=(creator_token is not None):raise ValueError('explicit issue creator and credential required')
     d=local('onboarding_drafts');d.identifier(config['team_id'])
     policy=config['runtime_policy']
@@ -53,7 +55,8 @@ def assemble(config,connection,reader_token,bridge_token,*,creator_token=None,re
     context=local('onboarding_runtime_context').Context(connection,reader,org,app,peer)
     grants={peer:dict(agent='codex',organization_id=org,team_id=config['team_id'],scopes=scopes)}
     registry=local('onboarding_sessions').Sessions(connection,grants,context.native,context.active,clock=clock)
-    launch=local('onboarding_mcp').Launch(config['broker_socket'],__import__('os').getuid(),config['mcp_python'],allow_create=creation_enabled)
+    if review_enabled:u.uid(config['review_peer_uid']);u.endpoint(config['review_socket'])
+    launch=local('onboarding_mcp').Launch(config['broker_socket'],__import__('os').getuid(),config['mcp_python'],allow_create=creation_enabled,allow_review=review_enabled)
     if client_factory is None:
         client_factory=lambda:local('codex_runtime').SocketAppServer(config['native_socket'],config['native_peer_uid'],timeout=30)
     runtime=local('onboarding_runtime').Runtime(connection,policy,context.verify_event,registry,launch,client_factory,clock,config['lock_path'])
@@ -62,7 +65,9 @@ def assemble(config,connection,reader_token,bridge_token,*,creator_token=None,re
         creator=local('planning_issue_create_http').Creator(config['issue_creator_url'],app,creator_token) if creation_enabled else None
         broker=local('onboarding_broker').Broker(grants,registry.lookup,reader.issue,adapter,
             issue_journal=journal if creator else None,
-            issue_create=(lambda dispatch,selected,plan,proposal:creator.create(dispatch,plan,proposal)) if creator else None)
+            issue_create=(lambda dispatch,selected,plan,proposal:creator.create(dispatch,plan,proposal)) if creator else None,
+            review_prepare=(lambda dispatch,selected,issue,version:u.call(config['review_socket'],config['review_peer_uid'],
+                dict(operation='review.prepare',dispatch_id=dispatch,issue_id=issue,version=version))) if review_enabled else None)
         http=local('onboarding_runtime_http').server(runtime,bridge_token,
             (config['listen_address'],config['listen_port']),verify_stop=context.verify_stop)
         return Service(runtime,broker,http,config['broker_socket'])
