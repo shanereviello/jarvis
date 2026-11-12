@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sqlite3
 import stat
+import time
 from jsonschema import Draft202012Validator, ValidationError
 
 
@@ -52,6 +53,18 @@ class Launch:
                 'then link independently verified existing Linear issues with engineering_draft_work. '
                 'The tools do not approve the architecture or authorize implementation. '
                 'Do not modify a production repository or claim approval from an agent message.'))
+
+    def verify_inventory(self,client,thread):
+        for attempt in range(10):
+            result=client.call('mcpServerStatus/list',dict(threadId=thread,detail='toolsAndAuthOnly',limit=100))
+            if type(result) is not dict or result.get('nextCursor') is not None or type(result.get('data')) is not list:
+                raise ValueError('bounded complete planning MCP inventory required')
+            active=[item for item in result['data'] if item.get('runtimeStatus')!='disabled']
+            if any(item.get('name')!='engineering_planning' or set(item.get('tools',{}))-set(SCHEMAS) for item in active):
+                raise ValueError('unexpected planning MCP inventory')
+            if len(active)==1 and set(active[0].get('tools',{}))==set(SCHEMAS):return True
+            if attempt<9:time.sleep(.2)
+        raise ValueError('exact planning MCP inventory unavailable')
 
 
 class Client:

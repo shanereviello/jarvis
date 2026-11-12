@@ -115,6 +115,8 @@ class Runtime:
                 if opened['thread'].get('cwd',self.policy['cwd'])!=self.policy['cwd']:raise ValueError('planning directory differs')
                 with self.connection() as db:
                     db.execute('UPDATE planning_turns SET thread=? WHERE dispatch=?',(thread,dispatch));db.commit()
+                if self.launch.verify_inventory(client,thread) is not True:
+                    raise ValueError('exact planning tools required')
                 response=client.call('turn/start',dict(threadId=thread,input=[dict(type='text',text=event['message'])]))
                 turn=d.text(response['turn']['id'],256,single_line=True)
                 with self.connection() as db:

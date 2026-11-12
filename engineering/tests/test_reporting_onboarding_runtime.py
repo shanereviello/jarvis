@@ -26,6 +26,7 @@ def runtime(tmp_path):
         def revoke(self,dispatch):self.active.discard(dispatch)
     class Launch:
         def parameters(self,dispatch):return {'config':{'mcp_servers':{'engineering_planning':{'dispatch':dispatch}}}}
+        def verify_inventory(self,client,thread):return True
     class Client:
         def __init__(self):self.calls=[];self.fail=False
         def call(self,method,arguments):
@@ -114,3 +115,10 @@ def test_new_owner_recovers_running_turn_as_uncertain(runtime,tmp_path):
         assert reopened.dispatch(event)['state']=='uncertain'
         assert len(client.calls)==2 and not registry.active
     finally:reopened.close()
+
+
+def test_unexpected_tool_inventory_refuses_before_model_turn(runtime):
+    value,event,client,registry=runtime
+    value.launch.verify_inventory=lambda *_:False
+    with pytest.raises(ValueError,match='uncertain'):value.dispatch(event)
+    assert [name for name,_ in client.calls]==['thread/start']

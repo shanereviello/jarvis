@@ -29,6 +29,9 @@ def test_launch_only_enables_the_two_planning_tools(tmp_path):
     tool=config['config']['mcp_servers']['engineering_planning']
     assert set(tool['enabled_tools'])=={'engineering_draft_project','engineering_draft_work'}
     assert tool['args'][-1]==dispatch and tool['required'] is True
+    class Client:
+        def call(self,*_):return {'data':[{'name':'unexpected','tools':{}}]}
+    with pytest.raises(ValueError,match='unexpected'):launch.verify_inventory(Client(),'thread')
 
 
 def test_actual_mcp_stdio_exposes_only_planning_tools():
