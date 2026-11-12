@@ -22,3 +22,14 @@ function admitPlanning(input, policy, now = Date.now()) {
     Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])) : value;
   return {...admitted,envelope,canonical:JSON.stringify(canonical(envelope))};
 }
+
+function admitCodexRoute(input, policy, now = Date.now()) {
+  const session=input?.body?.agentSession || {};
+  const nested=session.issue?.id || null,flat=session.issueId || null;
+  if (nested && flat && nested!==flat) throw new Error('conflicting issue');
+  const issue=nested || flat;
+  if (typeof issue!=='string' || !policy || !policy.issues || typeof policy.issues!=='object')
+    throw new Error('exact issue and configured policy required');
+  return Object.hasOwn(policy.issues,issue) ?
+    {route:'execution',...admit(input,policy,now)} : {route:'planning',...admitPlanning(input,policy,now)};
+}

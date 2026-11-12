@@ -22,6 +22,10 @@ assert.equal(Object.hasOwn(out.envelope,'binding'),false);
 assert.throws(()=>admit(input,policy,1000));
 assert.throws(()=>admitPlanning(input,{...policy,planning_enabled:false},1000));
 assert.throws(()=>admitPlanning(input,{...policy,issues:{[id(6)]:{}}},1000));
+assert.equal(admitCodexRoute(input,policy,1000).route,'planning');
+const mapped=admitCodexRoute(input,{...policy,issues:{[id(6)]:{plan_id:'EXISTING'}}},1000);
+assert.equal(mapped.route,'execution');assert.equal(mapped.envelope.contract,'codex-admitted-event.v1');
+assert.equal(mapped.envelope.binding.plan_id,'EXISTING');
 const bad=structuredClone(input);bad.headers['x-rras-codex-verified']='no';
 assert.throws(()=>admitPlanning(bad,policy,1000));
 '''
