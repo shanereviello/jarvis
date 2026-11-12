@@ -1,5 +1,24 @@
 // Input is supplied by the verified ingress and the fixed native Linear read,
 // never by model-authored text. This verifier grants planning only.
+function planningOriginQuery(envelope, policy) {
+  const uuid = x => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x);
+  if (!envelope || !policy || !uuid(envelope.session_id) || !uuid(policy.app_user_id)) throw new Error('exact native session required');
+  const actor=envelope.source_actor_id || envelope.responsible_human_id || policy.app_user_id;
+  if (!uuid(actor)) throw new Error('exact native actor required');
+  return {query:'query PlanningNativeOrigin($id:String!,$actor:String!){viewer{id organization{id}} '+
+    'sourceActor:user(id:$actor){id app} agentSession(id:$id){id sourceMetadata appUser{id} '+
+    'issue{id team{id} project{id url}} creator{id app} '+
+    'comment{id isArtificialAgentSessionRoot agentSession{id} user{id app}} sourceComment{id user{id app}}}}',
+    variables:{id:envelope.session_id,actor}};
+}
+
+function planningIssueQuery(issueId) {
+  if (typeof issueId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(issueId))
+    throw new Error('exact native issue required');
+  return {query:'query PlanningNativeIssue($id:String!){viewer{id organization{id}} issue(id:$id){id identifier url team{id} project{id}}}',
+    variables:{id:issueId}};
+}
+
 function verifyPlanningOrigin(envelope, reply, policy, resolution) {
   const deny = () => ({permitted:false, human_approval_inferred:false});
   const uuid = x => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x);

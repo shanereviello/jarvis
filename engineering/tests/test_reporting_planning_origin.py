@@ -19,6 +19,10 @@ const envelope={agent:'codex',action:'prompted',session_id:id(5),issue_id:id(6),
 const reply={statusCode:200,body:{data:{viewer:{id:id(3),organization:{id:id(1)}},sourceActor:{id:id(7),app:false},
  agentSession:{id:id(5),appUser:{id:id(3)},issue:{id:id(6),team:{id:id(4)},project:{id:id(8),url:'https://linear.app/fixture/project/test'}}}}}};
 const resolution={organization_id:id(1),project_id:id(8),scope:{kind:'repository',id:'jarvis'}};
+const originQuery=planningOriginQuery(envelope,{app_user_id:id(3)});
+assert.equal(originQuery.variables.id,id(5));assert.equal(originQuery.variables.actor,id(7));
+assert.equal(planningIssueQuery(id(10)).variables.id,id(10));
+assert.throws(()=>planningIssueQuery('not a UUID'));
 let accepted=verifyPlanningOrigin(envelope,reply,policy,resolution);
 assert.equal(accepted.permitted,true);assert.equal(accepted.human_approval_inferred,false);
 assert.equal(accepted.origin.project_identifier,id(8));
