@@ -1,0 +1,34 @@
+import asyncio
+import importlib.util
+from pathlib import Path
+import httpx
+from test_history_web import key,access,headers,token,ORIGIN
+from test_reporting_onboarding_drafts import setup_draft,store,projects,uid
+from test_reporting_human_attestation_store import fixture,STATEMENT
+
+path=Path(__file__).resolve().parents[1]/'tools/rras_reporting/onboarding_attestation_web.py'
+spec=importlib.util.spec_from_file_location('attestation_web_fixture',path)
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+
+
+def test_authenticated_attestation_browser_flow_and_origin_refusal(tmp_path,setup_draft,key):
+    service,raw,review,source,tick=fixture(tmp_path,setup_draft,key)
+    app=module.create_app(service,access(key))
+    signed={k.decode():v.decode() for k,v in headers(token(key))}
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url=ORIGIN) as client:
+            assert (await client.get('/')).status_code==403
+            page=await client.get('/',headers=signed)
+            assert page.status_code==200 and "frame-ancestors 'none'" in page.headers['content-security-policy']
+            assert (await client.post('/api/attestation/begin',headers=signed,json={'review_id':uid(10),'comment_id':uid(8)})).status_code==403
+            cross=dict(signed,origin='https://wrong.test')
+            assert (await client.post('/api/attestation/begin',headers=cross,json={'review_id':uid(10),'comment_id':uid(8)})).status_code==403
+            good=dict(signed,origin=ORIGIN)
+            begin=await client.post('/api/attestation/begin',headers=good,json={'review_id':uid(10),'comment_id':uid(8)})
+            assert begin.status_code==200 and begin.json()['source_text']==source['comment']['body']
+            done=await client.post('/api/attestation/confirm',headers=good,json={'challenge':begin.json()['challenge'],'statement':STATEMENT})
+            assert done.status_code==200 and done.json()['attested'] and not done.json()['execution_authorized']
+            assert service.verify_authorship(source['comment'],review)
+            again=await client.post('/api/attestation/confirm',headers=good,json={'challenge':begin.json()['challenge'],'statement':STATEMENT})
+            assert again.status_code==403
+    asyncio.run(run())
