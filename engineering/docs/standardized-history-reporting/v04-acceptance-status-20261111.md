@@ -42,3 +42,11 @@ the session context and does not prove every message belongs to that work. The
 user's desired Linear-first backlog → draft architecture → history-project
 onboarding needs an explicit design and acceptance before being represented as
 an existing capability.
+
+After a server reboot, the history dashboard failed during startup while
+Docker was still starting. The history service remained available. The operator
+restarted the dashboard and confirmed it loaded, and unauthenticated origin
+access was denied. A systemd override now orders the dashboard after Docker and
+retries failures after five seconds; the running process and security settings
+were preserved. The boot-order explanation is an inference from the observed
+timing, and the correction has not yet been verified by a reboot.
