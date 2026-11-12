@@ -28,12 +28,13 @@ def runtime(tmp_path):
         def parameters(self,dispatch):return {'config':{'mcp_servers':{'engineering_planning':{'dispatch':dispatch}}}}
         def verify_inventory(self,client,thread):return True
     class Client:
-        def __init__(self):self.calls=[];self.fail=False
+        def __init__(self):self.calls=[];self.fail=False;self.pending=[]
         def call(self,method,arguments):
             self.calls.append((method,arguments))
             if self.fail:raise OSError('fixture failure')
             if method in ('thread/start','thread/resume'):return {'thread':{'id':'thread-fixture','cwd':str(tmp_path)}}
             return {'turn':{'id':'turn-fixture'}}
+        def events(self):out,self.pending=self.pending,[];return out
     client=Client();registry=Registry()
     policy=dict(organization_id=uid(1),app_user_id=uid(2),peer_uid=1000,cwd=str(tmp_path),
         planning_authorized=True,authority_reference='fixture only')
@@ -122,3 +123,16 @@ def test_unexpected_tool_inventory_refuses_before_model_turn(runtime):
     value.launch.verify_inventory=lambda *_:False
     with pytest.raises(ValueError,match='uncertain'):value.dispatch(event)
     assert [name for name,_ in client.calls]==['thread/start']
+
+
+def test_native_collector_ignores_reasoning_and_other_threads(runtime):
+    value,event,client,registry=runtime;value.dispatch(event)
+    def item(thread,channel,text):return dict(method='item/completed',params=dict(threadId=thread,turnId='turn-fixture',
+        item=dict(type='agentMessage',channel=channel,text=text)))
+    client.pending=[item('other','final','other content'),item('thread-fixture','analysis','private reasoning'),
+        item('thread-fixture','final','Draft complete'),dict(method='turn/completed',params=dict(threadId='thread-fixture',
+        turn=dict(id='turn-fixture',status='completed')))]
+    assert value.collect(event['dispatch_id'])['state']=='completed'
+    with value.connection() as db:
+        assert db.execute('SELECT result FROM planning_turns').fetchone()[0]=='Draft complete'
+    assert not registry.active

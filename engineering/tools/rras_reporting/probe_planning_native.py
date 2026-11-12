@@ -18,6 +18,12 @@ def local(name):
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 
 
+def history(name):
+    path=Path(__file__).resolve().parent.parent/'rras_history'/(name+'.py')
+    spec=importlib.util.spec_from_file_location('planning_native_history_'+name,path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
 def inside():
     if not Path('/.dockerenv').exists():raise ValueError('isolated container required')
     devices={line.split(':',1)[0].strip() for line in Path('/proc/self/net/dev').read_text().splitlines() if ':' in line}
@@ -25,18 +31,37 @@ def inside():
     root=Path('/tmp/planning-native');root.mkdir(mode=0o700)
     workspace=root/'workspace';workspace.mkdir(mode=0o700)
     home=root/'home';home.mkdir(mode=0o700)
-    dispatch='00000000-0000-4000-8000-000000000001';observed=[]
-    class Broker:
-        grants={os.getuid():{}}
-        def dispatch(self,peer,message):
-            if peer!=os.getuid() or message.get('operation')!='draft.project' or message.get('dispatch_id')!=dispatch:
-                raise ValueError('fixture request refused')
-            observed.append(message)
-            return dict(designation='draft',execution_authorized=False)
+    uid=lambda n:f'00000000-0000-4000-8000-{n:012d}'
+    dispatch=uid(1);scope=dict(kind='repository',id='jarvis');peer=os.getuid()
+    storage=root/'history';storage.mkdir(mode=0o700)
+    store=history('store').Store(storage,create=True)
+    for name,cls in [('projects','Projects'),('scopes','Scopes'),('reporting','Reporting'),('evidence','Evidence'),
+                     ('onboarding_reservations','Reservations')]:
+        migration=getattr(history(name),cls)(store);migration.migrate(migration.migration_plan()['expected_sha256'])
+    policy=dict(contract='engineering-history-access.v3',principals=[dict(uid=peer,private_read=['jarvis'],write=[],
+        category_read=[],category_write=[],planning_agent='codex',planning_organization_id=uid(2),planning_teams=[uid(3)],
+        planning_repositories=['jarvis'],planning_categories=[])])
+    access=history('access').Access(store,policy);rpc=lambda message:access.dispatch(peer,message)
+    adapter=local('onboarding_history').HistoryAdapter(rpc,
+        lambda org,project:rpc(dict(method='planning_binding',organization_id=org,linear_project_id=project)),
+        lambda org,linear,team,project,selected:rpc(dict(method='planning_reserve',organization_id=org,
+            linear_project_id=linear,team_id=team,project_id=project,scope=selected)),[scope])
+    origin=dict(organization_id=uid(2),team_id=uid(3),project_id=uid(4),project_identifier='P-ENG-1',
+        project_url='https://linear.app/fixture/project/example',scope=scope,source_session=uid(5),source_actor=uid(6),agent='codex')
+    grants={peer:dict(agent='codex',organization_id=uid(2),team_id=uid(3),scopes=[scope])}
+    def lookup(caller,selected):
+        if caller!=peer or selected!=dispatch:raise ValueError('fixture session refused')
+        return origin
+    issue=dict(organization_id=uid(2),team_id=uid(3),project_id=uid(4),id=uid(7),identifier='ENG-1',
+               url='https://linear.app/fixture/issue/ENG-1')
+    def issue_read(selected,issue_id):
+        if selected!=origin or issue_id!=issue['id']:raise ValueError('fixture issue refused')
+        return issue
+    broker=local('onboarding_broker').Broker(grants,lookup,issue_read,adapter)
     stop=threading.Event();transport=local('onboarding_broker_unix');client=None
-    with transport.server(root/'broker.sock',Broker()) as broker:
+    with transport.server(root/'broker.sock',broker) as server:
         def serve():
-            while not stop.is_set():broker.serve_once()
+            while not stop.is_set():server.serve_once()
         worker=threading.Thread(target=serve);worker.start()
         try:
             runtime=local('codex_runtime')
@@ -50,9 +75,22 @@ def inside():
                 out_of_scope='Fixture',markdown='# PLAN-01',plan_ids=['PLAN-01'])
             result=client.call('mcpServer/tool/call',dict(threadId=thread,server='engineering_planning',
                 tool='engineering_draft_project',arguments=dict(proposal=proposal)))
-            if result.get('isError') or not observed:raise ValueError('native planning MCP call refused')
+            if result.get('isError'):raise ValueError('native planning MCP call refused')
+            received=json.loads(result['content'][0]['text'])
+            project=adapter.project(scope,received['project_id'])
+            if received.get('execution_authorized') is not False or project['governing_version'] is not None:
+                raise ValueError('draft or authority differs')
+            work=dict(plan_id='PLAN-01',title='Fixture',objective='Verify',rationale='Fixture',allowed_paths=['engineering'],
+                acceptance_criteria=[dict(id='AC-01',description='Verify')])
+            result=client.call('mcpServer/tool/call',dict(threadId=thread,server='engineering_planning',
+                tool='engineering_draft_work',arguments=dict(issue_id=issue['id'],proposal=work)))
+            if result.get('isError'):raise ValueError('native planning work call refused')
+            mapped=json.loads(result['content'][0]['text'])
+            if mapped.get('execution_authorized') is not False or adapter.issue_binding(origin,issue['id'])['work_id']!=mapped['work_id']:
+                raise ValueError('draft work mapping differs')
             print(json.dumps(dict(actual_native_app_server=True,planning_mcp_call=True,readonly_sandbox=True,
-                network_isolated=True,models_started=0,turn_start_calls=0,real_credentials=False)))
+                retained_fixture_draft=True,retained_fixture_work_mapping=True,governing_architecture=False,network_isolated=True,
+                models_started=0,turn_start_calls=0,real_credentials=False)))
         finally:
             if client is not None:client.close()
             stop.set();worker.join(5)

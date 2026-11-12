@@ -60,7 +60,7 @@ class Runtime:
             os.close(fd);self.lock_fd=None;raise
         self.connection,self.policy,self.verify_event,self.registry=connection,dict(policy),verify_event,registry
         self.launch,self.client_factory,self.clock=launch,client_factory,clock
-        self.clients={};self.lock=threading.Lock()
+        self.clients={};self.outputs={};self.lock=threading.Lock()
         try:self.recover_after_exclusive_start()
         except BaseException:
             os.close(fd);self.lock_fd=None;raise
@@ -143,6 +143,42 @@ class Runtime:
             self.registry.revoke(dispatch)
             client=self.clients.pop(dispatch,None)
             if callable(getattr(client,'close',None)):client.close()
+            self.outputs.pop(dispatch,None)
+
+    def collect(self,dispatch):
+        """Consume native activity, retaining only bounded visible output."""
+        local('onboarding_drafts').identifier(dispatch)
+        if self.lock_fd is None:raise ValueError('exclusive planning lock required')
+        with self.lock,self.connection() as db:
+            row=db.execute('SELECT state,thread,turn FROM planning_turns WHERE dispatch=?',(dispatch,)).fetchone()
+            client=self.clients.get(dispatch)
+            if row is None or row[0] not in ('running','interrupt_requested') or client is None:
+                raise ValueError('active planning stream required')
+            try:events=client.events()
+            except Exception:
+                db.execute("UPDATE planning_turns SET state='uncertain' WHERE dispatch=?",(dispatch,));db.commit()
+                self.registry.revoke(dispatch)
+                raise ValueError('planning stream uncertain; reconcile') from None
+        terminal=None;runtime=local('codex_runtime')
+        for event in events:
+            if type(event) is not dict or type(event.get('params')) is not dict:continue
+            params=event['params']
+            if params.get('threadId')!=row[1]:continue
+            if event.get('method')=='item/completed' and params.get('turnId')==row[2] and runtime.visible_message(params.get('item')):
+                message=params['item'].get('text')
+                if type(message) is str and len(message.encode('utf-8'))<=65536:
+                    path=Path(__file__).resolve().parent.parent/'rras_history'/'redaction.py'
+                    spec=importlib.util.spec_from_file_location('planning_runtime_redaction',path)
+                    redaction=importlib.util.module_from_spec(spec);spec.loader.exec_module(redaction)
+                    self.outputs[dispatch]=redaction.redact(message.encode('utf-8'))[0].decode('utf-8')
+            if event.get('method')=='turn/completed' and type(params.get('turn')) is dict:
+                native=params['turn']
+                if native.get('id')==row[2] and native.get('status') in ('completed','failed','interrupted'):
+                    terminal=native['status']
+        if terminal is not None:
+            self.complete(dispatch,row[1],row[2],terminal,self.outputs.get(dispatch))
+            return dict(dispatch=dispatch,state=terminal)
+        return dict(dispatch=dispatch,state=row[0])
 
     def recover_after_exclusive_start(self):
         """Retain ambiguous previous work after acquiring the service lock."""
