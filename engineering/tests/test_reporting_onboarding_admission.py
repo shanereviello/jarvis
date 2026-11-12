@@ -25,12 +25,13 @@ def inputs(tmp_path,policy):
 
 def test_candidate_requires_verified_exact_pins_and_preserves_existing_authority(tmp_path,policy):
     current,request=inputs(tmp_path,policy);original=copy.deepcopy(current);seen=[]
-    result=load('onboarding_admission').candidate(current,request,lambda value:seen.append(value) or True)
+    result=load('onboarding_admission').candidate(current,request,lambda value:seen.append(value) or True,lambda _:True)
     assert current==original and not result['policy_installed'] and not result['execution_authority_changed']
     assert result['policy']['execution_authorized']==current['execution_authorized']
     assert result['policy']['issues'][request['issue_id']]['architecture_sha256']==request['architecture_sha256']
     assert seen==[request]
-    with pytest.raises(ValueError):load('onboarding_admission').candidate(current,request,lambda _:False)
+    with pytest.raises(ValueError):load('onboarding_admission').candidate(current,request,lambda _:False,lambda _:True)
+    with pytest.raises(ValueError,match='issue execution authority'):load('onboarding_admission').candidate(current,request,lambda _:True,lambda _:False)
 
 
 @pytest.mark.parametrize('change',['scope','identity','digest','workspace','socket'])
@@ -41,4 +42,4 @@ def test_candidate_refuses_unverified_or_cross_workspace_admission(tmp_path,poli
     elif change=='digest':request['decision_receipt_sha256']='not-a-digest'
     elif change=='workspace':request['workspace']=current['workspaces'][uid(3)]
     else:request['native_socket']=current['native_sockets'][uid(3)]
-    with pytest.raises(ValueError):load('onboarding_admission').candidate(current,request,lambda _:True)
+    with pytest.raises(ValueError):load('onboarding_admission').candidate(current,request,lambda _:True,lambda _:True)

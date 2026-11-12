@@ -15,10 +15,10 @@ def local(name):
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 
 
-def candidate(current,request,verify):
+def candidate(current,request,verify,verify_authority):
     runtime=local('codex_runtime');d=local('onboarding_drafts')
     policy=runtime.policy(current)
-    if policy['contract']!='codex-runtime-policy.v2' or not callable(verify):
+    if policy['contract']!='codex-runtime-policy.v2' or not callable(verify) or not callable(verify_authority):
         raise ValueError('protected isolated-workspace policy required')
     fields={'issue_id','organization_id','linear_project_id','team_id','scope','project_id','work_id','plan_id',
             'work_revision_sha256','assignment_sha256','architecture_version','architecture_sha256',
@@ -45,6 +45,10 @@ def candidate(current,request,verify):
     # decision, governing document bytes, current work and assignment receipts,
     # and checked-out repository baseline with this exact candidate.
     if verify(copy.deepcopy(value)) is not True:raise ValueError('execution evidence not verified')
+    # Existing global runtime authority may cover only prior issues. An
+    # approved architecture or a previously enabled runtime does not itself
+    # authorize paid execution for this new issue.
+    if verify_authority(copy.deepcopy(value)) is not True:raise ValueError('issue execution authority not verified')
     pin={key:value[key] for key in ('project_id','work_id','plan_id','work_revision_sha256','architecture_version','architecture_sha256')}
     policy['issues'][value['issue_id']]=pin
     policy['workspaces'][value['issue_id']]=value['workspace']
