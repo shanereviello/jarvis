@@ -8,7 +8,7 @@ project. Earlier acceptance snapshots remain retained.
 | Scenario | Current evidence and remaining boundary |
 | --- | --- |
 | Project, architecture and work mapping | This project has retained v0.4 architecture and eight explicit Linear/work mappings. General creation of a history project when an agent drafts architecture remains to be designed and demonstrated. |
-| Separate agents; direct mention and delegation | Separate Jarvis and Codex applications and routes exist. Scoped live Codex mention, delegation, follow-up, cancellation, and response were demonstrated; general Codex execution is currently disabled outside explicitly prepared tests. |
+| Separate agents; direct mention and delegation | Separate Jarvis and Codex applications and routes exist. Scoped live Codex mention, delegation, follow-up, cancellation, and response were demonstrated under the earlier runtime. Ongoing paid execution is now authorized for the eight mapped issues on the new runtime; its live issue-specific route remains to be demonstrated. |
 | Credential and ingress separation | Separate actors, scoped routing and negative signature/authorization tests exist. Fixture coverage does not establish every possible adversarial production path. |
 | Direct architecture decision | Exact v0.4 approval and architecture are retained. A disposable history fixture verifies that an imported Linear decision retains its source, is idempotent, and does not designate a draft; designation is a separate project operation. A new operator-to-Codex decision and designation through the live Linear route has not been demonstrated end to end. |
 | Hermes-specific outage | A separately authorized read-only Codex request completed while Hermes was stopped, with shared infrastructure running. This did not test direct architecture decision recording during the outage. |
@@ -23,13 +23,14 @@ project. Earlier acceptance snapshots remain retained.
 | Reference interface and Jarvis retrieval | The authenticated dashboard's existing project/reporting and private evidence preview/download paths passed operator checks. A reviewed structured-field snapshot was published and read through the actual Hermes MCP; this does not imply automatic publication of every future record. |
 | Closeout | The detailed as-built, final work dispositions, merged source/baseline and complete acceptance evidence still need reconciliation. Source and production releases must be compared explicitly; the feature branch contains post-baseline commits. |
 
-The issue-specific v2 runtime was installed with execution disabled. The
-runtime is active, eight issue-specific sockets are listening, and the cutover
-verified unauthenticated denial. The cutover started no model. Its previous
-policy and journal were backed up privately, and the migration receipt is
-retained. This confirms the disabled deployment only; paid execution in the
-eight new production workspaces and live end-to-end acceptance of those
-workspaces remain pending separate authorization and testing.
+The issue-specific v2 runtime was first installed with execution disabled.
+Its previous policy and journal were backed up privately, and the migration
+receipt is retained. The operator subsequently authorized paid execution for
+the eight mapped issues; the journaled authority transition completed and the
+runtime and eight issue-specific sockets are active. The transition script
+started no model and verified unauthenticated denial. Paid execution through
+the new production workspaces and live end-to-end acceptance of those
+workspaces remain unverified. No hard per-turn or spending cap is enforced.
 
 The collector uses a fixed session-creation cutoff for each issue mapping; it
 will not silently reassign older captured evidence. A work association describes

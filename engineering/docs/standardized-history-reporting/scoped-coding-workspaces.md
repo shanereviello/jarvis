@@ -1,6 +1,6 @@
-# Per-issue Codex workspaces — disabled deployment
+# Per-issue Codex workspaces — scoped deployment
 
-The installed v2 runtime's execution policy remains disabled. Its policy binds every admitted
+The installed v2 runtime authorizes execution for eight mapped issues. Its policy binds every admitted
 issue UUID to a distinct, non-overlapping canonical workspace and a distinct
 issue-specific native socket. Dispatch and thread resume use the installed
 issue binding, never a path selected by the Linear message. Each candidate
@@ -25,10 +25,11 @@ authority transition changes only the execution flag and its reference; it
 refuses changed workspace/work pins and unresolved turns. This permits checking
 the deployment without accidentally starting paid coding and supports a later
 explicit disable transition. The disabled configuration and journal cutover
-passed host readiness and unauthenticated-denial checks; live paid execution
-and acceptance remain outstanding.
+passed host readiness and unauthenticated-denial checks; the operator then
+authorized execution for the eight mapped issues. Live paid execution and
+acceptance using the new issue-specific runtime remain outstanding.
 
-Before enabling production execution, the following checks and decisions apply:
+The scoped deployment depends on the following checks and decisions:
 
 - Prepare a separate native-owned checkout and task branch for each issue from a
   verified baseline, without exposing operator credentials or the canonical
@@ -75,5 +76,5 @@ directory. No model or production configuration was involved. The operator
 also staged eight separate clean native-owned, remote-free task checkouts at
 commit `65b6ceef7ff28222b6e96112c7f7f43a8c2919ba`. The canonical checkout and
 the earlier uncommitted REV-50 acceptance checkout were preserved. The
-disabled v2 runtime and its eight socket units are now active; paid coding
-remains disabled and requires separate authorization and live validation.
+v2 runtime and its eight socket units are now active. Paid coding has been
+authorized for the mapped issues and still requires live validation.
