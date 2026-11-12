@@ -16,7 +16,8 @@ def test_broker_uses_authenticated_dispatch_and_native_issue_read(setup_work):
         calls.append(('session',peer,dispatch))
         if (peer,dispatch)!=(1234,uid(8)):raise ValueError('not active')
         return origin
-    def read(verified,issue_id):
+    def read(dispatch,verified,issue_id):
+        assert dispatch==uid(8)
         calls.append(('read',verified['source_session'],issue_id))
         if issue_id!=issue['id']:raise ValueError('not found')
         return issue

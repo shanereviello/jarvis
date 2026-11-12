@@ -8,7 +8,7 @@ function planningOriginQuery(envelope, policy) {
   return {query:'query PlanningNativeOrigin($id:String!,$actor:String!){viewer{id organization{id}} '+
     'sourceActor:user(id:$actor){id app} agentSession(id:$id){id sourceMetadata appUser{id} '+
     'issue{id team{id} project{id url}} creator{id app} '+
-    'comment{id isArtificialAgentSessionRoot agentSession{id} user{id app}} sourceComment{id user{id app}}}}',
+    'comment{id user{id app}} sourceComment{id user{id app}}}}',
     variables:{id:envelope.session_id,actor}};
 }
 
@@ -45,17 +45,11 @@ function verifyPlanningOrigin(envelope, reply, policy, resolution) {
     if (!uuid(envelope.source_actor_id) || actor?.id!==envelope.source_actor_id || actor?.app!==false) return deny();
   } else {
     const comment=session.sourceComment || session.comment || null;
-    if (session.sourceComment===null && session.sourceMetadata===null && comment && comment===session.comment &&
-        comment.isArtificialAgentSessionRoot===true && comment.agentSession?.id===session.id && comment.user===null &&
-        envelope.origin_comment_id===comment.id) {
-      actor=session.creator;
-      if (!uuid(envelope.responsible_human_id) || actor?.id!==envelope.responsible_human_id ||
-          actor?.app!==false || d?.sourceActor?.id!==actor.id || d?.sourceActor?.app!==false) return deny();
-    } else {
-      if (!comment || !envelope.origin_comment_id || comment.id!==envelope.origin_comment_id) return deny();
-      actor=comment.user;
-      if (!actor || actor.app!==false) return deny();
-    }
+    // A responsible creator can also be assigned by an automation; without a
+    // verifiable human-authored source comment it is not proof of direction.
+    if (!comment || !envelope.origin_comment_id || comment.id!==envelope.origin_comment_id) return deny();
+    actor=comment.user;
+    if (!actor || actor.app!==false) return deny();
   }
   if (!uuid(actor?.id) || actor.id===policy.agents.jarvis || actor.id===policy.agents.codex) return deny();
   return {permitted:true, human_approval_inferred:false, origin:{organization_id:policy.organization_id,

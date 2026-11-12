@@ -25,7 +25,10 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
              '-e','POSTGRES_HOST_AUTH_METHOD=trust','postgres:18','postgres','-c','listen_addresses='])
         started=True
         for _ in range(40):
-            if subprocess.run(['docker','exec',name,'pg_isready','-U','postgres'],capture_output=True).returncode==0:break
+            if subprocess.run(['docker','exec',name,'pg_isready','-U','postgres'],capture_output=True).returncode==0:
+                time.sleep(1)
+                probe=subprocess.run(['docker','exec',name,'psql','-X','-A','-t','-U','postgres','-c','SELECT 1'],capture_output=True)
+                if probe.returncode==0 and probe.stdout.strip()==b'1':break
             time.sleep(.25)
         else:raise AssertionError('fixture did not start')
         def sql(text,ok=True):return run(['docker','exec','-i',name,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],text,ok)

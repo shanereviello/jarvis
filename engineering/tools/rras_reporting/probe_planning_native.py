@@ -54,8 +54,8 @@ def inside():
         return origin
     issue=dict(organization_id=uid(2),team_id=uid(3),project_id=uid(4),id=uid(7),identifier='ENG-1',
                url='https://linear.app/fixture/issue/ENG-1')
-    def issue_read(selected,issue_id):
-        if selected!=origin or issue_id!=issue['id']:raise ValueError('fixture issue refused')
+    def issue_read(selected_dispatch,selected,issue_id):
+        if selected_dispatch!=dispatch or selected!=origin or issue_id!=issue['id']:raise ValueError('fixture issue refused')
         return issue
     broker=local('onboarding_broker').Broker(grants,lookup,issue_read,adapter)
     stop=threading.Event();transport=local('onboarding_broker_unix');client=None

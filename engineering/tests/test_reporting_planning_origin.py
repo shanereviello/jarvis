@@ -50,6 +50,13 @@ created.envelope.origin_comment_id='comment';created.reply.body.data.agentSessio
 assert.equal(verifyPlanningOrigin(created.envelope,created.reply,created.policy,created.resolution).permitted,true);
 created.reply.body.data.agentSession.sourceComment.user.app=true;
 assert.equal(verifyPlanningOrigin(created.envelope,created.reply,created.policy,created.resolution).permitted,false);
+const ambiguous=structuredClone({envelope,reply,policy,resolution});ambiguous.envelope.action='created';
+ambiguous.envelope.responsible_human_id=id(7);ambiguous.envelope.origin_comment_id='root';
+ambiguous.reply.body.data.agentSession.sourceComment=null;ambiguous.reply.body.data.agentSession.sourceMetadata=null;
+ambiguous.reply.body.data.agentSession.comment={id:'root',user:null};
+ambiguous.reply.body.data.agentSession.creator={id:id(7),app:false};
+assert.equal(verifyPlanningOrigin(ambiguous.envelope,ambiguous.reply,ambiguous.policy,ambiguous.resolution).permitted,false);
+assert(!planningOriginQuery(envelope,{app_user_id:id(3)}).query.includes('isArtificialAgentSessionRoot'));
 '''
     command=[node,'-e',script] if node else ['docker','exec','-i','n8n','node','-e',script]
     result=subprocess.run(command,capture_output=True,text=True,timeout=15)

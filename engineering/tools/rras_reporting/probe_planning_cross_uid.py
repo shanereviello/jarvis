@@ -52,8 +52,8 @@ def parent():
     def lookup(peer,dispatch):
         if (peer,dispatch)!=(NATIVE,uid(1)):raise ValueError('fixture dispatch refused')
         return origin
-    def issue_read(selected,issue_id):
-        if selected!=origin or issue_id!=issue['id']:raise ValueError('fixture issue refused')
+    def issue_read(dispatch,selected,issue_id):
+        if dispatch!=uid(1) or selected!=origin or issue_id!=issue['id']:raise ValueError('fixture issue refused')
         return issue
     grants={NATIVE:dict(agent='codex',organization_id=uid(2),team_id=uid(3),scopes=[scope])}
     broker=local('onboarding_broker').Broker(grants,lookup,issue_read,adapter)

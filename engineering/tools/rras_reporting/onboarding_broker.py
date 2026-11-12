@@ -38,5 +38,5 @@ class Broker:
             return d.DraftWriter(self.grants,lambda _:origin,self.store).save(peer_uid,None,message['proposal'])
         issue_id=d.identifier(message['issue_id'])
         writer=local('onboarding_work').DraftWorkWriter(self.grants,lambda _:origin,
-            lambda _:self.issue_read(origin,issue_id),self.store)
+            lambda _:self.issue_read(dispatch,origin,issue_id),self.store)
         return writer.save(peer_uid,None,None,message['proposal'])
