@@ -56,7 +56,7 @@ class Launch:
         if self.allow_review:args.append('--allow-review')
         return dict(config={'mcp_servers':{'engineering_planning':dict(command=str(self.python),
             args=args,
-            enabled=True,required=True,enabled_tools=tools,startup_timeout_sec=15,tool_timeout_sec=30,
+            enabled=True,required=True,enabled_tools=tools,startup_timeout_sec=15,tool_timeout_sec=75 if self.allow_review else 30,
             tools={name:{'approval_mode':'approve'} for name in tools})}},
             developerInstructions=('Planning only: retain the proposed architecture with engineering_draft_project, '
                 'then link independently verified existing Linear issues with engineering_draft_work. '+
@@ -84,6 +84,7 @@ class Client:
         if type(allow_create) is not bool or type(allow_review) is not bool:raise ValueError('explicit optional tool selection required')
         self.allow_create,self.allow_review=allow_create,allow_review
         self.unix=local('onboarding_broker_unix').unix();self.unix.uid(service_uid)
+        if allow_review:self.unix.DEADLINE_SECONDS=60
         self.path=self.unix.endpoint(path);self.service_uid=service_uid
         self.dispatch=local('onboarding_drafts').identifier(dispatch)
 

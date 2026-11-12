@@ -53,6 +53,7 @@ class Broker:
 class Client:
     def __init__(self,path,service_uid):
         self.unix=local('onboarding_broker_unix').unix();self.unix.uid(service_uid)
+        self.unix.DEADLINE_SECONDS=60
         self.path=self.unix.endpoint(path);self.service_uid=service_uid
     def begin(self,headers,review_id,comment_id):
         return self.unix.call(self.path,self.service_uid,dict(operation='attestation.begin',headers=pack(headers),review_id=review_id,comment_id=comment_id))

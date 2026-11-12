@@ -55,7 +55,9 @@ def assemble(config,connection,reader_token,bridge_token,*,creator_token=None,re
     context=local('onboarding_runtime_context').Context(connection,reader,org,app,peer)
     grants={peer:dict(agent='codex',organization_id=org,team_id=config['team_id'],scopes=scopes)}
     registry=local('onboarding_sessions').Sessions(connection,grants,context.native,context.active,clock=clock)
-    if review_enabled:u.uid(config['review_peer_uid']);u.endpoint(config['review_socket'])
+    if review_enabled:
+        u.uid(config['review_peer_uid']);u.endpoint(config['review_socket'])
+        review_unix=local('onboarding_broker_unix').unix();review_unix.DEADLINE_SECONDS=60
     launch=local('onboarding_mcp').Launch(config['broker_socket'],__import__('os').getuid(),config['mcp_python'],allow_create=creation_enabled,allow_review=review_enabled)
     if client_factory is None:
         client_factory=lambda:local('codex_runtime').SocketAppServer(config['native_socket'],config['native_peer_uid'],timeout=30)
@@ -66,23 +68,24 @@ def assemble(config,connection,reader_token,bridge_token,*,creator_token=None,re
         broker=local('onboarding_broker').Broker(grants,registry.lookup,reader.issue,adapter,
             issue_journal=journal if creator else None,
             issue_create=(lambda dispatch,selected,plan,proposal:creator.create(dispatch,plan,proposal)) if creator else None,
-            review_prepare=(lambda dispatch,selected,issue,version:u.call(config['review_socket'],config['review_peer_uid'],
+            review_prepare=(lambda dispatch,selected,issue,version:review_unix.call(config['review_socket'],config['review_peer_uid'],
                 dict(operation='review.prepare',dispatch_id=dispatch,issue_id=issue,version=version))) if review_enabled else None)
         http=local('onboarding_runtime_http').server(runtime,bridge_token,
             (config['listen_address'],config['listen_port']),verify_stop=context.verify_stop)
-        return Service(runtime,broker,http,config['broker_socket'])
+        return Service(runtime,broker,http,config['broker_socket'],review_enabled=review_enabled)
     except BaseException:
         runtime.close();raise
 
 
 class Service:
-    def __init__(self,runtime,broker,http,socket_path):
+    def __init__(self,runtime,broker,http,socket_path,*,review_enabled=False):
         self.runtime,self.broker,self.http,self.socket_path=runtime,broker,http,socket_path
+        self.review_enabled=review_enabled
 
     def serve(self,on_bound):
         if not callable(on_bound):raise ValueError('explicit installed socket ACL required')
         stop=threading.Event()
-        with local('onboarding_broker_unix').server(self.socket_path,self.broker,on_bound=on_bound) as broker:
+        with local('onboarding_broker_unix').server(self.socket_path,self.broker,on_bound=on_bound,deadline_seconds=60 if self.review_enabled else 5) as broker:
             def work():
                 while not stop.is_set():broker.serve_once()
             worker=threading.Thread(target=work,daemon=True);worker.start()

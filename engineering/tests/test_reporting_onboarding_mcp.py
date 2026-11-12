@@ -43,6 +43,7 @@ def test_launch_only_enables_the_two_planning_tools(tmp_path):
     assert 'engineering_draft_issue' in enabled['config']['mcp_servers']['engineering_planning']['enabled_tools']
     reviewed=m.Launch(tmp_path/'socket',1000,'/usr/bin/python3',allow_review=True).parameters(dispatch)
     assert 'engineering_prepare_review' in reviewed['config']['mcp_servers']['engineering_planning']['enabled_tools']
+    assert reviewed['config']['mcp_servers']['engineering_planning']['tool_timeout_sec']==75
 
 
 def test_actual_mcp_stdio_exposes_only_planning_tools():

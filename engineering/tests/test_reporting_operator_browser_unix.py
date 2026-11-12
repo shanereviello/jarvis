@@ -26,6 +26,7 @@ def test_private_bridge_preserves_headers_and_exposes_only_attestation():
             worker=threading.Thread(target=serve);worker.start()
             try:
                 client=module.Client(socket,os.getuid())
+                assert client.unix.DEADLINE_SECONDS==60
                 assert client.begin(h,'review','comment')=={'challenge':'fixture'}
                 assert not client.confirm(h,'fixture','statement')['execution_authorized']
                 with pytest.raises(ValueError):transport.unix().call(socket,os.getuid(),{'operation':'project_submit'})

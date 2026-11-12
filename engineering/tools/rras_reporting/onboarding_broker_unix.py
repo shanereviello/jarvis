@@ -10,8 +10,10 @@ def unix():
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 
 
-def server(path,broker,on_bound=None):
+def server(path,broker,on_bound=None,*,deadline_seconds=5):
     u=unix()
+    if type(deadline_seconds) is not int or not 5<=deadline_seconds<=60:raise ValueError('bounded broker deadline required')
+    u.DEADLINE_SECONDS=deadline_seconds
     if not hasattr(broker,'dispatch') or type(getattr(broker,'grants',None)) is not dict or not broker.grants:
         raise ValueError('configured planning broker required')
     class PlanningServer(u.Server):
