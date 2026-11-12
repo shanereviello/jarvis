@@ -1,8 +1,11 @@
 import asyncio
 from contextlib import contextmanager
 import importlib.util
+import os
 from pathlib import Path
 import sqlite3
+import tempfile
+import threading
 import httpx
 import pytest
 from test_history_web import key,access,headers,token,ORIGIN
@@ -37,14 +40,24 @@ def test_scoped_review_to_signed_operator_decision(tmp_path,setup_work,key):
     assert not prepared['execution_authorized'] and history.project(REPO,draft['project_id'])['governing_version'] is None
     with pytest.raises(ValueError):selected['review_broker'].dispatch(1234,dict(operation='decision.approve',dispatch_id=uid(10),issue_id=issue['id'],version=1))
     signed={k.decode():v.decode() for k,v in headers(token(key))};signed['origin']=ORIGIN
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=selected['app']),base_url=ORIGIN) as client:
+    async def run(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url=ORIGIN) as client:
             begin=await client.post('/api/attestation/begin',headers=signed,json={'review_id':prepared['review_id'],'comment_id':uid(8)})
             assert begin.status_code==200
             result=await client.post('/api/attestation/confirm',headers=signed,json={'challenge':begin.json()['challenge'],'statement':STATEMENT})
             assert result.status_code==200 and result.json()['decision_recorded'] and not result.json()['execution_authorized']
             return result.json()
-    approved=asyncio.run(run())
+    bridge=service.local('onboarding_operator_browser_unix');transport=service.local('onboarding_broker_unix')
+    with tempfile.TemporaryDirectory(prefix='rras-operator-flow-',dir='/tmp') as raw:
+        socket=Path(raw)/'browser.sock';stop=threading.Event()
+        with transport.server(socket,bridge.Broker(os.getuid(),selected['browser'])) as server:
+            def serve():
+                while not stop.is_set():server.serve_once()
+            worker=threading.Thread(target=serve);worker.start()
+            try:
+                app=service.local('onboarding_attestation_web').create_app(bridge.Client(socket,os.getuid()),access(key))
+                approved=asyncio.run(run(app))
+            finally:stop.set();worker.join(5)
     assert history.project(REPO,draft['project_id'])['governing_version']==1
     assert selected['reviews'].decision_review(approved['decision_receipt_sha256'])==prepared['review_id']
     assert not selected['production_active']

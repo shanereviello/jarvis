@@ -63,6 +63,5 @@ def assemble(config,connection,access,planning_reader,comment_transport,history_
     recorder=local('onboarding_decisions').DecisionRecorder(decision_source.verify,history,scopes)
     coordinator=local('onboarding_operator_decision').Coordinator(recorder,reviews)
     browser=Browser(attests,coordinator)
-    app=local('onboarding_attestation_web').create_app(browser,access)
-    return dict(review_broker=review_broker,app=app,attestations=attests,reviews=reviews,
+    return dict(review_broker=review_broker,browser=browser,attestations=attests,reviews=reviews,
                 decision_source=decision_source,history=history,production_active=False)
