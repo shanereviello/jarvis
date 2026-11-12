@@ -85,3 +85,18 @@ def test_packaged_source_can_render_both_n8n_integrations(tmp_path):
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
     assert len(renderer('n8n_handoff').render(configuration())['workflows'])==8
     assert len(renderer('n8n_codex').render(config.__wrapped__())['workflows'])==4
+
+
+def test_packaged_operator_and_planning_dependencies_are_present(tmp_path):
+    from test_reporting_n8n_codex import config,uid
+    for name,raw in release.source_files(ROOT.parent).items():
+        target=tmp_path/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    folder=tmp_path/'engineering/tools/rras_reporting'
+    def load(name):
+        spec=importlib.util.spec_from_file_location('packaged_v05_'+name,folder/(name+'.py'))
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+    scope=dict(kind='non_git',id='jarvis-non-git');value=config.__wrapped__()
+    assert not load('n8n_planning_reader').render(value,'separate-reader',[uid(30)],[scope],{},scope)['active']
+    assert not load('n8n_operator_comment_reader').render(value,'operator-reader',[uid(30)],[uid(31)])['active']
+    assert load('onboarding_operator_entry').web('access').AccessConfig
+    assert load('onboarding_attestation_web_entry').web('entry').server_options
