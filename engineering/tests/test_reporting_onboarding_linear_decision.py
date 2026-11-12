@@ -26,10 +26,19 @@ def fixture_values(fixture,draft):
 def test_native_human_source_designates_exact_retained_version(setup_draft):
     writer,fixture,_,data=setup_draft;draft=writer.save(1234,object(),data)
     review,response=fixture_values(fixture,draft)
-    verifier=module.Verifier(lambda _:response,lambda _:review,uid(1),uid(9),[uid(5)])
+    verifier=module.Verifier(lambda _:response,lambda _:review,lambda *_:True,uid(1),uid(9),[uid(5)])
     result=decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO]).approve(dict(comment_id=uid(8),review_id=uid(10)))
     assert result['execution_authorized'] is False
     assert fixture.project(REPO,draft['project_id'])['governing_version']==1
+
+
+def test_linear_author_fields_alone_do_not_prove_direct_human_approval(setup_draft):
+    writer,fixture,_,data=setup_draft;draft=writer.save(1234,object(),data)
+    review,response=fixture_values(fixture,draft)
+    verifier=module.Verifier(lambda _:response,lambda _:review,lambda *_:False,uid(1),uid(9),[uid(5)])
+    with pytest.raises(ValueError,match='independent direct human authorship'):
+        decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO]).approve(dict(comment_id=uid(8),review_id=uid(10)))
+    assert fixture.project(REPO,draft['project_id'])['governing_version'] is None
 
 
 @pytest.mark.parametrize('change',['edited','app','author','issue','project','org','viewer','digest','comment','extra','bot','external','behalf','archived'])
@@ -50,7 +59,7 @@ def test_reject_wrong_or_ambiguous_source(setup_draft,change):
     elif change=='behalf':c['on_behalf_of']=uid(5)
     elif change=='archived':c['archived_at']='2026-11-12T12:00:01Z'
     else:c['unexpected']=True
-    verifier=module.Verifier(lambda _:response,lambda _:review,uid(1),uid(9),[uid(5)])
+    verifier=module.Verifier(lambda _:response,lambda _:review,lambda *_:True,uid(1),uid(9),[uid(5)])
     with pytest.raises(ValueError):decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO]).approve(dict(comment_id=uid(8),review_id=uid(10)))
     assert fixture.project(REPO,draft['project_id'])['governing_version'] is None
 
@@ -70,7 +79,7 @@ def test_native_graphql_reader_composes_with_decision_verifier(setup_draft):
         calls.append(request)
         return result
     reader=reader_module.Reader(graphql,uid(9),uid(1))
-    verifier=module.Verifier(reader,lambda _:review,uid(1),uid(9),[uid(5)])
+    verifier=module.Verifier(reader,lambda _:review,lambda *_:True,uid(1),uid(9),[uid(5)])
     approved=decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO]).approve(dict(comment_id=uid(8),review_id=uid(10)))
     assert approved['version']==1 and calls[0]['variables']=={'id':uid(8)}
     result['data']['comment']['botActor']={'type':'oauthClient'}

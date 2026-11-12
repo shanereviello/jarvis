@@ -16,13 +16,13 @@ def local(name):
 
 
 class Verifier:
-    def __init__(self,read_comment,read_review,organization_id,viewer_id,human_ids):
+    def __init__(self,read_comment,read_review,verify_authorship,organization_id,viewer_id,human_ids):
         d=local('onboarding_drafts')
-        if not callable(read_comment) or not callable(read_review) or type(human_ids) is not list or not human_ids:
+        if not callable(read_comment) or not callable(read_review) or not callable(verify_authorship) or type(human_ids) is not list or not human_ids:
             raise ValueError('protected native decision readers and human grant required')
         for item in [organization_id,viewer_id,*human_ids]:d.identifier(item)
         if viewer_id in human_ids or len(set(human_ids))!=len(human_ids):raise ValueError('distinct human identities required')
-        self.read_comment,self.read_review=read_comment,read_review
+        self.read_comment,self.read_review,self.verify_authorship=read_comment,read_review,verify_authorship
         self.organization_id,self.viewer_id,self.humans=organization_id,viewer_id,set(human_ids)
 
     def verify(self,evidence):
@@ -56,6 +56,11 @@ class Verifier:
         expected=f"I approve architecture version {review['version']} sha256 {review['markdown_sha256']}"
         if type(comment['body']) is not str or comment['body'].strip()!=expected:
             raise ValueError('explicit exact-version approval required')
+        # A missing on-behalf-of actor can mean inaccessible attribution and
+        # user-authorized integrations may act as users. Native user fields
+        # alone cannot establish a direct human decision.
+        if self.verify_authorship(comment,review) is not True:
+            raise ValueError('independent direct human authorship required')
         value={k:review[k] for k in ('organization_id','linear_project_id','scope','project_id','document_id','version',
                 'markdown_sha256','expected_governing_version','expected_project_head')}
         value.update(human_actor_id=comment['author_id'],source_id=comment['id'],source_namespace='linear_comment',

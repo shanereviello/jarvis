@@ -30,7 +30,7 @@ def test_review_pins_exact_retained_document_and_decision(tmp_path,setup_draft):
         body=f"I approve architecture version 1 sha256 {draft['markdown_sha256']}",created_at='2026-11-12T12:00:00Z',
         edited_at=None,bot_actor=None,external_user=None,on_behalf_of=None,archived_at=None)
     reader=lambda _:dict(viewer_id=uid(9),organization_id=uid(1),comment=comment)
-    verifier=linear_decision.Verifier(reader,registry.read,uid(1),uid(9),[uid(5)])
+    verifier=linear_decision.Verifier(reader,registry.read,lambda *_:True,uid(1),uid(9),[uid(5)])
     recorder=decisions.DecisionRecorder(verifier.verify,OperatorStore(fixture),[REPO])
     coordinator_path=path.with_name('onboarding_operator_decision.py')
     coordinator_spec=importlib.util.spec_from_file_location('operator_decision_fixture',coordinator_path)
