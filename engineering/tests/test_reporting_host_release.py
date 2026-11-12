@@ -18,7 +18,7 @@ def test_release_vendor_is_exact_and_imports_without_global_site_packages(tmp_pa
     vendor=tmp_path/'vendor/site-packages'
     for name,raw in files.items():
         path=tmp_path/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
-    program="import sys;sys.path.insert(0,sys.argv[1]);import mcp.server.fastmcp,jsonschema;print(mcp.__version__ if hasattr(mcp,'__version__') else 'mcp-ok',jsonschema.__version__)"
+    program="import sys;sys.path.insert(0,sys.argv[1]);import mcp.server.fastmcp,jsonschema,jwt;from cryptography.hazmat.primitives.asymmetric import rsa;k=rsa.generate_private_key(public_exponent=65537,key_size=2048);t=jwt.encode({'ok':True},k,algorithm='RS256');assert jwt.decode(t,k.public_key(),algorithms=['RS256'])['ok'];print(mcp.__version__ if hasattr(mcp,'__version__') else 'mcp-ok',jsonschema.__version__)"
     result=subprocess.run([sys.executable,'-I','-c',program,str(vendor)],capture_output=True,text=True,check=True,timeout=30)
     assert 'mcp-ok' in result.stdout and '4.26.0' in result.stdout
 
@@ -33,7 +33,7 @@ def test_isolated_venv_reads_only_the_release_vendor_path(tmp_path):
     site=venv/'lib/python3.13/site-packages';site.mkdir(parents=True,exist_ok=True)
     (site/'rras-vendor.pth').write_text(str(vendor)+'\n')
     result=subprocess.run([str(venv/'bin/python'),'-I','-c',
-        'import mcp.server.fastmcp,jsonschema;print(jsonschema.__version__)'],
+        "import mcp.server.fastmcp,jsonschema,jwt;from cryptography.hazmat.primitives.asymmetric import rsa;k=rsa.generate_private_key(public_exponent=65537,key_size=2048);t=jwt.encode({'ok':True},k,algorithm='RS256');assert jwt.decode(t,k.public_key(),algorithms=['RS256'])['ok'];print(jsonschema.__version__)"],
         capture_output=True,text=True,check=True,timeout=30)
     assert result.stdout.strip()=='4.26.0'
 

@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import importlib.metadata
+import importlib.machinery
 import json
 import os
 from pathlib import Path,PurePosixPath
@@ -13,16 +14,17 @@ import subprocess
 CODEX_SHA256='d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f'
 SPECSTORY_SHA256='25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4'
 DEPENDENCIES={
- 'annotated-types':'0.8.0','anyio':'4.16.0','attrs':'26.1.0','certifi':'2026.10.23','click':'8.5.1',
+ 'annotated-types':'0.8.0','anyio':'4.16.0','attrs':'26.1.0','certifi':'2026.10.23','cffi':'2.1.1','click':'8.5.1','cryptography':'50.0.2',
  'h11':'0.16.0','httpcore':'1.0.9','httpx':'0.28.1','httpx-sse':'0.4.3','idna':'3.20',
  'jsonschema':'4.26.0','jsonschema-specifications':'2025.9.1','mcp':'1.27.2','pydantic':'2.14.3',
  'pydantic-core':'2.50.4','pydantic-settings':'2.16.2','pyjwt':'2.15.1','python-multipart':'0.0.33',
- 'python-dotenv':'1.2.4','referencing':'0.37.0','rpds-py':'2026.9.1','sse-starlette':'3.6.0',
+ 'python-dotenv':'1.2.4','pycparser':'3.12','referencing':'0.37.0','rpds-py':'2026.9.1','sse-starlette':'3.6.0',
  'starlette':'1.10.0','typing-extensions':'4.16.0','typing-inspection':'0.4.5','uvicorn':'0.54.0'
 }
 IMPORTS=('annotated_types','anyio','attr','attrs','certifi','click','h11','httpcore','httpx','httpx_sse','idna',
  'jsonschema','jsonschema_specifications','mcp','multipart','pydantic','pydantic_core','pydantic_settings',
- 'referencing','rpds','sse_starlette','starlette','typing_extensions','typing_inspection','uvicorn','jwt','dotenv')
+ 'referencing','rpds','sse_starlette','starlette','typing_extensions','typing_inspection','uvicorn','jwt','dotenv',
+ 'cryptography','cffi','pycparser','_cffi_backend')
 
 
 def digest(raw):return hashlib.sha256(raw).hexdigest()
@@ -57,7 +59,7 @@ def site_packages(files):
             member=path/metadata
             if member.is_file():found['vendor/site-packages/'+path.name+'/'+metadata]=regular(member)
     for name in IMPORTS:
-        members=[root/name,root/(name+'.py')]
+        members=[root/name,root/(name+'.py')]+[root/(name+suffix) for suffix in importlib.machinery.EXTENSION_SUFFIXES]
         available=[member for member in members if member.exists()]
         if not available:raise ValueError('runtime import package unavailable: '+name)
         for source in available:
