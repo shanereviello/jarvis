@@ -30,11 +30,14 @@ SCHEMAS={
  'engineering_draft_work':{'type':'object','additionalProperties':False,'required':['issue_id','proposal'],
      'properties':{'issue_id':{'type':'string','pattern':'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'},'proposal':WORK}},
 }
+CREATE_SCHEMA={'type':'object','additionalProperties':False,'required':['proposal'],'properties':{'proposal':WORK}}
 
 
 class Launch:
     """Construct the tool configuration from trusted runtime state only."""
-    def __init__(self,path,service_uid,python):
+    def __init__(self,path,service_uid,python,*,allow_create=False):
+        if type(allow_create) is not bool:raise ValueError('explicit issue creation selection required')
+        self.allow_create=allow_create
         self.unix=local('onboarding_broker_unix').unix();self.unix.uid(service_uid)
         self.path=self.unix.endpoint(path);self.service_uid=service_uid;self.python=Path(python)
         info=self.python.stat()
@@ -44,13 +47,16 @@ class Launch:
 
     def parameters(self,dispatch):
         local('onboarding_drafts').identifier(dispatch)
-        tools=list(SCHEMAS)
+        tools=list(SCHEMAS)+(['engineering_draft_issue'] if self.allow_create else [])
+        args=['-I','-B',str(Path(__file__).resolve()),'--socket',str(self.path),'--service-uid',str(self.service_uid),'--dispatch',dispatch]
+        if self.allow_create:args.append('--allow-create')
         return dict(config={'mcp_servers':{'engineering_planning':dict(command=str(self.python),
-            args=['-I','-B',str(Path(__file__).resolve()),'--socket',str(self.path),'--service-uid',str(self.service_uid),'--dispatch',dispatch],
+            args=args,
             enabled=True,required=True,enabled_tools=tools,startup_timeout_sec=15,tool_timeout_sec=30,
             tools={name:{'approval_mode':'approve'} for name in tools})}},
             developerInstructions=('Planning only: retain the proposed architecture with engineering_draft_project, '
-                'then link independently verified existing Linear issues with engineering_draft_work. '
+                'then link independently verified existing Linear issues with engineering_draft_work. '+
+                ('For a new issue use engineering_draft_issue; uncertain creation is never automatically retried. ' if self.allow_create else '')+
                 'The tools do not approve the architecture or authorize implementation. '
                 'Do not modify a production repository or claim approval from an agent message.'))
 
@@ -60,23 +66,29 @@ class Launch:
             if type(result) is not dict or result.get('nextCursor') is not None or type(result.get('data')) is not list:
                 raise ValueError('bounded complete planning MCP inventory required')
             active=[item for item in result['data'] if item.get('runtimeStatus')!='disabled']
-            if any(item.get('name')!='engineering_planning' or set(item.get('tools',{}))-set(SCHEMAS) for item in active):
+            expected=set(SCHEMAS)|({'engineering_draft_issue'} if self.allow_create else set())
+            if any(item.get('name')!='engineering_planning' or set(item.get('tools',{}))-expected for item in active):
                 raise ValueError('unexpected planning MCP inventory')
-            if len(active)==1 and set(active[0].get('tools',{}))==set(SCHEMAS):return True
+            if len(active)==1 and set(active[0].get('tools',{}))==expected:return True
             if attempt<9:time.sleep(.2)
         raise ValueError('exact planning MCP inventory unavailable')
 
 
 class Client:
-    def __init__(self,path,service_uid,dispatch):
+    def __init__(self,path,service_uid,dispatch,*,allow_create=False):
+        if type(allow_create) is not bool:raise ValueError('explicit issue creation selection required')
+        self.allow_create=allow_create
         self.unix=local('onboarding_broker_unix').unix();self.unix.uid(service_uid)
         self.path=self.unix.endpoint(path);self.service_uid=service_uid
         self.dispatch=local('onboarding_drafts').identifier(dispatch)
 
     def call(self,name,arguments):
-        if name not in SCHEMAS:raise ValueError('unknown planning tool')
-        Draft202012Validator(SCHEMAS[name]).validate(arguments)
-        request={'operation':'draft.project' if name=='engineering_draft_project' else 'draft.work',
+        schemas=dict(SCHEMAS)
+        if self.allow_create:schemas['engineering_draft_issue']=CREATE_SCHEMA
+        if name not in schemas:raise ValueError('unknown planning tool')
+        Draft202012Validator(schemas[name]).validate(arguments)
+        operation={'engineering_draft_project':'draft.project','engineering_draft_work':'draft.work','engineering_draft_issue':'draft.issue'}[name]
+        request={'operation':operation,
                  'dispatch_id':self.dispatch,'proposal':arguments['proposal']}
         if name=='engineering_draft_work':request['issue_id']=arguments['issue_id']
         return self.unix.call(self.path,self.service_uid,request)
@@ -85,8 +97,11 @@ class Client:
 def server(client):
     os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8')
     descriptions={'engineering_draft_project':'Retain the exact unapproved project architecture draft. This does not approve or authorize work.',
-                  'engineering_draft_work':'Link an independently verified Linear issue to a proposed draft work item. This does not authorize execution.'}
-    tools=[dict(name=name,description=descriptions[name],inputSchema=schema) for name,schema in SCHEMAS.items()]
+                  'engineering_draft_work':'Link an independently verified Linear issue to a proposed draft work item. This does not authorize execution.',
+                  'engineering_draft_issue':'Create one proposed Linear issue and link draft work. An uncertain creation is never automatically retried.'}
+    schemas=dict(SCHEMAS)
+    if client.allow_create:schemas['engineering_draft_issue']=CREATE_SCHEMA
+    tools=[dict(name=name,description=descriptions[name],inputSchema=schema) for name,schema in schemas.items()]
     error='Draft request refused or uncertain. Preserve the planning identity and reconcile; no execution is authorized.'
     from importlib.metadata import version
     major=int(version('mcp').split('.')[0])
@@ -118,8 +133,9 @@ def server(client):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--socket',required=True);parser.add_argument('--service-uid',type=int,required=True);parser.add_argument('--dispatch',required=True)
+    parser.add_argument('--allow-create',action='store_true')
     args=parser.parse_args()
-    try:server(Client(args.socket,args.service_uid,args.dispatch))
+    try:server(Client(args.socket,args.service_uid,args.dispatch,allow_create=args.allow_create))
     except (ValueError,KeyError,TypeError,OSError,sqlite3.Error,ValidationError):parser.exit(1,'Planning tool refused.\n')
 
 

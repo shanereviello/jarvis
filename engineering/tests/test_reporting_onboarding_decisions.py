@@ -86,3 +86,18 @@ def test_later_version_requires_exact_reviewed_prior_head(setup_draft):
     source=evidence_for(fixture,revised);source['source_id']='fixture-comment-2'
     decisions.DecisionRecorder(lambda evidence:source,OperatorStore(fixture),[REPO]).approve(object())
     assert fixture.project(REPO,first['project_id'])['governing_version']==2
+
+
+def test_operator_adapter_uses_separate_history_grants(setup_draft):
+    from test_reporting_onboarding_drafts import module
+    writer,fixture,_,data=setup_draft;draft=writer.save(1234,object(),data);source=evidence_for(fixture,draft)
+    grants=dict(contract='engineering-history-access.v3',principals=[dict(uid=999,private_read=['jarvis'],write=['jarvis'],
+        category_read=[],category_write=[],planning_agent=None,planning_organization_id=None,planning_teams=[],planning_repositories=[],planning_categories=[])])
+    access=module('access').Access(fixture.projects.store,grants)
+    path=PATH.with_name('onboarding_operator_history.py')
+    spec=importlib.util.spec_from_file_location('operator_adapter_fixture',path)
+    operator=importlib.util.module_from_spec(spec);spec.loader.exec_module(operator)
+    adapter=operator.Adapter(lambda request:access.dispatch(999,request),[REPO])
+    approved=decisions.DecisionRecorder(lambda _:source,adapter,[REPO]).approve(object())
+    assert not approved['execution_authorized']
+    assert fixture.project(REPO,draft['project_id'])['governing_version']==1

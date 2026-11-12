@@ -1,6 +1,8 @@
 """The broker obtains origin and issue identity from trusted callbacks."""
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
+import sqlite3
 import pytest
 from test_reporting_onboarding_work import setup_work,setup_draft,store,projects,uid
 
@@ -38,3 +40,21 @@ def test_broker_rejects_runtime_origin_outside_peer_grant(setup_work):
     broker=module.Broker(writer.grants,lambda *_:forged,lambda *_:issue,writer.store)
     with pytest.raises(ValueError):
         broker.dispatch(1234,dict(operation='draft.work',dispatch_id=uid(8),issue_id=issue['id'],proposal=detail))
+
+
+def test_optional_issue_creation_uses_the_bound_dispatch(tmp_path,setup_work):
+    writer,fixture,origin,issue,detail,draft,access=setup_work
+    @contextmanager
+    def connect():
+        db=sqlite3.connect(tmp_path/'issue-journal.sqlite3')
+        try:yield db
+        finally:db.close()
+    journal=module.local('onboarding_issue_journal').IssueJournal(connect)
+    with connect() as db:journal.initialize(db)
+    calls=[]
+    def create(dispatch,selected,plan,proposal):
+        calls.append((dispatch,selected,plan));return issue['id']
+    broker=module.Broker(writer.grants,lambda *_:origin,lambda dispatch,selected,id:issue,writer.store,
+        issue_journal=journal,issue_create=create)
+    result=broker.dispatch(1234,dict(operation='draft.issue',dispatch_id=uid(8),proposal=detail))
+    assert result['state']=='complete' and calls==[(uid(8),origin,'PLAN-01')]

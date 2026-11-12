@@ -37,7 +37,9 @@ def render(configuration,runtime_origin,planning_header):
  AND a.state IN ('dispatching','running','uncertain')) ORDER BY e.received_at,e.id LIMIT 1 FOR UPDATE SKIP LOCKED)
  UPDATE linear_bridge.codex_planning_events e SET state='dispatching',updated_at=now() FROM candidate WHERE e.id=candidate.id RETURNING e.*"""
         elif kind=='reconcile':
-            query=f"""SELECT id,envelope FROM linear_bridge.codex_planning_events WHERE {select} AND state='running'
+            query=f"""SELECT id,envelope FROM linear_bridge.codex_planning_events WHERE {select}
+ AND coalesce(envelope->>'signal','')<>'stop' AND (state='running' OR
+ (state IN ('dispatching','uncertain') AND updated_at < now()-interval '60 seconds'))
  ORDER BY updated_at,id LIMIT 1"""
         else:
             query=f"""WITH candidate AS (SELECT e.id FROM linear_bridge.codex_planning_events e WHERE {select.replace('organization_id','e.organization_id').replace('app_user_id','e.app_user_id')}
@@ -77,9 +79,9 @@ const result=good?body:{dispatch:request.event_id,state:'uncertain',reason:'Plan
 if(result.state==='interrupt_requested')result.state='running';
 return [{json:{event_id:request.event_id,runtime_result:result}}];"""
         node('Assess planning result','code',2,dict(mode='runOnceForAllItems',jsCode=assess))
-        old='running' if kind=='reconcile' else 'dispatching'
+        old="IN ('running','dispatching','uncertain')" if kind=='reconcile' else "= 'dispatching'"
         finish=f"""WITH updated AS (UPDATE linear_bridge.codex_planning_events SET state=$2::jsonb->>'state',runtime_result=$2::jsonb,updated_at=now()
- WHERE {select} AND id=$1::uuid AND state='{old}' RETURNING *)
+ WHERE {select} AND id=$1::uuid AND state {old} RETURNING *)
  INSERT INTO linear_bridge.codex_planning_outbox(organization_id,app_user_id,session_id,source_key,content)
  SELECT organization_id,app_user_id,session_id,'result:'||id::text||':'||state,
  jsonb_build_object('type',CASE WHEN state='completed' THEN 'response' WHEN state='uncertain' THEN 'thought' ELSE 'error' END,

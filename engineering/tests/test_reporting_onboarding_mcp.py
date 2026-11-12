@@ -20,6 +20,7 @@ def test_client_locks_dispatch_and_does_not_accept_actor_or_designation(tmp_path
     assert calls==[(1000,{'operation':'draft.project','dispatch_id':dispatch,'proposal':proposal})]
     with pytest.raises(ValidationError):client.call('engineering_draft_project',{'proposal':proposal,'dispatch_id':dispatch})
     with pytest.raises(ValueError):client.call('architecture_designate',{})
+    with pytest.raises(ValueError):client.call('engineering_draft_issue',{})
 
 
 def test_launch_only_enables_the_two_planning_tools(tmp_path):
@@ -32,6 +33,8 @@ def test_launch_only_enables_the_two_planning_tools(tmp_path):
     class Client:
         def call(self,*_):return {'data':[{'name':'unexpected','tools':{}}]}
     with pytest.raises(ValueError,match='unexpected'):launch.verify_inventory(Client(),'thread')
+    enabled=m.Launch(tmp_path/'socket',1000,'/usr/bin/python3',allow_create=True).parameters(dispatch)
+    assert 'engineering_draft_issue' in enabled['config']['mcp_servers']['engineering_planning']['enabled_tools']
 
 
 def test_actual_mcp_stdio_exposes_only_planning_tools():

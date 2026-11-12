@@ -81,6 +81,21 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
         sql(f"PREPARE finish(uuid,jsonb) AS {finish}; EXECUTE finish('{event_id}',$x${completed}$x$::jsonb);")
         assert sql('SELECT state FROM linear_bridge.codex_planning_events;')=='completed'
         assert sql('SELECT count(*) FROM linear_bridge.codex_planning_outbox;')=='2'
+        # A lost dispatch response is inspected by status only; never dispatch it again.
+        lost=dict(event,action='prompted',source_key='prompt:lost',message='Continue')
+        assert sql(accept(ids[11],lost))=='t'
+        lost_id=sql("SELECT id FROM linear_bridge.codex_planning_events WHERE source_key='prompt:lost';")
+        sql("UPDATE linear_bridge.codex_planning_events SET state='dispatching',updated_at=now()-interval '61 seconds' WHERE source_key='prompt:lost';")
+        assert lost_id in sql(nodes('reconcile')['Select retained planning event']['parameters']['query'])
+        uncertain=json.dumps(dict(dispatch=lost_id,state='uncertain'))
+        sql(f"PREPARE recover(uuid,jsonb) AS {finish}; EXECUTE recover('{lost_id}',$x${uncertain}$x$::jsonb);")
+        assert sql(f"SELECT state FROM linear_bridge.codex_planning_events WHERE id='{lost_id}';")=='uncertain'
+        assert lost_id not in sql(nodes('dispatch')['Select retained planning event']['parameters']['query'])
+        assert lost_id not in sql(nodes('reconcile')['Select retained planning event']['parameters']['query'])
+        sql(f"UPDATE linear_bridge.codex_planning_events SET updated_at=now()-interval '61 seconds' WHERE id='{lost_id}';")
+        assert lost_id in sql(nodes('reconcile')['Select retained planning event']['parameters']['query'])
+        sql(f"PREPARE recover(uuid,jsonb) AS {finish}; EXECUTE recover('{lost_id}',$x${{\"dispatch\":\"{lost_id}\",\"state\":\"completed\",\"result\":\"Recovered\"}}$x$::jsonb);")
+        assert sql(f"SELECT state FROM linear_bridge.codex_planning_events WHERE id='{lost_id}';")=='completed'
         sql(nodes('outbound')['Claim Codex reply']['parameters']['query'])
         outbox_id=sql("SELECT id FROM linear_bridge.codex_planning_outbox WHERE state='uncertain';")
         finish=nodes('outbound')['Retain publication outcome']['parameters']['query']
