@@ -15,7 +15,7 @@ project. Earlier acceptance snapshots remain retained.
 | Shared infrastructure outage, uncertain delivery and restart | Model-free recovery/reconciliation fixtures and a guarded n8n recreation passed. Full server reboot and a live lost-response/restart recovery scenario remain unverified. |
 | Jarvis regression | A Jarvis acknowledgement completed after Hermes restart; actual delivery and capture were verified. This does not cover all Jarvis actions and follow-up paths. |
 | Handoff in each direction | Both tested native directions reached retained requested, acknowledged and completed states under distinct actors. The exact content of the reverse-handoff reply was not independently verified. A complete multi-hop continuation remains open. |
-| Capture and work association | Desktop Codex, selected Linear Codex, and approved future Linear-linked Hermes capture are enabled. A new REV-50 Hermes session was captured with the correct work/architecture pins and its full digest verified. The seven other issue bindings were receipt-verified at installation; their live capture associations have not each been individually tested. Earlier sessions remain unchanged; unknown issues stay unmapped. |
+| Capture and work association | Desktop Codex, selected Linear Codex, and approved future Linear-linked Hermes capture are enabled. A new REV-50 Hermes session was captured with the correct work/architecture pins and its full digest verified. After the v2 runtime deployment, the older capture collector rejected the new policy; the compatible collector release restored delivery. A new REV-50 Codex session was captured with the correct work/architecture pins and workspace, and its single evidence chunk's digest and length were verified. The seven other issue bindings were receipt-verified at installation; their live capture associations have not each been individually tested. Earlier sessions remain unchanged; unknown issues stay unmapped. |
 | Bounded paging and retained evidence | The scheduled Hermes collector processed six sessions across two pages in one pass, with no failures or pending delivery. Page/time budgets mean an arbitrary backlog may require additional passes. |
 | Multiple work items in one conversation and interactive continuation | Session-level attribution has an explicit limitation. A live REV-50 Linear Codex acceptance session now has an independently read-back, agent-reported `coordinated_by` relation to the separate interactive session that coordinated it. This does not claim native thread resumption or associate every interactive exchange with REV-50. A full cross-work switch and an actual Linear-to-interactive continuation remain to be demonstrated. |
 | Loop, replay and cancellation guards | Source and isolated fixture coverage exists; the live cancellation and both individual handoff directions passed. A live agent-echo and uncertain-result recovery exercise is not claimed. |
@@ -28,9 +28,11 @@ Its previous policy and journal were backed up privately, and the migration
 receipt is retained. The operator subsequently authorized paid execution for
 the eight mapped issues; the journaled authority transition completed and the
 runtime and eight issue-specific sockets are active. The transition script
-started no model and verified unauthenticated denial. Paid execution through
-the new production workspaces and live end-to-end acceptance of those
-workspaces remain unverified. No hard per-turn or spending cap is enforced.
+started no model and verified unauthenticated denial. A paid, read-only REV-50
+Linear request completed from its assigned checkout and its captured evidence
+was verified in owned history. Live write behavior and the other seven
+production workspaces remain unverified. No hard per-turn or spending cap is
+enforced.
 
 The collector uses a fixed session-creation cutoff for each issue mapping; it
 will not silently reassign older captured evidence. A work association describes

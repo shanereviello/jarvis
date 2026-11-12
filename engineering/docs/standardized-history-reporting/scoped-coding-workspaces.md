@@ -26,8 +26,9 @@ refuses changed workspace/work pins and unresolved turns. This permits checking
 the deployment without accidentally starting paid coding and supports a later
 explicit disable transition. The disabled configuration and journal cutover
 passed host readiness and unauthenticated-denial checks; the operator then
-authorized execution for the eight mapped issues. Live paid execution and
-acceptance using the new issue-specific runtime remain outstanding.
+authorized execution for the eight mapped issues. A live read-only REV-50
+request completed in its assigned checkout; writing and the other seven issue
+workspaces remain to be verified through the new runtime.
 
 The scoped deployment depends on the following checks and decisions:
 
@@ -77,4 +78,5 @@ also staged eight separate clean native-owned, remote-free task checkouts at
 commit `65b6ceef7ff28222b6e96112c7f7f43a8c2919ba`. The canonical checkout and
 the earlier uncommitted REV-50 acceptance checkout were preserved. The
 v2 runtime and its eight socket units are now active. Paid coding has been
-authorized for the mapped issues and still requires live validation.
+authorized for the mapped issues. One read-only REV-50 request completed and
+its captured evidence was verified; a live write remains to be validated.
