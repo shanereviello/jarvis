@@ -64,12 +64,18 @@ def parent():
         try:yield db
         finally:db.close()
     journal=local('onboarding_issue_journal').IssueJournal(journal_connection)
-    with journal_connection() as db:journal.initialize(db)
+    with journal_connection() as db:
+        journal.initialize(db)
+        local('onboarding_review_store').ReviewStore.initialize(db)
     calls=[]
     def issue_create(dispatch,selected,plan,proposal):
         if dispatch!=uid(1) or selected!=origin or plan!='PLAN-01':raise ValueError('fixture issue creation refused')
         calls.append(proposal);return issue['id']
-    broker=local('onboarding_broker').Broker(grants,lookup,issue_read,adapter,issue_journal=journal,issue_create=issue_create)
+    review=local('onboarding_review_broker').Broker(grants,lambda peer,dispatch,issue_id:lookup(peer,dispatch),
+        issue_read,journal_connection,adapter,[scope])
+    broker=local('onboarding_broker').Broker(grants,lookup,issue_read,adapter,issue_journal=journal,issue_create=issue_create,
+        review_prepare=lambda dispatch,selected,issue_id,version:review.dispatch(NATIVE,dict(operation='review.prepare',
+            dispatch_id=dispatch,issue_id=issue_id,version=version)))
     transport=local('onboarding_broker_unix');stop=threading.Event();client=None
     with transport.server(BROKER,broker) as server:
         def serve():
@@ -77,7 +83,7 @@ def parent():
         worker=threading.Thread(target=serve);worker.start();print('ready',flush=True)
         try:
             runtime=local('codex_runtime');client=runtime.SocketAppServer(SOCKET,0,timeout=30)
-            launch=local('onboarding_mcp').Launch(BROKER,ADAPTER,sys.executable,allow_create=True)
+            launch=local('onboarding_mcp').Launch(BROKER,ADAPTER,sys.executable,allow_create=True,allow_review=True)
             params=launch.parameters(uid(1));params.update(cwd=str(BASE/'workspace'),sandbox='read-only',approvalPolicy='never',ephemeral=True)
             params['config'].update({'analytics.enabled':False,'check_for_update_on_startup':False})
             thread=client.call('thread/start',params)['thread']['id'];launch.verify_inventory(client,thread)
@@ -96,6 +102,12 @@ def parent():
             if result.get('isError'):raise ValueError('cross-UID draft work refused')
             result=json.loads(result['content'][0]['text'])
             if len(calls)!=1 or adapter.issue_binding(origin,issue['id'])['work_id']!=result['work_id']:raise ValueError('work mapping differs')
+            reviewed=client.call('mcpServer/tool/call',dict(threadId=thread,server='engineering_planning',
+                tool='engineering_prepare_review',arguments=dict(issue_id=issue['id'],version=1)))
+            if reviewed.get('isError'):raise ValueError('cross-UID review preparation refused')
+            reviewed=json.loads(reviewed['content'][0]['text'])
+            if reviewed['execution_authorized'] is not False or reviewed['human_approval_inferred'] is not False:
+                raise ValueError('review cannot authorize work')
             print('recorded',flush=True)
             if sys.stdin.readline().strip()!='stop':raise ValueError('fixture coordination failed')
         finally:
@@ -142,7 +154,7 @@ def inside():
         adapter.stdin.write('stop\n');adapter.stdin.flush();_,stderr=adapter.communicate(timeout=15)
         if adapter.returncode:raise ValueError('planning adapter failed: '+stderr[-2000:])
         native.wait(timeout=10)
-        print(json.dumps(dict(actual_native_app_server=True,distinct_numeric_uids=True,draft_and_work_retained=True,synthetic_issue_create=True,
+        print(json.dumps(dict(actual_native_app_server=True,distinct_numeric_uids=True,draft_and_work_retained=True,synthetic_issue_create=True,review_reference_retained=True,
             wrong_peer_denied=True,private_history_denied=True,network_isolated=True,models_started=0,turn_start_calls=0)))
     finally:
         listener.close()
