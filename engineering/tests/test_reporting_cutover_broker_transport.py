@@ -46,3 +46,11 @@ def test_transport_rejects_other_peer_before_reading_request():
     finally:
         client.close()
         server.close()
+
+
+def test_client_refuses_non_socket(tmp_path):
+    import pytest
+    path = tmp_path / 'not-a-socket'
+    path.write_text('fixture')
+    with pytest.raises(ValueError):
+        module.call(path, 'digest')
