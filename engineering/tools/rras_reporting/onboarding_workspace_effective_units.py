@@ -34,7 +34,13 @@ class Verifier:
             raise ValueError('exact issue unit evidence required')
         names = ('FragmentPath','DropInPaths','User','Group','WorkingDirectory','ProtectSystem','NoNewPrivileges',
                  'PrivateTmp','PrivateDevices','ProtectHome','ReadWritePaths','RestrictAddressFamilies')
-        service = self.properties(expected['service_name'], names)
+        template = expected['service_name']
+        if type(template) is not str or not template.endswith('@.service'):
+            raise ValueError('exact issue service template required')
+        # systemctl show refuses an uninstantiated template; this fixed instance
+        # name loads properties without starting a service or contacting a model.
+        instance = template[:-len('@.service')] + '@rras-verification.service'
+        service = self.properties(instance, names)
         if (service['FragmentPath'] != str(self.directory / expected['service_name']) or service['DropInPaths'] or
                 service['User'] != 'rras-codex-native' or service['Group'] != 'rras-codex-native' or
                 service['WorkingDirectory'] != expected['workspace'] or service['ProtectSystem'] != 'strict' or
