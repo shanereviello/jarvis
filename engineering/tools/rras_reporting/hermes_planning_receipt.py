@@ -10,7 +10,16 @@ from pathlib import Path
 QUERY = """SELECT r.hermes_run_id, r.status, s.organization_id,
  s.agent_session_id, s.hermes_session_id, s.issue_id,
  w.delivery_id, w.event_type, w.action, w.organization_id AS receipt_organization_id,
- w.agent_session_id AS receipt_session_id, w.raw_payload
+ w.agent_session_id AS receipt_session_id,
+ jsonb_build_object('action',w.raw_payload->'action',
+   'agentSession',jsonb_build_object(
+     'id',w.raw_payload->'agentSession'->>'id',
+     'issueId',COALESCE(w.raw_payload->'agentSession'->>'issueId',w.raw_payload->'agentSession'->'issue'->>'id'),
+     'sourceCommentId',COALESCE(w.raw_payload->'agentSession'->>'sourceCommentId',w.raw_payload->'agentSession'->>'commentId',
+         w.raw_payload->'agentSession'->'sourceComment'->>'id',w.raw_payload->'agentSession'->'comment'->>'id'),
+     'creatorId',COALESCE(w.raw_payload->'agentSession'->>'creatorId',w.raw_payload->'agentSession'->'creator'->>'id')),
+   'agentActivity',jsonb_build_object('userId',COALESCE(w.raw_payload->'agentActivity'->>'userId',
+         w.raw_payload->'agentActivity'->'user'->>'id'))) AS raw_payload
 FROM linear_bridge.hermes_runs r
 JOIN linear_bridge.agent_sessions s ON s.agent_session_id=r.agent_session_id
 JOIN linear_bridge.webhook_receipts w ON w.delivery_id=r.delivery_id

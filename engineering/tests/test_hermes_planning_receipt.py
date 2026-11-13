@@ -24,6 +24,8 @@ def test_exact_active_receipt_is_evidence_only():
     assert receipt.bind(native)==[native['run_id'],native['organization_id'],native['session_id'],native['hermes_session_id']]
     assert receipt.receipt(native,[row])['delivery_id']=='delivery'
     assert 'JOIN linear_bridge.webhook_receipts w ON w.delivery_id=r.delivery_id' in receipt.QUERY
+    assert "jsonb_build_object('action'" in receipt.QUERY
+    assert "w.raw_payload\n" not in receipt.QUERY and 'promptContext' not in receipt.QUERY
 
 
 @pytest.mark.parametrize('field,value',[
