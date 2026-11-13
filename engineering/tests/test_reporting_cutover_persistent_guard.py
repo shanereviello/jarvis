@@ -47,3 +47,22 @@ def test_guard_refuses_changed_retained_unit(tmp_path):
     guard.backup.write_bytes(b'changed')
     with pytest.raises(ValueError, match='mask retained'):guard.release(lambda:True)
     assert unit.is_symlink()
+
+
+def test_explicit_recovery_requires_consistent_policy_and_preserves_unit(tmp_path):
+    directory = tmp_path / 'units';directory.mkdir(mode=0o700)
+    audit = tmp_path / 'audit';audit.mkdir(mode=0o700)
+    unit = directory / 'fixture.service';unit.write_bytes(b'original');unit.chmod(0o644)
+    systemd = Systemd(unit)
+    guard = module.Guard('fixture.service', audit, directory=directory, owner=os.getuid(), run=systemd)
+    guard.acquire()
+    intent = next(audit.glob('*.unit-intent'))
+    recovery_path = path.with_name('codex_cutover_unit_recovery.py')
+    recovery_spec = importlib.util.spec_from_file_location('unit_recovery_fixture', recovery_path)
+    recovery = importlib.util.module_from_spec(recovery_spec);recovery_spec.loader.exec_module(recovery)
+    with pytest.raises(ValueError, match='mask retained'):
+        recovery.restore(intent, 'fixture.service', lambda:False, directory=directory, owner=os.getuid(), run=systemd)
+    assert unit.is_symlink() and not list(audit.glob('*.unit-restore'))
+    result = recovery.restore(intent, 'fixture.service', lambda:True, directory=directory, owner=os.getuid(), run=systemd)
+    assert result['restored'] and not result['service_started'] and unit.read_bytes() == b'original'
+    assert len(list(audit.glob('*.unit-restore'))) == 1
