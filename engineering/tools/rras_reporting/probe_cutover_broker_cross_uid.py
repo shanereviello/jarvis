@@ -22,6 +22,13 @@ def local(name):
     return module
 
 
+def accept(server, listener, broker):
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if server.serve_once(listener, broker):return True
+    return False
+
+
 def inside():
     if not Path('/.dockerenv').exists() or os.getuid() != 0:
         raise ValueError('isolated root container required')
@@ -49,16 +56,12 @@ def inside():
                 os._exit(3)
         return pid
     with server.listener(path, PEER) as listener:
-        def accept():
-            deadline = time.monotonic() + 10
-            while time.monotonic() < deadline:
-                if server.serve_once(listener):return True
-            return False
+        broker = Broker()
         good = child(PEER)
-        if not accept() or os.waitpid(good, 0)[1] != 0:
+        if not accept(server, listener, broker) or os.waitpid(good, 0)[1] != 0:
             raise ValueError('expected peer was refused')
         rogue = child(ROGUE)
-        if not accept() or os.waitpid(rogue, 0)[1] == 0:
+        if not accept(server, listener, broker) or os.waitpid(rogue, 0)[1] == 0:
             raise ValueError('same-group rogue peer was accepted')
     if path.exists():
         raise ValueError('listener socket was not cleaned')
