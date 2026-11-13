@@ -12,7 +12,10 @@ def local(name):
 
 def render(configuration,reader_header,team_ids,scopes,project_scopes,fallback_scope,jarvis_oauth,issue=False):
     config=local('n8n_codex').configuration(configuration)
-    if type(jarvis_oauth) is not str or not jarvis_oauth.strip() or jarvis_oauth==config['credentials']['codex_oauth']:
+    if (type(jarvis_oauth) is not dict or set(jarvis_oauth)!={'id','type'} or
+            type(jarvis_oauth['id']) is not str or not jarvis_oauth['id'].strip() or
+            len(jarvis_oauth['id'])>128 or jarvis_oauth['id']==config['credentials']['codex_oauth'] or
+            jarvis_oauth['type'] not in ('oAuth2Api','linearOAuth2Api')):
         raise ValueError('separate Jarvis OAuth credential reference required')
     workflow=local('n8n_planning_reader').render(config,reader_header,team_ids,scopes,project_scopes,fallback_scope)
     nodes=workflow['nodes'];named={n['name']:n for n in nodes}
@@ -35,7 +38,11 @@ const native=$('Validate exact dispatch').first().json.native,rows=$input.all();
 if(rows.length!==1)throw new Error('One exact receipt required');
 const envelope=hermesPlanningEnvelope(native,rows[0].json);
 return [{json:{native,envelope,native_request:planningOriginQuery(envelope,{app_user_id:app})}}];"""
-    named['Read native planning origin']['credentials']={'oAuth2Api':dict(id=jarvis_oauth,name='Protected Jarvis OAuth reference')}
+    native=named['Read native planning origin'];kind=jarvis_oauth['type']
+    native['credentials']={kind:dict(id=jarvis_oauth['id'],name='Protected Jarvis OAuth reference')}
+    native['parameters'].pop('genericAuthType',None);native['parameters'].pop('nodeCredentialType',None)
+    if kind=='oAuth2Api':native['parameters'].update(authentication='genericCredentialType',genericAuthType=kind)
+    else:native['parameters'].update(authentication='predefinedCredentialType',nodeCredentialType=kind)
     named['Verify selected planning origin']['parameters']['jsCode']=source+'\nconst policy='+json.dumps(policy)+';\nconst mapped='+json.dumps(project_scopes)+';\nconst fallback='+json.dumps(fallback_scope)+""";
 const saved=$('Prepare native planning read').first().json,reply=$input.first().json;
 const project=reply.body?.data?.agentSession?.issue?.project?.id;

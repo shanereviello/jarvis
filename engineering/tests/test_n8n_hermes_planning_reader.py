@@ -15,11 +15,13 @@ NODE=Path(__file__).resolve().parents[3]/'project-test-venv/lib/python3.13/site-
 @pytest.mark.parametrize('issue',[False,True])
 def test_inactive_reader_uses_exact_run_and_jarvis_credential(config,issue):
     scope=dict(kind='non_git',id='jarvis-non-git')
-    workflow=module.render(config,'private-reader',[uid(30)],[scope],{},scope,'jarvis-oauth',issue)
+    workflow=module.render(config,'private-reader',[uid(30)],[scope],{},scope,dict(id='jarvis-oauth',type='linearOAuth2Api'),issue)
     assert workflow['active'] is False
     nodes={n['name']:n for n in workflow['nodes']}
     assert 'webhook_receipts' in nodes['Read retained planning event']['parameters']['query']
-    assert nodes['Read native planning origin']['credentials']['oAuth2Api']['id']=='jarvis-oauth'
+    assert nodes['Read native planning origin']['credentials']['linearOAuth2Api']['id']=='jarvis-oauth'
+    assert nodes['Read native planning origin']['parameters']['authentication']=='predefinedCredentialType'
+    assert nodes['Read native planning origin']['parameters']['nodeCredentialType']=='linearOAuth2Api'
     assert nodes['Private planning origin']['parameters']['path'].startswith('rras-jarvis-planning-')
     if issue:assert 'Verify Jarvis issue' in nodes
     scripts=[n['parameters']['jsCode'] for n in workflow['nodes'] if n['type'].endswith('.code')]
@@ -31,7 +33,10 @@ def test_inactive_reader_uses_exact_run_and_jarvis_credential(config,issue):
 def test_jarvis_must_have_separate_credential(config):
     scope=dict(kind='non_git',id='jarvis-non-git')
     with pytest.raises(ValueError):
-        module.render(config,'private-reader',[uid(30)],[scope],{},scope,config['credentials']['codex_oauth'])
+        module.render(config,'private-reader',[uid(30)],[scope],{},scope,dict(id=config['credentials']['codex_oauth'],type='oAuth2Api'))
+    workflow=module.render(config,'private-reader',[uid(30)],[scope],{},scope,dict(id='other-jarvis',type='oAuth2Api'))
+    native=next(n for n in workflow['nodes'] if n['name']=='Read native planning origin')
+    assert native['parameters']['authentication']=='genericCredentialType' and native['parameters']['genericAuthType']=='oAuth2Api'
 
 
 def test_retained_payload_must_match_active_run_and_issue():
@@ -55,7 +60,7 @@ if(!rejected)throw Error('mismatched issue accepted');"""
 def test_origin_workflow_rechecks_human_source_against_linear(config):
     if not NODE.is_file():pytest.skip('Node runtime unavailable')
     scope=dict(kind='non_git',id='jarvis-non-git')
-    workflow=module.render(config,'private-reader',[uid(30)],[scope],{},scope,'jarvis-oauth')
+    workflow=module.render(config,'private-reader',[uid(30)],[scope],{},scope,dict(id='jarvis-oauth',type='linearOAuth2Api'))
     scripts={n['name']:n['parameters']['jsCode'] for n in workflow['nodes'] if n['type'].endswith('.code')}
     app=config['app_user_id'];org=config['organization_id'];session=uid(2);issue=uid(3);comment=uid(4);human=uid(5);project=uid(6)
     native=dict(organization_id=org,session_id=session,hermes_session_id='linear:'+org+':'+session,run_id='run_'+'a'*32)
@@ -84,9 +89,10 @@ def test_jarvis_create_workflow_compiles_and_does_not_retry(config):
     if not NODE.is_file():pytest.skip('Node runtime unavailable')
     scope=dict(kind='non_git',id='jarvis-non-git')
     create=module.local('n8n_hermes_planning_create')
-    workflow=create.render(config,'creator-header',[uid(30)],[scope],{},scope,'jarvis-oauth')
+    workflow=create.render(config,'creator-header',[uid(30)],[scope],{},scope,dict(id='jarvis-oauth',type='linearOAuth2Api'))
     nodes={n['name']:n for n in workflow['nodes']}
     assert not workflow['active'] and nodes['Create Jarvis draft issue']['retryOnFail'] is False
+    assert nodes['Create Jarvis draft issue']['credentials']['linearOAuth2Api']['id']=='jarvis-oauth'
     assert 'issue_id' not in nodes['Validate exact dispatch']['parameters']['jsCode']
     scripts=[n['parameters']['jsCode'] for n in workflow['nodes'] if n['type'].endswith('.code')]
     result=subprocess.run([str(NODE),'-e','for(const s of '+json.dumps(scripts)+') new Function("$input","$",s)'],capture_output=True,text=True)
