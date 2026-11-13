@@ -1,0 +1,15 @@
+[Unit]
+Description=Private socket for the Codex planning App Server
+ConditionPathExists=/etc/rras-engineering/codex-planning/host-enabled
+
+[Socket]
+ListenStream=/run/rras-codex-planning-native/app.sock
+SocketUser=rras-codex-planner
+SocketGroup=rras-codex-planner
+SocketMode=0600
+DirectoryMode=0711
+Accept=yes
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

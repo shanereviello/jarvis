@@ -37,3 +37,18 @@ def test_planner_has_distinct_identity_and_does_not_start_without_marker():
     assert service['Service']['User'] == 'rras-codex-planner'
     assert service['Unit']['ConditionPathExists'].endswith('/host-enabled')
     assert service['Service']['StateDirectoryMode'] == '0700'
+
+
+def test_native_planning_socket_and_process_have_dedicated_read_only_boundary():
+    listener=unit('rras-codex-planning-native.socket')
+    socket=listener['Socket']
+    assert socket['SocketUser']=='rras-codex-planner'
+    assert socket['SocketMode']=='0600' and socket['Accept']=='yes'
+    assert listener['Unit']['ConditionPathExists'].endswith('/host-enabled')
+    service=unit('rras-codex-planning-native@.service')['Service']
+    assert service['User']=='rras-codex-native'
+    assert service['WorkingDirectory']==service['ReadOnlyPaths']=='/srv/rras-codex-planning/workspace'
+    assert service['ProtectSystem']=='strict' and 'ReadWritePaths' not in service
+    assert service['StateDirectory']=='rras-codex-planning-native'
+    assert 'AF_NETLINK' in service['RestrictAddressFamilies'].split()
+    assert '/srv/rras-codex-workspaces-20261111' in service['InaccessiblePaths']

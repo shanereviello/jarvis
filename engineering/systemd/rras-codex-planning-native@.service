@@ -1,0 +1,39 @@
+[Unit]
+Description=Codex App Server for the private planning adapter (%i)
+ConditionPathExists=/etc/rras-engineering/codex-planning/host-enabled
+ConditionPathExists=/var/lib/rras-codex-planning-native/codex/config.toml
+
+[Service]
+User=rras-codex-native
+Group=rras-codex-native
+SupplementaryGroups=
+UMask=0077
+StandardInput=socket
+StandardOutput=socket
+StandardError=null
+StateDirectory=rras-codex-planning-native
+StateDirectoryMode=0700
+WorkingDirectory=/srv/rras-codex-planning/workspace
+LoadCredential=openai-api-key:/etc/rras-engineering/codex-runtime/openai-api-key
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I -B /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/codex_app_server_entry.py --binary /opt/rras-engineering/releases/standardized-history-runtime/runtime/bin/codex --codex-home /var/lib/rras-codex-planning-native/codex
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadOnlyPaths=/srv/rras-codex-planning/workspace
+InaccessiblePaths=-/var/lib/rras-engineering-history -/var/lib/rras-workflow -/var/lib/rras-coding-tasks -/opt/rras-coding-jobs -/srv/hermes -/etc/rras-engineering-history -/srv/rras-codex-workspaces-20261111
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+TimeoutStartSec=30s
+TimeoutStopSec=10s
+MemoryMax=4G
+TasksMax=256
+KillMode=control-group
