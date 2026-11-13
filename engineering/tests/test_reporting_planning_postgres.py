@@ -35,6 +35,12 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
         def sql(text,ok=True):return run(['docker','exec','-i',name,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],text,ok)
         sql('CREATE SCHEMA linear_bridge;'+(root/'contracts/linear-codex-n8n-v1.sql').read_text())
         sql((root/'contracts/linear-codex-planning-v1.sql').read_text())
+        sql('CREATE ROLE n8n_user NOLOGIN; GRANT USAGE ON SCHEMA linear_bridge TO n8n_user;')
+        sql('GRANT SELECT, INSERT, UPDATE ON linear_bridge.codex_apps, linear_bridge.codex_sessions, '
+            'linear_bridge.codex_events, linear_bridge.codex_deliveries, linear_bridge.codex_outbox TO n8n_user;')
+        sql((root/'contracts/linear-codex-planning-n8n-grants-v1.sql').read_text())
+        assert sql("SELECT has_function_privilege('n8n_user','linear_bridge.codex_planning_accept(uuid,uuid,uuid,text,jsonb)','EXECUTE');")=='t'
+        assert sql("SELECT has_table_privilege('n8n_user','linear_bridge.codex_planning_events','DELETE');")=='f'
         ids=[str(uuid.UUID(int=n)) for n in range(1,14)]
         org,app,session,issue,delivery=ids[:5]
         sql(f"INSERT INTO linear_bridge.codex_apps VALUES('{org}','{app}');")
@@ -42,7 +48,7 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
             session_id=session,issue_id=issue,source_key='created:fixture',action='created',message='Fixture',signal=None)
         def accept(delivery_id,value=event):
             raw=json.dumps(value);return f"SELECT inserted FROM linear_bridge.codex_planning_accept('{org}','{app}','{delivery_id}','{'a'*64}',$x${raw}$x$::jsonb);"
-        assert sql(accept(delivery))=='t'
+        assert sql('SET ROLE n8n_user; '+accept(delivery)).endswith('t')
         assert sql(accept(delivery))=='f'
         assert sql(accept(ids[5]))=='f'
         sql(accept(ids[6],dict(event,message='changed')),False)
@@ -70,7 +76,7 @@ def test_planning_intake_is_replay_safe_and_partitioned_from_execution():
         workflows=renderer.render(config,'http://172.19.0.1:8767','planning')['workflows']
         nodes=lambda name:{n['name']:n for n in workflows[name]['nodes']}
         event_id=sql('SELECT id FROM linear_bridge.codex_planning_events;')
-        assert event_id in sql(nodes('dispatch')['Select retained planning event']['parameters']['query'])
+        assert event_id in sql('SET ROLE n8n_user; '+nodes('dispatch')['Select retained planning event']['parameters']['query'])
         running=json.dumps(dict(dispatch=event_id,state='running'))
         finish=nodes('dispatch')['Retain planning result']['parameters']['query']
         sql(f"PREPARE finish(uuid,jsonb) AS {finish}; EXECUTE finish('{event_id}',$x${running}$x$::jsonb);")
