@@ -17,7 +17,7 @@ def test_entry_closes_server_on_exit(monkeypatch):
         def server_close(self):events.append(('close',))
     def local(name):
         if name=='hermes_planning_scope':return SimpleNamespace(Resolver=lambda path:('scope',path))
-        if name=='hermes_planning_service':return SimpleNamespace(assemble=lambda *args:Server())
+        if name=='hermes_planning_service':return SimpleNamespace(assemble=lambda *args,**kwargs:Server())
         raise AssertionError(name)
     monkeypatch.setattr(module,'local',local)
     module.run({},'/private/scopes.json',b'reader',b'bridge')

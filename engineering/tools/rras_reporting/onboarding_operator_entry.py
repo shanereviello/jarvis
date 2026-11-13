@@ -35,7 +35,7 @@ def configuration(value,uid,gid):
     fields={'operator_uid','operator_gid','planning_peer_uid','browser_peer_uid','history_uid','history_socket',
             'review_socket','browser_socket','organization_id','app_user_id','team_id','human_ids','scopes',
             'reader_origin_url','reader_issue_url','comment_url','access'}
-    if type(value) is not dict or set(value) not in (fields,fields|{'admission'}):raise ValueError('exact operator service configuration required')
+    if type(value) is not dict or not fields<=set(value) or set(value)-fields-{'admission','jarvis_review'}:raise ValueError('exact operator service configuration required')
     u=local('onboarding_broker_unix').unix()
     for name in ('operator_uid','operator_gid','planning_peer_uid','browser_peer_uid','history_uid'):u.uid(value[name])
     if (value['operator_uid']!=uid or value['operator_gid']!=gid or
@@ -52,6 +52,18 @@ def configuration(value,uid,gid):
             raise ValueError('separate admission socket directory required')
         # Validate the URL without loading any credential or starting a listener.
         local('onboarding_operator_issue_http').Transport(a['issue_url'],value['app_user_id'],b'x'*32)
+    if 'jarvis_review' in value:
+        j=value['jarvis_review']
+        if type(j) is not dict or set(j)!={'socket','peer_uid','app_user_id','origin_url','issue_url','scope_path'}:
+            raise ValueError('exact Jarvis review configuration required')
+        u.uid(j['peer_uid']);u.endpoint(j['socket']);local('onboarding_drafts').identifier(j['app_user_id'])
+        if j['peer_uid'] in {uid,value['planning_peer_uid'],value['browser_peer_uid'],value['history_uid']} or j['app_user_id']==value['app_user_id']:
+            raise ValueError('separate Jarvis review identity required')
+        forbidden={Path(value['review_socket']).parent,Path(value['browser_socket']).parent}
+        if 'admission' in value:forbidden.add(Path(value['admission']['socket']).parent)
+        if Path(j['socket']).parent in forbidden or not Path(j['scope_path']).is_absolute():
+            raise ValueError('separate Jarvis review socket and protected scopes required')
+        local('hermes_planning_reader_http').Reader(j['origin_url'],j['issue_url'],j['app_user_id'],b'x'*32)
     a=value['access']
     if type(a) is not dict or set(a)!={'issuer','audience','email','origin'}:raise ValueError('exact operator access required')
     web('access').AccessConfig(**a)
@@ -78,10 +90,12 @@ def journal(root):
     finally:os.close(fd)
 
 
-def serve(value,root,planning_token,comment_token,issue_token=None):
+def serve(value,root,planning_token,comment_token,issue_token=None,jarvis_token=None):
     if planning_token==comment_token:raise ValueError('distinct protected reader credentials required')
     if ('admission' in value) != (issue_token is not None) or (issue_token is not None and issue_token in (planning_token,comment_token)):
         raise ValueError('separate protected issue credential required')
+    if ('jarvis_review' in value)!=(jarvis_token is not None) or (jarvis_token is not None and jarvis_token in (planning_token,comment_token,issue_token)):
+        raise ValueError('separate Jarvis reader credential required')
     if os.geteuid()!=os.getuid() or os.getegid()!=os.getgid() or set(os.getgroups())-{os.getgid()}:
         raise ValueError('dedicated unprivileged operator identity required')
     c=configuration(value,os.getuid(),os.getgid());transport=local('onboarding_broker_unix');unix=transport.unix()
@@ -107,6 +121,12 @@ def serve(value,root,planning_token,comment_token,issue_token=None):
                     issue_reader=local('onboarding_linear_issue_reader').Reader(issue_transport,c['app_user_id'],c['organization_id'])
                     admission=local('onboarding_admission_service').assemble_history(operator,history,issue_reader)
                     servers.append(stack.enter_context(transport.server(c['admission']['socket'],admission,deadline_seconds=60)))
+                if 'jarvis_review' in c:
+                    j=c['jarvis_review'];jarvis=local('hermes_planning_reader_http').Reader(j['origin_url'],j['issue_url'],j['app_user_id'],jarvis_token)
+                    resolver=local('hermes_planning_origin').Resolver(j['peer_uid'],c['organization_id'],j['app_user_id'],jarvis.origin,
+                        local('hermes_planning_scope').Resolver(j['scope_path']))
+                    broker=local('hermes_planning_review_broker').Broker(j['peer_uid'],resolver,jarvis.issue,connection,operator['history'].reader,c['scopes'],c['team_id'])
+                    servers.append(stack.enter_context(transport.server(j['socket'],broker,on_bound=lambda path:acl(path,j['peer_uid']),deadline_seconds=60)))
                 failures=[]
                 def loop(server):
                     try:
@@ -127,6 +147,7 @@ def serve(value,root,planning_token,comment_token,issue_token=None):
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--config',required=True);parser.add_argument('--state',required=True)
     parser.add_argument('--planning-token',required=True);parser.add_argument('--comment-token',required=True);parser.add_argument('--issue-token');parser.add_argument('--initialize',action='store_true')
+    parser.add_argument('--jarvis-token')
     args=parser.parse_args();os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8');os.umask(0o077)
     try:
         protected=local('protected_config');value=configuration(protected.decode(args.config,require_root=True),os.getuid(),os.getgid())
@@ -136,7 +157,8 @@ def main():
         planning=protected.read(args.planning_token,maximum=257,require_root=True).strip()
         comment=protected.read(args.comment_token,maximum=257,require_root=True).strip()
         issue=protected.read(args.issue_token,maximum=257,require_root=True).strip() if args.issue_token else None
-        serve(value,Path(args.state),planning,comment,issue)
+        jarvis=protected.read(args.jarvis_token,maximum=257,require_root=True).strip() if args.jarvis_token else None
+        serve(value,Path(args.state),planning,comment,issue,jarvis)
     except Exception:parser.exit(1,'Private operator service refused; preserve configuration and journal for inspection.\n')
 
 

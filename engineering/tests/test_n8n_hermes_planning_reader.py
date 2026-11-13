@@ -78,3 +78,16 @@ if(denied.permitted!==false)throw Error('app actor accepted');"""
         program=program.replace('__'+key+'__',json.dumps(value))
     result=subprocess.run([str(NODE),'-e',program],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
+
+
+def test_jarvis_create_workflow_compiles_and_does_not_retry(config):
+    if not NODE.is_file():pytest.skip('Node runtime unavailable')
+    scope=dict(kind='non_git',id='jarvis-non-git')
+    create=module.local('n8n_hermes_planning_create')
+    workflow=create.render(config,'creator-header',[uid(30)],[scope],{},scope,'jarvis-oauth')
+    nodes={n['name']:n for n in workflow['nodes']}
+    assert not workflow['active'] and nodes['Create Jarvis draft issue']['retryOnFail'] is False
+    assert 'issue_id' not in nodes['Validate exact dispatch']['parameters']['jsCode']
+    scripts=[n['parameters']['jsCode'] for n in workflow['nodes'] if n['type'].endswith('.code')]
+    result=subprocess.run([str(NODE),'-e','for(const s of '+json.dumps(scripts)+') new Function("$input","$",s)'],capture_output=True,text=True)
+    assert result.returncode==0,result.stderr

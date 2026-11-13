@@ -43,3 +43,13 @@ def test_optional_admission_requires_dedicated_socket_and_fixed_issue_reader(tmp
         module.configuration(dict(config,admission=dict(config['admission'],socket=config['review_socket'])),os.getuid(),os.getgid())
     with pytest.raises(ValueError):
         module.configuration(dict(config,admission=dict(config['admission'],issue_url='http://external.example/issue')),os.getuid(),os.getgid())
+
+
+def test_jarvis_review_has_separate_identity_and_private_routes(tmp_path):
+    config=sample(tmp_path);app=uid(8)
+    config['jarvis_review']=dict(socket=str(tmp_path/'jarvis-review'/'service.sock'),peer_uid=61184,app_user_id=app,
+        origin_url='http://127.0.0.1:5678/webhook/rras-jarvis-planning-origin-'+app,
+        issue_url='http://127.0.0.1:5678/webhook/rras-jarvis-planning-issue-'+app,scope_path=str(tmp_path/'scopes.json'))
+    assert module.configuration(config,os.getuid(),os.getgid())==config
+    for field,value in [('peer_uid',config['planning_peer_uid']),('app_user_id',config['app_user_id']),('socket',config['review_socket'])]:
+        with pytest.raises(ValueError):module.configuration(dict(config,jarvis_review=dict(config['jarvis_review'],**{field:value})),os.getuid(),os.getgid())

@@ -152,6 +152,8 @@ def test_service_assembles_jarvis_only_and_separate_credentials(monkeypatch):
     assert captured['broker'].grants[1234]['agent']=='jarvis'
     with pytest.raises(ValueError,match='distinct reader'):
         service.assemble(config,b'r'*32,b'r'*32,lambda _:REPO,reader=Reader(),history_rpc=lambda _:None)
+    with pytest.raises(ValueError,match='journal'):
+        service.assemble(dict(config,issue_creator_url='unused'),b'r'*32,b'b'*32,lambda _:REPO,reader=Reader(),history_rpc=lambda _:None)
 
 
 def test_project_scope_comes_only_from_protected_map(monkeypatch):
