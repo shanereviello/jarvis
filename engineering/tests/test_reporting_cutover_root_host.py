@@ -15,7 +15,7 @@ spec.loader.exec_module(host)
 def test_host_only_releases_mask_after_consistent_completion(monkeypatch, success):
     state = {'acquired':False, 'released':False}
     class Guard:
-        def __init__(self, _): pass
+        def __init__(self, *_): pass
         def acquire(self): state['acquired'] = True
         def verified(self): return state['acquired'] and not state['released']
         def release(self, check):
@@ -32,7 +32,7 @@ def test_host_only_releases_mask_after_consistent_completion(monkeypatch, succes
     def serve(_, broker):
         if not success: raise OSError('simulated interrupted connection')
         broker.stage = 'complete'
-    modules = {'codex_cutover_restart_guard':SimpleNamespace(Guard=Guard),
+    modules = {'codex_cutover_persistent_guard':SimpleNamespace(Guard=Guard),
         'codex_cutover_root_files':SimpleNamespace(Files=Files),
         'codex_cutover_fixed_broker':SimpleNamespace(Broker=Broker),
         'codex_cutover_broker_server':SimpleNamespace(listener=listener, serve_once=serve)}

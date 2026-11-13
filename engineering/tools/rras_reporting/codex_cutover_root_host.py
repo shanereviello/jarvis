@@ -41,7 +41,7 @@ def run(*, unit, socket_path, peer_uid, peer_gid, policy_path, audit_dir, transi
             type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 900):
         raise ValueError('bounded host and independent verifiers required')
     with lock(audit_dir):
-        guard = local('codex_cutover_restart_guard').Guard(unit)
+        guard = local('codex_cutover_persistent_guard').Guard(unit, audit_dir)
         # Failure after this point intentionally leaves the runtime mask in place.
         guard.acquire()
         files = local('codex_cutover_root_files').Files(policy_path, audit_dir)
