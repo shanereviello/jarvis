@@ -31,7 +31,14 @@ def main():
         systemctl('daemon-reload')
         systemctl('start', unit)
         guard = module.Guard(unit)
-        guard.acquire()
+        try:
+            guard.acquire()
+        except ValueError:
+            print(json.dumps(dict(temporary_unit=unit,
+                enabled_status=guard.command('is-enabled'), active_status=guard.command('is-active'),
+                runtime_mask_symlink=(Path('/run/systemd/system') / unit).is_symlink(),
+                temporary_unit_preserved_until_cleanup=True, production_services_changed=False), sort_keys=True), flush=True)
+            raise
         blocked = systemctl('start', unit, check=False)
         if blocked.returncode == 0 or not guard.verified():
             raise ValueError('masked temporary unit unexpectedly started')
