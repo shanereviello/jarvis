@@ -51,4 +51,6 @@ def test_native_planning_socket_and_process_have_dedicated_read_only_boundary():
     assert service['ProtectSystem']=='strict' and 'ReadWritePaths' not in service
     assert service['StateDirectory']=='rras-codex-planning-native'
     assert 'AF_NETLINK' in service['RestrictAddressFamilies'].split()
-    assert '/srv/rras-codex-workspaces-20261111' in service['InaccessiblePaths']
+    for hidden in ('/srv/rras-codex-workspaces-20261111','/srv/rras-codex-acceptance','/srv/git',
+                   '/var/lib/rras-codex-native','/var/lib/rras-codex-adapter'):
+        assert '-'+hidden in service['InaccessiblePaths'].split()
