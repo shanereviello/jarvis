@@ -37,3 +37,17 @@ def test_admission_refuses_unverified_or_unsettled_runtime(tmp_path,policy):
     active.close()
     with pytest.raises(ValueError,match='execution evidence'):module.plan(root,request,lambda _:False,lambda _:AUTH)
     with pytest.raises(ValueError,match='execution authority'):module.plan(root,request,lambda _:True,lambda _:False)
+
+
+def test_locked_admission_rolls_back_on_caller_failure(tmp_path,policy):
+    current,request=inputs(tmp_path,policy);root=tmp_path/'state'
+    active=m.Runtime(root,current,create=True,issue_client_factory=lambda *_:None);active.close()
+    verify=lambda _:True
+    authority=lambda _:AUTH
+    plan=module.plan(root,request,verify,authority)
+    migration=module.local('codex_policy_migration')
+    with pytest.raises(RuntimeError,match='simulated'):
+        with migration.locked(root) as db:
+            module.apply_locked(db,request,verify,authority,plan['expected_sha256'])
+            raise RuntimeError('simulated')
+    assert module.plan(root,request,verify,authority)['expected_sha256']==plan['expected_sha256']

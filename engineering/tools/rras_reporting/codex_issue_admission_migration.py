@@ -49,21 +49,27 @@ def plan(root,request,verify,verify_authority):
         return value
 
 
-def apply(root,request,verify,verify_authority,expected_sha256):
-    runtime=local('codex_runtime');migration=local('codex_policy_migration')
-    with migration.locked(root) as db:
-        value,old,new=snapshot(db,request,verify,verify_authority)
-        digest=hashlib.sha256(runtime.encoded(value)).hexdigest()
-        if digest!=expected_sha256:raise ValueError('admission plan differs; reconcile before retry')
-        db.execute('CREATE TABLE IF NOT EXISTS policy_issue_admissions(sequence INTEGER PRIMARY KEY,issue_id TEXT NOT NULL UNIQUE, '
+def apply_locked(db,request,verify,verify_authority,expected_sha256):
+    """Write within a caller-owned journal lock and transaction; do not commit."""
+    runtime=local('codex_runtime')
+    value,old,new=snapshot(db,request,verify,verify_authority)
+    digest=hashlib.sha256(runtime.encoded(value)).hexdigest()
+    if digest!=expected_sha256:raise ValueError('admission plan differs; reconcile before retry')
+    db.execute('CREATE TABLE IF NOT EXISTS policy_issue_admissions(sequence INTEGER PRIMARY KEY,issue_id TEXT NOT NULL UNIQUE, '
                    'old_body BLOB NOT NULL,new_body BLOB NOT NULL,evidence_sha256 TEXT NOT NULL,authority_body BLOB NOT NULL,plan_sha256 TEXT NOT NULL)')
-        for operation in ('UPDATE','DELETE'):
-            db.execute('CREATE TRIGGER IF NOT EXISTS retain_issue_admissions_'+operation.lower()+' BEFORE '+operation+
+    for operation in ('UPDATE','DELETE'):
+        db.execute('CREATE TRIGGER IF NOT EXISTS retain_issue_admissions_'+operation.lower()+' BEFORE '+operation+
                        " ON policy_issue_admissions BEGIN SELECT RAISE(ABORT,'retained issue admission evidence'); END")
-        db.execute('INSERT INTO policy_issue_admissions(issue_id,old_body,new_body,evidence_sha256,authority_body,plan_sha256) VALUES(?,?,?,?,?,?)',
+    db.execute('INSERT INTO policy_issue_admissions(issue_id,old_body,new_body,evidence_sha256,authority_body,plan_sha256) VALUES(?,?,?,?,?,?)',
                    (request['issue_id'],runtime.encoded(old),runtime.encoded(new),value['evidence_sha256'],runtime.encoded(value['authority']),digest))
-        db.execute('UPDATE policy SET body=?',(runtime.encoded(new),))
-        return dict(journal_updated=True,issue_id=request['issue_id'],plan_sha256=digest,policy_installed=False,models_started=0)
+    db.execute('UPDATE policy SET body=?',(runtime.encoded(new),))
+    return dict(journal_updated=True,issue_id=request['issue_id'],plan_sha256=digest,policy_installed=False,models_started=0)
+
+
+def apply(root,request,verify,verify_authority,expected_sha256):
+    migration=local('codex_policy_migration')
+    with migration.locked(root) as db:
+        return apply_locked(db,request,verify,verify_authority,expected_sha256)
 
 
 def reconcile(root,request,expected_sha256):
