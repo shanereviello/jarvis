@@ -24,6 +24,9 @@ def test_review_requires_correct_peer_and_verified_origin(monkeypatch):
     monkeypatch.setattr(module,'local',lambda name:SimpleNamespace(ReviewStore=Store) if name=='onboarding_review_store' else original(name))
     selected={key:origin[key] for key in ('organization_id','team_id','project_id')};selected['id']=issue
     broker=module.Broker(1234,lambda peer,n:origin,lambda n,o,i:selected,lambda:None,None,[origin['scope']],origin['team_id'])
+    assert set(broker.grants)=={1234}
+    server=original('onboarding_broker_unix').server('/tmp/jarvis-review-fixture.sock',broker)
+    assert server.access is broker
     msg=dict(operation='review.prepare',native=native,issue_id=issue,version=1)
     with pytest.raises(ValueError):broker.dispatch(1235,msg)
     result=broker.dispatch(1234,msg)

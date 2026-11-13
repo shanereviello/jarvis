@@ -14,6 +14,7 @@ class Broker:
             raise ValueError('protected Jarvis review boundaries required')
         local('onboarding_drafts').identifier(team_id)
         self.peer_uid,self.resolve_native,self.read_issue,self.connection,self.history,self.scopes,self.team_id=(peer_uid,resolve_native,read_issue,connection,history,scopes,team_id)
+        self.grants={peer_uid:True}
 
     def dispatch(self,peer,message):
         if (type(peer) is not int or peer!=self.peer_uid or type(message) is not dict or
