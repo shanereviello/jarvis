@@ -53,5 +53,7 @@ def test_broker_refuses_restarted_runtime_or_revoked_evidence(tmp_path, policy):
         broker.call(1234, 'install')
     state.update(stopped=True, evidence=False)
     with pytest.raises(ValueError, match='evidence'):
+        broker.call(1234, 'verify')
+    with pytest.raises(ValueError, match='evidence'):
         broker.call(1234, 'install')
     assert files.digest() == broker.old

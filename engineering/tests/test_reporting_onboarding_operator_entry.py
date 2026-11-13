@@ -32,3 +32,14 @@ def test_configuration_requires_separate_peers_and_socket_directories(tmp_path):
     with pytest.raises(ValueError):module.configuration(dict(config,browser_peer_uid=config['planning_peer_uid']),os.getuid(),os.getgid())
     with pytest.raises(ValueError):module.configuration(dict(config,browser_socket=config['review_socket']),os.getuid(),os.getgid())
     with pytest.raises(ValueError):module.configuration(dict(config,unexpected=True),os.getuid(),os.getgid())
+
+
+def test_optional_admission_requires_dedicated_socket_and_fixed_issue_reader(tmp_path):
+    config=sample(tmp_path)
+    config['admission']=dict(socket=str(tmp_path/'admission'/'service.sock'),
+        issue_url='http://127.0.0.1:5678/webhook/rras-operator-issue-'+config['app_user_id'])
+    assert module.configuration(config,os.getuid(),os.getgid()) == config
+    with pytest.raises(ValueError):
+        module.configuration(dict(config,admission=dict(config['admission'],socket=config['review_socket'])),os.getuid(),os.getgid())
+    with pytest.raises(ValueError):
+        module.configuration(dict(config,admission=dict(config['admission'],issue_url='http://external.example/issue')),os.getuid(),os.getgid())

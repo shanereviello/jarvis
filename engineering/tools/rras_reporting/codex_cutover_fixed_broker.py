@@ -46,6 +46,10 @@ class Broker:
             raise ValueError('restart exclusion or stopped runtime not verified')
         if operation == 'transition':
             return {'plan_sha256': self.plan_sha, 'old_sha256': self.old, 'new_sha256': self.new}
+        if operation == 'verify':
+            if self.verify_evidence(copy.deepcopy(self.value['plan'])) is not True:
+                raise ValueError('current protected admission evidence required')
+            return {'verified':True}
         if operation == 'digest':
             return self.files.digest()
         if operation == 'intent' and self.stage == 'new':

@@ -40,3 +40,11 @@ def test_assembly_restricts_history_to_scoped_reads(monkeypatch):
     assert allowed == [request['scope']]
     with pytest.raises(ValueError):
         broker.dispatch(0, {'operation':'admission.verify','request':dict(request,method='project_submit')})
+
+
+def test_partial_history_attestation_requires_independent_workspace_check():
+    partial = module.Broker(lambda _:True, partial=True)
+    assert partial.dispatch(0, {'operation':'admission.verify','request':{}}) == {'history_issue_human_verified':True}
+    complete = module.SplitVerifier(lambda _:True, lambda _:False)
+    with pytest.raises(ValueError,match='complete'):complete({})
+    assert module.SplitVerifier(lambda _:True,lambda _:True)({})

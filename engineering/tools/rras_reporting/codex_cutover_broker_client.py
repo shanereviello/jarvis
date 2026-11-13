@@ -26,6 +26,11 @@ class Files:
             raise ValueError('exact broker policy digest required')
         return result
 
+    def verify(self):
+        if self.invoke('verify') != {'verified':True}:
+            raise ValueError('protected admission evidence unavailable')
+        return True
+
     def retain_intent(self, plan_sha, plan, old, new):
         runtime = local('codex_runtime')
         digest = lambda x: hashlib.sha256(runtime.encoded(x)).hexdigest()

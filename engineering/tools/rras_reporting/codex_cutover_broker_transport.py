@@ -20,7 +20,7 @@ def unix():
 
 def serve(connection, broker):
     transport = unix()
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 120
     peer = transport.peer(connection)
     if peer != broker.peer_uid:
         raise ValueError('broker peer refused')
@@ -40,7 +40,7 @@ def call(path, operation):
     if (not stat.S_ISSOCK(info.st_mode) or info.st_uid != 0 or
             stat.S_IMODE(info.st_mode) not in (0o600, 0o660)):
         raise ValueError('root-controlled broker socket required')
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 120
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
         transport.remaining(connection, deadline)
         connection.connect(str(endpoint))

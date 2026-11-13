@@ -1,6 +1,6 @@
 """Initialize or run the separately protected operator service; never deploy."""
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import fcntl
 import importlib.util
 import os
@@ -35,7 +35,7 @@ def configuration(value,uid,gid):
     fields={'operator_uid','operator_gid','planning_peer_uid','browser_peer_uid','history_uid','history_socket',
             'review_socket','browser_socket','organization_id','app_user_id','team_id','human_ids','scopes',
             'reader_origin_url','reader_issue_url','comment_url','access'}
-    if type(value) is not dict or set(value)!=fields:raise ValueError('exact operator service configuration required')
+    if type(value) is not dict or set(value) not in (fields,fields|{'admission'}):raise ValueError('exact operator service configuration required')
     u=local('onboarding_broker_unix').unix()
     for name in ('operator_uid','operator_gid','planning_peer_uid','browser_peer_uid','history_uid'):u.uid(value[name])
     if (value['operator_uid']!=uid or value['operator_gid']!=gid or
@@ -44,6 +44,14 @@ def configuration(value,uid,gid):
     for name in ('history_socket','review_socket','browser_socket'):u.endpoint(value[name])
     if Path(value['review_socket']).parent==Path(value['browser_socket']).parent:
         raise ValueError('separate socket ACL directories required')
+    if 'admission' in value:
+        a=value['admission']
+        if type(a) is not dict or set(a)!={'socket','issue_url'}:raise ValueError('exact admission reader configuration required')
+        u.endpoint(a['socket'])
+        if Path(a['socket']).parent in {Path(value['review_socket']).parent,Path(value['browser_socket']).parent}:
+            raise ValueError('separate admission socket directory required')
+        # Validate the URL without loading any credential or starting a listener.
+        local('onboarding_operator_issue_http').Transport(a['issue_url'],value['app_user_id'],b'x'*32)
     a=value['access']
     if type(a) is not dict or set(a)!={'issuer','audience','email','origin'}:raise ValueError('exact operator access required')
     web('access').AccessConfig(**a)
@@ -70,8 +78,10 @@ def journal(root):
     finally:os.close(fd)
 
 
-def serve(value,root,planning_token,comment_token):
+def serve(value,root,planning_token,comment_token,issue_token=None):
     if planning_token==comment_token:raise ValueError('distinct protected reader credentials required')
+    if ('admission' in value) != (issue_token is not None) or (issue_token is not None and issue_token in (planning_token,comment_token)):
+        raise ValueError('separate protected issue credential required')
     if os.geteuid()!=os.getuid() or os.getegid()!=os.getgid() or set(os.getgroups())-{os.getgid()}:
         raise ValueError('dedicated unprivileged operator identity required')
     c=configuration(value,os.getuid(),os.getgid());transport=local('onboarding_broker_unix');unix=transport.unix()
@@ -88,15 +98,22 @@ def serve(value,root,planning_token,comment_token):
         acl=local('runtime_checkpoint_broker').acl_on_bound
         signal.signal(signal.SIGTERM,terminate)
         try:
-            with transport.server(c['review_socket'],operator['review_broker'],on_bound=lambda path:acl(path,c['planning_peer_uid']),deadline_seconds=60) as review, \
-                 transport.server(c['browser_socket'],browser,on_bound=lambda path:acl(path,c['browser_peer_uid']),deadline_seconds=60) as browser_server:
+            with ExitStack() as stack:
+                review=stack.enter_context(transport.server(c['review_socket'],operator['review_broker'],on_bound=lambda path:acl(path,c['planning_peer_uid']),deadline_seconds=60))
+                browser_server=stack.enter_context(transport.server(c['browser_socket'],browser,on_bound=lambda path:acl(path,c['browser_peer_uid']),deadline_seconds=60))
+                servers=[review,browser_server]
+                if 'admission' in c:
+                    issue_transport=local('onboarding_operator_issue_http').Transport(c['admission']['issue_url'],c['app_user_id'],issue_token)
+                    issue_reader=local('onboarding_linear_issue_reader').Reader(issue_transport,c['app_user_id'],c['organization_id'])
+                    admission=local('onboarding_admission_service').assemble_history(operator,history,issue_reader)
+                    servers.append(stack.enter_context(transport.server(c['admission']['socket'],admission,deadline_seconds=60)))
                 failures=[]
                 def loop(server):
                     try:
                         while not stop.is_set():server.serve_once()
                     except BaseException:
                         failures.append(True);stop.set()
-                workers=[threading.Thread(target=loop,args=(server,),daemon=True) for server in (review,browser_server)]
+                workers=[threading.Thread(target=loop,args=(server,),daemon=True) for server in servers]
                 for worker in workers:worker.start()
                 try:stop.wait()
                 finally:
@@ -109,7 +126,7 @@ def serve(value,root,planning_token,comment_token):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--config',required=True);parser.add_argument('--state',required=True)
-    parser.add_argument('--planning-token',required=True);parser.add_argument('--comment-token',required=True);parser.add_argument('--initialize',action='store_true')
+    parser.add_argument('--planning-token',required=True);parser.add_argument('--comment-token',required=True);parser.add_argument('--issue-token');parser.add_argument('--initialize',action='store_true')
     args=parser.parse_args();os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8');os.umask(0o077)
     try:
         protected=local('protected_config');value=configuration(protected.decode(args.config,require_root=True),os.getuid(),os.getgid())
@@ -118,7 +135,8 @@ def main():
             print(json.dumps(initialize(args.state),sort_keys=True));return
         planning=protected.read(args.planning_token,maximum=257,require_root=True).strip()
         comment=protected.read(args.comment_token,maximum=257,require_root=True).strip()
-        serve(value,Path(args.state),planning,comment)
+        issue=protected.read(args.issue_token,maximum=257,require_root=True).strip() if args.issue_token else None
+        serve(value,Path(args.state),planning,comment,issue)
     except Exception:parser.exit(1,'Private operator service refused; preserve configuration and journal for inspection.\n')
 
 
