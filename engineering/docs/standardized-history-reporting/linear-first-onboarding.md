@@ -1,5 +1,7 @@
 # Linear-first onboarding: implementation status
 
+Jarvis planning now has source-only native-delivery readers, a non-retrying draft issue workflow, an exclusive create-once journal, an operator-side review broker, and a separately packaged Hermes plugin. The retained run, session, delivery and live Linear source must agree. A prompted event without a verifiable human actor is refused; this limitation was observed in one retained follow-up. The generated workflows and services remain inactive. Local tests do not establish live native execution, actual credential isolation, or authenticated operator acceptance.
+
 The approved v0.5 architecture introduces onboarding; it is not yet a live end-to-end capability. The four new work items are REV-55 through REV-58, mapped to SHRR-09 through SHRR-12 and the owned v0.5 project. Existing v0.4 work and production policy pins remain intact.
 
 The source provides draft project and work coordinators, a history adapter, additive schema-6 project and work reservations, an operation-scoped history access policy, and native planning-origin and issue verifiers. The coordinators never designate an architecture or grant execution. Their origin and issue verifiers and storage are injected trusted components; untrusted agent JSON is not itself proof. The history adapter's credential must be held by a dedicated broker that does not expose the raw history socket to the agent.

@@ -63,6 +63,8 @@ def test_optional_collector_is_pinned_and_requires_an_executable(tmp_path,monkey
 
 def test_release_renders_every_systemd_path_and_python_vendor_binding():
     files=release.source_files(ROOT.parent)
+    assert 'engineering/hermes_plugins/engineering-planning/__init__.py' in files
+    assert 'engineering/hermes_plugins/engineering-planning/plugin.yaml' in files
     target='/opt/rras-engineering/releases/standardized-history-a1b2c3d4e5f6'
     rendered=release.render_release(files,target)
     assert rendered['runtime/rras-vendor-site-packages.pth']==(target+'/vendor/site-packages\n').encode()

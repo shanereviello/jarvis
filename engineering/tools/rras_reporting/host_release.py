@@ -84,9 +84,10 @@ def source_files(root):
     for name in ('access.py','entry.py'):
         path=root/'engineering/tools/rras_history_web'/name
         rel=path.relative_to(root).as_posix();files[rel]=regular(path)
-    for name in ('__init__.py','plugin.yaml'):
-        path=root/'engineering/hermes_plugins/engineering-reporting'/name
-        rel=path.relative_to(root).as_posix();files[rel]=regular(path)
+    for plugin in ('engineering-reporting','engineering-planning'):
+        for name in ('__init__.py','plugin.yaml'):
+            path=root/'engineering/hermes_plugins'/plugin/name
+            rel=path.relative_to(root).as_posix();files[rel]=regular(path)
     for folder in ('engineering/contracts',):
         for path in sorted((root/folder).glob('*.json')):
             rel=path.relative_to(root).as_posix();files[rel]=regular(path)

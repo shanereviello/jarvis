@@ -91,3 +91,10 @@ def test_jarvis_create_workflow_compiles_and_does_not_retry(config):
     scripts=[n['parameters']['jsCode'] for n in workflow['nodes'] if n['type'].endswith('.code')]
     result=subprocess.run([str(NODE),'-e','for(const s of '+json.dumps(scripts)+') new Function("$input","$",s)'],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
+    org=config['organization_id'];session=uid(2)
+    native=dict(organization_id=org,session_id=session,hermes_session_id='linear:'+org+':'+session,run_id='run_'+'a'*32)
+    body=dict(native=native,plan_id='PLAN-1',proposal=dict(title='PLAN-1: Example',description='Draft'))
+    code=nodes['Validate exact dispatch']['parameters']['jsCode']
+    program='const f=new Function("$input","$",'+json.dumps(code)+'); const b='+json.dumps(body)+'; if(f({first:()=>({json:{body:b}})},null)[0].json.plan_id!=="PLAN-1")throw Error("valid request refused"); b.plan_id="../bad"; let refused=false;try{f({first:()=>({json:{body:b}})},null)}catch(e){refused=true}if(!refused)throw Error("bad plan accepted");'
+    result=subprocess.run([str(NODE),'-e',program],capture_output=True,text=True)
+    assert result.returncode==0,result.stderr
