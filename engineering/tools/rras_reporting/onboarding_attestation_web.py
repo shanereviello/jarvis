@@ -5,6 +5,7 @@ Cloudflare Access verifier. This application neither installs a listener nor
 records an architecture decision or enables execution by itself.
 """
 import json
+import re
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
@@ -36,7 +37,16 @@ byId("confirm").addEventListener("click",async()=>{if(!challenge)return;const se
  catch(_){status.textContent="Confirmation unavailable. Reload the decision before trying again."}finally{byId("confirm").disabled=false}});'''
 
 
-def create_app(store,access):
+def path_prefix(prefix):
+    if type(prefix) is not str or len(prefix)>128 or (prefix and not re.fullmatch(r'/(?:[a-z0-9]+(?:-[a-z0-9]+)*)(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*',prefix)):
+        raise ValueError('canonical private application path required')
+    return prefix
+
+
+def create_app(store,access,prefix=''):
+    prefix=path_prefix(prefix)
+    html=HTML.replace(b'/assets/attestation.js',prefix.encode()+b'/assets/attestation.js')
+    js=JS.replace(b'/api/attestation/',prefix.encode()+b'/api/attestation/')
     if not callable(getattr(access,'verify',None)) or not callable(getattr(store,'begin',None)) or not callable(getattr(store,'confirm',None)):
         raise ValueError('protected operator attestation service required')
     def response(value,status=200):
@@ -57,8 +67,8 @@ def create_app(store,access):
         value=json.loads(b''.join(chunks),object_pairs_hook=pairs,parse_constant=lambda _:(_ for _ in ()).throw(ValueError()))
         if type(value) is not dict or set(value)!=keys or any(type(x) is not str or len(x)>512 for x in value.values()):raise ValueError()
         return value
-    async def index(_):return Response(HTML,media_type='text/html',headers=HEADERS)
-    async def javascript(_):return Response(JS,media_type='application/javascript',headers=HEADERS)
+    async def index(_):return Response(html,media_type='text/html',headers=HEADERS)
+    async def javascript(_):return Response(js,media_type='application/javascript',headers=HEADERS)
     async def begin(request):
         try:
             value=await validate(request,{'review_id','comment_id'})
@@ -71,8 +81,8 @@ def create_app(store,access):
             result=await run_in_threadpool(store.confirm,request.scope['headers'],value['challenge'],value['statement'])
             return response(result)
         except Exception:return response({'error':'unavailable'},403)
-    app=Starlette(debug=False,routes=[Route('/',index),Route('/assets/attestation.js',javascript),
-        Route('/api/attestation/begin',begin,methods=['POST']),Route('/api/attestation/confirm',confirm,methods=['POST'])])
+    app=Starlette(debug=False,routes=[Route(prefix or '/',index),Route(prefix+'/assets/attestation.js',javascript),
+        Route(prefix+'/api/attestation/begin',begin,methods=['POST']),Route(prefix+'/api/attestation/confirm',confirm,methods=['POST'])])
     class Boundary:
         async def __call__(self,scope,receive,send):
             if scope['type']=='lifespan':return await app(scope,receive,send)

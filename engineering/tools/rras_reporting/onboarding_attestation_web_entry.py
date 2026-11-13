@@ -20,7 +20,8 @@ def web(name):
 
 def configuration(value,uid,gid):
     fields={'browser_uid','browser_gid','operator_uid','operator_socket','bind','port','access'}
-    if type(value) is not dict or set(value)!=fields:raise ValueError('exact browser service configuration required')
+    if type(value) is not dict or not fields<=set(value) or set(value)-fields-{'path_prefix'}:raise ValueError('exact browser service configuration required')
+    local('onboarding_attestation_web').path_prefix(value.get('path_prefix',''))
     u=local('onboarding_broker_unix').unix()
     for key in ('browser_uid','browser_gid','operator_uid'):u.uid(value[key])
     if value['browser_uid']!=uid or value['browser_gid']!=gid or value['operator_uid']==uid:
@@ -41,7 +42,7 @@ def configuration(value,uid,gid):
 def application(value):
     access_module=web('access');access=access_module.Access(access_module.AccessConfig(**value['access']))
     client=local('onboarding_operator_browser_unix').Client(value['operator_socket'],value['operator_uid'])
-    return local('onboarding_attestation_web').create_app(client,access)
+    return local('onboarding_attestation_web').create_app(client,access,value.get('path_prefix',''))
 
 
 def main():

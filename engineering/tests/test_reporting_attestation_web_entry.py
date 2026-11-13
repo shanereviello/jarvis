@@ -19,3 +19,10 @@ def test_browser_configuration_is_private_and_separately_identified(tmp_path):
         with pytest.raises(ValueError):module.configuration(dict(value,**changed),os.getuid(),os.getgid())
     options=module.web('entry').server_options(value)
     assert options['proxy_headers'] is False and options['access_log'] is False and options['workers']==1
+
+
+def test_browser_entry_validates_optional_route_prefix(tmp_path):
+    value=dict(config(tmp_path),path_prefix='/engineering-approval')
+    assert module.configuration(value,os.getuid(),os.getgid())==value
+    with pytest.raises(ValueError):
+        module.configuration(dict(value,path_prefix='//bad'),os.getuid(),os.getgid())

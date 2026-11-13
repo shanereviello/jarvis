@@ -41,3 +41,30 @@ def test_browser_script_is_valid_javascript():
     command=[node,'--check'] if node else ['docker','exec','-i','n8n','node','--check']
     result=subprocess.run(command,input=module.JS,capture_output=True,timeout=15)
     assert result.returncode==0,result.stderr.decode()
+
+
+def test_prefixed_browser_flow_preserves_authorization_and_routes(tmp_path,setup_draft,key):
+    service,raw,review,source,tick=fixture(tmp_path,setup_draft,key)
+    app=module.create_app(service,access(key),'/engineering-approval')
+    signed={k.decode():v.decode() for k,v in headers(token(key))}
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url=ORIGIN) as client:
+            path='/engineering-approval'
+            assert (await client.get(path)).status_code==403
+            page=await client.get(path,headers=signed)
+            assert page.status_code==200 and '/engineering-approval/assets/attestation.js' in page.text
+            script=await client.get(path+'/assets/attestation.js',headers=signed)
+            assert path+'/api/attestation/begin' in script.text
+            assert (await client.get('/',headers=signed)).status_code==404
+            good=dict(signed,origin=ORIGIN)
+            begin=await client.post(path+'/api/attestation/begin',headers=good,json={'review_id':uid(10),'comment_id':uid(8)})
+            assert begin.status_code==200
+            done=await client.post(path+'/api/attestation/confirm',headers=good,json={'challenge':begin.json()['challenge'],'statement':STATEMENT})
+            assert done.status_code==200 and done.json()['attested'] and not done.json()['execution_authorized']
+    asyncio.run(run())
+
+
+def test_browser_refuses_ambiguous_path_prefixes():
+    import pytest
+    for prefix in ('/', '//other', '/bad/', '/bad/../x', '/CAPS', '/path?x=1', '/bad%2fpath', 1):
+        with pytest.raises(ValueError):module.path_prefix(prefix)
