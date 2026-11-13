@@ -50,3 +50,31 @@ let rejected=false;try { hermesPlanningEnvelope(n,r); } catch(e) { rejected=true
 if(!rejected)throw Error('mismatched issue accepted');"""
     result=subprocess.run([str(NODE),'-e',script],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
+
+
+def test_origin_workflow_rechecks_human_source_against_linear(config):
+    if not NODE.is_file():pytest.skip('Node runtime unavailable')
+    scope=dict(kind='non_git',id='jarvis-non-git')
+    workflow=module.render(config,'private-reader',[uid(30)],[scope],{},scope,'jarvis-oauth')
+    scripts={n['name']:n['parameters']['jsCode'] for n in workflow['nodes'] if n['type'].endswith('.code')}
+    app=config['app_user_id'];org=config['organization_id'];session=uid(2);issue=uid(3);comment=uid(4);human=uid(5);project=uid(6)
+    native=dict(organization_id=org,session_id=session,hermes_session_id='linear:'+org+':'+session,run_id='run_'+'a'*32)
+    row=dict(hermes_run_id=native['run_id'],status='running',organization_id=org,receipt_organization_id=org,
+        agent_session_id=session,receipt_session_id=session,hermes_session_id=native['hermes_session_id'],
+        event_type='AgentSessionEvent',action='created',delivery_id=uid(7),issue_id=issue,
+        raw_payload=dict(action='created',agentSession=dict(id=session,issueId=issue,sourceCommentId=comment)))
+    reply=dict(statusCode=200,body=dict(data=dict(viewer=dict(id=app,organization=dict(id=org)),
+        agentSession=dict(id=session,appUser=dict(id=app),issue=dict(id=issue,team=dict(id=uid(30)),
+        project=dict(id=project,url='https://linear.app/test/project/example')),sourceComment=dict(id=comment,user=dict(id=human,app=False))))))
+    program="""const scripts=__S__,native=__N__,row=__R__,reply=__L__;
+const call=(name,current,saved)=>new Function('$input','$',scripts[name])({first:()=>({json:current}),all:()=>[{json:current}]},name=>({first:()=>({json:saved[name]})}))[0].json;
+const prepared=call('Prepare native planning read',row,{'Validate exact dispatch':{native}});
+const result=call('Verify selected planning origin',reply,{'Prepare native planning read':prepared});
+if(result.contract!=='hermes-planning-origin.v1'||result.origin.source_actor!==__H__||result.source_verified!==true)throw Error('verified origin missing');
+reply.body.data.agentSession.sourceComment.user.app=true;
+const denied=call('Verify selected planning origin',reply,{'Prepare native planning read':prepared});
+if(denied.permitted!==false)throw Error('app actor accepted');"""
+    for key,value in [('S',scripts),('N',native),('R',row),('L',reply),('H',human)]:
+        program=program.replace('__'+key+'__',json.dumps(value))
+    result=subprocess.run([str(NODE),'-e',program],capture_output=True,text=True)
+    assert result.returncode==0,result.stderr
