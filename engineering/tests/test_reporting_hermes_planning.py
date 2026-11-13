@@ -119,3 +119,46 @@ def test_native_origin_requires_active_exact_jarvis_and_independent_scope():
     record['source_verified']=True
     bad=origin_module.Resolver(1234,native['organization_id'],uid(9),lambda _:record,lambda _:{'kind':'repository','id':'other'})
     with pytest.raises(ValueError,match='scope'):bad(1234,native)
+
+
+def test_native_reader_rejects_issue_reply_from_other_run(monkeypatch):
+    native,origin,_=fixture();reader_module=module.local('hermes_planning_reader_http');app=uid(9)
+    reader=reader_module.Reader('http://127.0.0.1:5678/webhook/rras-jarvis-planning-origin-'+app,
+        'http://127.0.0.1:5678/webhook/rras-jarvis-planning-issue-'+app,app,b'x'*32)
+    response=dict(contract='hermes-planning-issue.v1',native=native,origin=origin,issue={'id':uid(10)},permitted=True)
+    monkeypatch.setattr(reader,'request',lambda *_:response)
+    assert reader.issue(native,origin,uid(10))=={'id':uid(10)}
+    response['native']=dict(native,run_id='run_'+'b'*32)
+    with pytest.raises(ValueError,match='native issue'):reader.issue(native,origin,uid(10))
+    with pytest.raises(ValueError):
+        reader_module.Reader('http://example.com:5678/webhook/rras-jarvis-planning-origin-'+app,
+            'http://127.0.0.1:5678/webhook/rras-jarvis-planning-issue-'+app,app,b'x'*32)
+
+
+def test_service_assembles_jarvis_only_and_separate_credentials(monkeypatch):
+    from types import SimpleNamespace
+    service=module.local('hermes_planning_service');captured={}
+    class Reader:
+        def origin(self,_):return None
+        def issue(self,*_):return None
+    def server(broker,peer,token,address):
+        captured.update(broker=broker,peer=peer,token=token,address=address);return 'inactive-server'
+    original=service.local
+    monkeypatch.setattr(service,'local',lambda name:SimpleNamespace(server=server) if name=='hermes_planning_http' else original(name))
+    config=dict(organization_id=uid(1),app_user_id=uid(9),team_id=uid(3),peer_uid=1234,scopes=[REPO],
+        history_socket='/run/fixture.sock',history_uid=1235,reader_origin_url='unused',reader_issue_url='unused',
+        listen_address='127.0.0.1',listen_port=8768)
+    assert service.assemble(config,b'r'*32,b'b'*32,lambda _:REPO,reader=Reader(),history_rpc=lambda _:None)=='inactive-server'
+    assert captured['broker'].grants[1234]['agent']=='jarvis'
+    with pytest.raises(ValueError,match='distinct reader'):
+        service.assemble(config,b'r'*32,b'r'*32,lambda _:REPO,reader=Reader(),history_rpc=lambda _:None)
+
+
+def test_project_scope_comes_only_from_protected_map(monkeypatch):
+    from types import SimpleNamespace
+    scope=module.local('hermes_planning_scope');original=scope.local
+    data={'contract':'hermes-planning-project-scopes.v1','projects':{uid(4):REPO}}
+    monkeypatch.setattr(scope,'local',lambda name:SimpleNamespace(decode=lambda *_,**__:data) if name=='protected_config' else original(name))
+    resolve=scope.Resolver('/root/protected-scope.json')
+    assert resolve(uid(4))==REPO
+    with pytest.raises(ValueError,match='not configured'):resolve(uid(5))
