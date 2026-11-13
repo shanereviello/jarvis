@@ -29,7 +29,7 @@ class Verifier:
         return values
 
     def __call__(self, expected):
-        fields = {'issue_id','workspace','socket','service_name','socket_name','service_sha256','socket_sha256','native_release'}
+        fields = {'issue_id','workspace','socket','service_name','socket_name','service_sha256','socket_sha256','native_release','native_binary_sha256'}
         if type(expected) is not dict or set(expected) != fields:
             raise ValueError('exact issue unit evidence required')
         names = ('FragmentPath','DropInPaths','User','Group','WorkingDirectory','ProtectSystem','NoNewPrivileges',

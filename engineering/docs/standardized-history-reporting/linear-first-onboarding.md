@@ -56,7 +56,7 @@ The source includes a narrow operator admission broker that accepts only a root-
 
 Workspace admission can now compare protected installed issue units byte-for-byte with their generated templates and independently inspect selected effective systemd properties, rejecting drop-ins or additional writable workspace paths. It still requires a separately trusted current native sandbox probe bound to those exact units; no unit or model is started by these checks.
 
-The effective-property reader uses a non-started instance to inspect a systemd template, as verified read-only against server01. A root-controlled proof reader rejects stale, mismatched or model-starting sandbox evidence; the privileged proof producer and its acceptance tests remain to be built.
+The effective-property reader uses a non-started instance to inspect a systemd template, as verified read-only against server01. A root-controlled proof reader rejects stale, mismatched or model-starting sandbox evidence, including a changed native binary. A source-only producer checks the units before and after a model-free native App Server isolation probe. The privileged probe and end-to-end proof acceptance have not yet been run.
 
 A candidate workspace inspector verifies a fixed per-issue directory and socket, native ownership, standalone clean Git checkout, exact baseline and absence of remotes. The Git invocation avoids user/system config and hooks. It requires a separate sandbox-isolation verifier and grants no filesystem permission. Temporary repositories exercise refusal paths; real issue workspace provisioning, service isolation and the locked installation/recheck remain outstanding.
 

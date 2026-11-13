@@ -30,11 +30,11 @@ class Verifier:
     def __call__(self, expected):
         proof = self.loader(self.path)
         fields = {'contract','issue_id','workspace','socket','service_name','socket_name','service_sha256',
-                  'socket_sha256','native_release','issued_at','expires_at','native_identity_verified',
+                  'socket_sha256','native_release','native_binary_sha256','issued_at','expires_at','native_identity_verified',
                   'sandbox_own_write_allowed','sandbox_sibling_write_denied','models_started'}
         if type(proof) is not dict or set(proof) != fields or proof['contract'] != 'codex-sandbox-isolation-proof.v1':
             raise ValueError('exact sandbox isolation proof required')
-        keys = {'issue_id','workspace','socket','service_name','socket_name','service_sha256','socket_sha256','native_release'}
+        keys = {'issue_id','workspace','socket','service_name','socket_name','service_sha256','socket_sha256','native_release','native_binary_sha256'}
         if type(expected) is not dict or set(expected) != keys or any(proof[k] != expected[k] for k in keys):
             raise ValueError('sandbox proof does not bind exact issue units')
         issued, expires, now = utc(proof['issued_at']), utc(proof['expires_at']), self.clock()

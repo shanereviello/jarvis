@@ -53,10 +53,30 @@ class Verifier:
         listener = self.read(self.directory / units['socket_name'])
         if service != units['service'].encode() or listener != units['listener'].encode():
             raise ValueError('installed issue units differ from protected template')
+        binary = Path(self.release) / 'runtime/bin/codex'
+        info = binary.lstat()
+        if (binary.resolve() != binary or not stat.S_ISREG(info.st_mode) or info.st_uid != self.owner or
+                info.st_nlink != 1 or info.st_mode & 0o022 or info.st_size > 1024 * 1024 * 1024):
+            raise ValueError('protected native binary required')
+        for parent in binary.parents:
+            ancestor = parent.lstat()
+            if (not stat.S_ISDIR(ancestor.st_mode) or ancestor.st_uid not in (0,self.owner) or
+                    (ancestor.st_mode & 0o022 and not (ancestor.st_uid == 0 and ancestor.st_mode & stat.S_ISVTX))):
+                raise ValueError('protected native binary ancestry required')
+        fd = os.open(binary,os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            opened = os.fstat(fd)
+            if (opened.st_dev,opened.st_ino,opened.st_mode,opened.st_size) != (info.st_dev,info.st_ino,info.st_mode,info.st_size):
+                raise ValueError('native binary changed during verification')
+            sha = hashlib.sha256()
+            with os.fdopen(fd,'rb',closefd=False) as stream:
+                for chunk in iter(lambda:stream.read(1024*1024),b''):sha.update(chunk)
+            binary_sha = sha.hexdigest()
+        finally:os.close(fd)
         expected = dict(issue_id=request['issue_id'], workspace=request['workspace'], socket=units['socket_path'],
             service_name=units['service_name'], socket_name=units['socket_name'],
             service_sha256=hashlib.sha256(service).hexdigest(), socket_sha256=hashlib.sha256(listener).hexdigest(),
-            native_release=self.release)
+            native_release=self.release,native_binary_sha256=binary_sha)
         if self.verify_runtime(expected) is not True:
             raise ValueError('current effective unit and sandbox isolation unverified')
         return True
