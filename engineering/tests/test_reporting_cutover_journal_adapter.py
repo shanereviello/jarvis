@@ -120,3 +120,24 @@ def test_client_refuses_a_different_privileged_transition(tmp_path, policy):
     with pytest.raises(ValueError, match='transition differs'):
         load('codex_issue_cutover').execute(adapter, expected_plan_sha256=plan['expected_sha256'])
     assert 'intent' not in calls and files.digest() == plan['old_policy_sha256']
+
+
+def test_independent_journal_reader_checks_policy_and_receipt(tmp_path, policy):
+    adapter, files, plan = setup(tmp_path, policy, lambda _:True, lambda _:AUTH)
+    reader = load('codex_cutover_journal_reader').Reader(adapter.root, os.getuid())
+    assert reader(plan['old_policy_sha256'], None)
+    assert not reader(plan['new_policy_sha256'], None)
+    load('codex_issue_cutover').execute(adapter, expected_plan_sha256=plan['expected_sha256'])
+    assert reader(plan['new_policy_sha256'], plan['expected_sha256'])
+    assert not reader(plan['new_policy_sha256'], '0' * 64)
+
+
+def test_evidence_recheck_binds_request_and_current_authority(tmp_path, policy):
+    adapter, _, plan = setup(tmp_path, policy, lambda _:True, lambda _:AUTH)
+    recheck = load('codex_cutover_evidence_recheck').Recheck(adapter.request, lambda _:True, lambda _:AUTH)
+    assert recheck(plan)
+    with pytest.raises(ValueError, match='request'):
+        recheck(dict(plan, evidence_sha256='0' * 64))
+    revoked = load('codex_cutover_evidence_recheck').Recheck(adapter.request, lambda _:True, lambda _:False)
+    with pytest.raises(ValueError, match='authority'):
+        revoked(plan)

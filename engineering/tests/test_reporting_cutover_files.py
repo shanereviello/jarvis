@@ -60,3 +60,21 @@ def test_rejects_symlinks_and_writable_audit_directory(tmp_path, policy):
     link.symlink_to(target)
     with pytest.raises(ValueError):
         module.install(link, digest(old), old, owner=os.geteuid())
+
+
+def test_fixed_file_adapter_retains_transition_and_completion(tmp_path, policy):
+    old, _ = inputs(tmp_path, policy)
+    new = dict(old, execution_authorized=not old['execution_authorized'])
+    installed = tmp_path / 'policy.json'
+    installed.write_bytes(runtime.encoded(old));installed.chmod(0o600)
+    audit = tmp_path / 'audit';audit.mkdir(mode=0o700)
+    adapter = module.local('codex_cutover_root_files').Files(installed, audit, owner=os.geteuid())
+    plan = {'old_policy_sha256': digest(old), 'new_policy_sha256': digest(new)}
+    sha = digest(plan)
+    adapter.retain_intent(sha, plan, old, new)
+    adapter.install(digest(old), new)
+    adapter.retain_completion(sha)
+    assert adapter.digest() == digest(new)
+    assert (audit / (sha + '.intent')).is_file() and (audit / (sha + '.complete')).is_file()
+    with pytest.raises(FileExistsError):
+        adapter.retain_intent(sha, plan, old, new)
