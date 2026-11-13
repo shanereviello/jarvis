@@ -82,3 +82,41 @@ def test_revocation_leaves_durable_journal_ahead_for_inspection(tmp_path, policy
     assert not list(files.audit.glob('*.complete'))
     with adapter.exclusive_stopped():
         assert adapter.journal_digest() == plan['new_policy_sha256']
+
+
+def test_fixed_broker_and_journal_client_use_same_transition(tmp_path, policy):
+    adapter, files, plan = setup(tmp_path, policy, lambda _:True, lambda _:AUTH)
+    with adapter.exclusive_stopped():
+        value, old, new = adapter.revalidate()
+    def check_journal(digest, receipt):
+        if adapter.journal_digest() != digest:
+            return False
+        if receipt is None:
+            return True
+        rows = adapter.db.execute('SELECT plan_sha256 FROM policy_issue_admissions').fetchall()
+        return len(rows) == 1 and rows[0][0] == receipt
+    broker = load('codex_cutover_fixed_broker').Broker(
+        peer_uid=1234, transition={'plan':value,'old':old,'new':new}, files=files,
+        verify_stopped=lambda:True, verify_journal=check_journal, verify_evidence=lambda _:True)
+    client = load('codex_cutover_broker_client').Files('fixture', request=lambda _, op:broker.call(1234, op))
+    adapter.files = client
+    result = load('codex_issue_cutover').execute(adapter, expected_plan_sha256=plan['expected_sha256'])
+    assert result['cutover_complete'] and files.digest() == plan['new_policy_sha256']
+    assert broker.stage == 'complete'
+
+
+def test_client_refuses_a_different_privileged_transition(tmp_path, policy):
+    adapter, files, plan = setup(tmp_path, policy, lambda _:True, lambda _:AUTH)
+    calls = []
+    def request(_, operation):
+        calls.append(operation)
+        if operation == 'digest':
+            return files.digest()
+        if operation == 'transition':
+            return {'plan_sha256':'0' * 64, 'old_sha256':plan['old_policy_sha256'],
+                    'new_sha256':plan['new_policy_sha256']}
+        raise AssertionError('mismatched broker must not receive a mutation')
+    adapter.files = load('codex_cutover_broker_client').Files('fixture', request=request)
+    with pytest.raises(ValueError, match='transition differs'):
+        load('codex_issue_cutover').execute(adapter, expected_plan_sha256=plan['expected_sha256'])
+    assert 'intent' not in calls and files.digest() == plan['old_policy_sha256']
