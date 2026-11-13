@@ -50,8 +50,29 @@ def main():
         systemctl('start', unit)
         if systemctl('is-active', unit).stdout.strip() != 'active':
             raise ValueError('temporary unit did not restart after release')
+        # Simulate an interrupted second cutover using the same isolated unit.
+        before = set(audit.iterdir())
+        guard = module.Guard(unit, audit)
+        guard.acquire()
+        created_intents = [item for item in audit.iterdir() if item not in before and item.name.endswith('.unit-intent')]
+        if len(created_intents) != 1:
+            raise ValueError('exact recovery intent required')
+        recovery_spec = importlib.util.spec_from_file_location('unit_recovery_probe', Path(__file__).with_name('codex_cutover_unit_recovery.py'))
+        recovery = importlib.util.module_from_spec(recovery_spec);recovery_spec.loader.exec_module(recovery)
+        try:
+            recovery.restore(created_intents[0], unit, lambda:False)
+        except ValueError:
+            pass
+        else:
+            raise ValueError('recovery accepted unverified consistency')
+        if not guard.verified():
+            raise ValueError('failed consistency check did not retain mask')
+        restored = recovery.restore(created_intents[0], unit, lambda:True)
+        if not restored['restored'] or restored['service_started']:
+            raise ValueError('explicit recovery outcome differs')
         print(json.dumps(dict(temporary_unit_guard_verified=True, restart_blocked_while_masked=True,
-            restart_allowed_after_verified_release=True, production_services_changed=False,
+            restart_allowed_after_verified_release=True, explicit_recovery_verified=True,
+            failed_consistency_retained_mask=True, production_services_changed=False,
             models_started=0), sort_keys=True))
     finally:
         if created:
@@ -80,7 +101,7 @@ def main():
             systemctl('daemon-reload')
         if audit_created:
             for item in audit.iterdir():
-                if not item.is_file() or item.is_symlink() or not item.name.endswith('.unit-intent'):
+                if not item.is_file() or item.is_symlink() or not item.name.endswith(('.unit-intent', '.unit-restore')):
                     raise ValueError('unexpected probe audit file; preserve for inspection')
                 item.unlink()
             audit.rmdir()
