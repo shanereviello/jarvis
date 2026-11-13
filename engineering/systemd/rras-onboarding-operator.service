@@ -1,0 +1,42 @@
+[Unit]
+Description=Private engineering onboarding operator
+After=network.target docker.service rras-engineering-history.service
+Wants=docker.service
+ConditionPathExists=/etc/rras-engineering/onboarding-operator/host-enabled
+
+[Service]
+Type=simple
+User=rras-onboard-operator
+Group=rras-onboard-operator
+UMask=0077
+Environment=PATH=/usr/bin:/bin HOME=/nonexistent LANG=C.UTF-8
+UnsetEnvironment=OPENAI_API_KEY ANTHROPIC_API_KEY GH_TOKEN GITHUB_TOKEN CODEX_HOME
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I -B /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/onboarding_operator_entry.py --config /etc/rras-engineering/onboarding-operator/service.json --state /var/lib/rras-onboard-operator/state --planning-token /etc/rras-engineering/onboarding-operator/planning-token --comment-token /etc/rras-engineering/onboarding-operator/comment-token --issue-token /etc/rras-engineering/onboarding-operator/issue-token --jarvis-token /etc/rras-engineering/onboarding-operator/jarvis-token
+Restart=on-failure
+RestartSec=3s
+StateDirectory=rras-onboard-operator
+StateDirectoryMode=0700
+RuntimeDirectory=rras-onboard-review rras-onboard-browser rras-onboard-admission rras-onboard-jarvis
+RuntimeDirectoryMode=0700
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=1G
+TasksMax=64
+TimeoutStopSec=75s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
