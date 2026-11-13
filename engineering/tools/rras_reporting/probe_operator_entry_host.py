@@ -26,7 +26,7 @@ def inside():
         raise ValueError('network-isolated fixture required')
     BASE.mkdir(mode=0o755);config_dir=BASE/'config';config_dir.mkdir(mode=0o755)
     state_parent=BASE/'state';state_parent.mkdir(mode=0o700);os.chown(state_parent,OPERATOR,OPERATOR)
-    for name in ('review','browser'):
+    for name in ('review','browser','admission'):
         path=BASE/name;path.mkdir(mode=0o700);os.chown(path,OPERATOR,OPERATOR)
     app=uid(2);base_url='http://127.0.0.1:5678/webhook/'
     value=dict(operator_uid=OPERATOR,operator_gid=OPERATOR,planning_peer_uid=PLANNER,browser_peer_uid=BROWSER,history_uid=HISTORY,
@@ -34,18 +34,20 @@ def inside():
         organization_id=uid(1),app_user_id=app,team_id=uid(3),human_ids=[uid(4)],scopes=[{'kind':'repository','id':'fixture'}],
         reader_origin_url=base_url+'rras-planning-origin-'+app,reader_issue_url=base_url+'rras-planning-issue-'+app,
         comment_url=base_url+'rras-operator-comment-'+app,
+        admission=dict(socket=str(BASE/'admission'/'admission.sock'),issue_url=base_url+'rras-operator-issue-'+app),
         access=dict(issuer='https://fixture.cloudflareaccess.com',audience='fixture',email='owner@example.test',origin='https://fixture.example.test'))
-    for name,content in [('config.json',json.dumps(value)),('planning-token','p'*48),('comment-token','c'*48)]:
+    for name,content in [('config.json',json.dumps(value)),('planning-token','p'*48),('comment-token','c'*48),('issue-token','i'*48)]:
         path=config_dir/name;path.write_text(content);path.chmod(0o640);os.chown(path,0,OPERATOR)
     entry='/fixture/engineering/tools/rras_reporting/onboarding_operator_entry.py';state=state_parent/'journal'
     args=[sys.executable,'-I','-B',entry,'--config',str(config_dir/'config.json'),'--state',str(state),
-          '--planning-token',str(config_dir/'planning-token'),'--comment-token',str(config_dir/'comment-token')]
+          '--planning-token',str(config_dir/'planning-token'),'--comment-token',str(config_dir/'comment-token'),
+          '--issue-token',str(config_dir/'issue-token')]
     env=dict(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8')
     init=subprocess.run([*args,'--initialize'],preexec_fn=lambda:drop(OPERATOR),env=env,capture_output=True,text=True,timeout=20)
     if init.returncode or not json.loads(init.stdout)['initialized']:raise ValueError('operator initialization failed: '+init.stderr[-1000:])
     process=subprocess.Popen(args,preexec_fn=lambda:drop(OPERATOR),env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
     try:
-        sockets=[BASE/'review'/'review.sock',BASE/'browser'/'browser.sock']
+        sockets=[BASE/'review'/'review.sock',BASE/'browser'/'browser.sock',BASE/'admission'/'admission.sock']
         for _ in range(100):
             if process.poll() is not None:raise ValueError('operator entry exited: '+process.stderr.read()[-1000:])
             if all(path.exists() for path in sockets):break
@@ -61,13 +63,24 @@ def inside():
             return subprocess.run([sys.executable,'-I','-c',helper,str(path)],preexec_fn=lambda:drop(user),env=env,capture_output=True,timeout=10).returncode
         if connect(BROWSER,sockets[1])!=0 or connect(PLANNER,sockets[0])!=0:raise ValueError('configured peer ACL refused')
         if connect(ROGUE,sockets[0])!=2 or connect(ROGUE,sockets[1])!=2:raise ValueError('rogue socket ACL allowed')
+        if connect(PLANNER,sockets[2])!=2 or connect(BROWSER,sockets[2])!=2:
+            raise ValueError('non-root access to admission socket permitted')
+        import importlib.util
+        entry_path=Path('/fixture/engineering/tools/rras_reporting/onboarding_broker_unix.py')
+        spec=importlib.util.spec_from_file_location('probe_admission_unix',entry_path)
+        transport=importlib.util.module_from_spec(spec);spec.loader.exec_module(transport)
+        try:
+            transport.unix().call(str(sockets[2]),OPERATOR,{'operation':'unsupported'})
+        except ValueError as error:
+            if str(error)!='history service refused request':raise
+        else:raise ValueError('unsupported root admission operation was accepted')
         private='''from pathlib import Path\nimport sys\ntry:Path(sys.argv[1]).read_bytes()\nexcept PermissionError:sys.exit(0)\nsys.exit(1)\n'''
         if subprocess.run([sys.executable,'-I','-c',private,str(state/'operator.sqlite3')],preexec_fn=lambda:drop(BROWSER),env=env,timeout=10).returncode:
             raise ValueError('browser read operator journal')
         process.send_signal(signal.SIGTERM);process.wait(timeout=15)
         if process.returncode or any(path.exists() for path in sockets):raise ValueError('operator shutdown or socket cleanup failed')
         print(json.dumps(dict(actual_entry_initialized=True,operator_active_then_stopped=True,distinct_numeric_uids=True,
-            configured_peer_acls_verified=True,rogue_acl_denied=True,browser_private_journal_denied=True,
+            configured_peer_acls_verified=True,rogue_acl_denied=True,browser_private_journal_denied=True,root_only_admission_verified=True,
             sockets_cleaned=True,network_isolated=True,models_started=0,production_changed=False)))
     finally:
         if process.poll() is None:process.kill();process.wait()

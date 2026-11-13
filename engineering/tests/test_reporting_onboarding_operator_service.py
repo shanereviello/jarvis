@@ -20,6 +20,7 @@ service=importlib.util.module_from_spec(spec);spec.loader.exec_module(service)
 
 def test_scoped_review_to_signed_operator_decision(tmp_path,setup_work,key):
     writer,history,origin,issue,detail,draft,planning_access=setup_work
+    work=writer.save(1234,object(),object(),detail)
     connection=lambda:sqlite3.connect(tmp_path/'operator.sqlite3')
     with connection() as db:service.initialize_empty(db)
     grants=dict(contract='engineering-history-access.v3',principals=[dict(uid=999,private_read=['jarvis'],write=['jarvis'],
@@ -61,3 +62,16 @@ def test_scoped_review_to_signed_operator_decision(tmp_path,setup_work,key):
     assert history.project(REPO,draft['project_id'])['governing_version']==1
     assert selected['reviews'].decision_review(approved['decision_receipt_sha256'])==prepared['review_id']
     assert not selected['production_active']
+    retained=writer.store.work(REPO,work['work_id'])
+    request=dict(organization_id=origin['organization_id'],team_id=origin['team_id'],linear_project_id=origin['project_id'],
+        issue_id=issue['id'],scope=REPO,project_id=draft['project_id'],work_id=work['work_id'],plan_id=detail['plan_id'],
+        work_revision_sha256=retained['work_revision_sha256'],assignment_sha256=retained['assignment']['assignment_sha256'],
+        architecture_version=1,architecture_sha256=draft['markdown_sha256'],decision_receipt_sha256=approved['decision_receipt_sha256'],
+        workspace='/fixture/workspace',native_socket='/fixture/socket',baseline_commit='e'*40)
+    native={key:request[key] for key in ('organization_id','team_id','linear_project_id','issue_id')}
+    admission=service.local('onboarding_admission_service').assemble_history(selected,
+        lambda value:operator_access.dispatch(999,value),lambda _:native)
+    message=dict(operation='admission.verify',request=request)
+    assert admission.dispatch(0,message)=={'history_issue_human_verified':True}
+    response['data']['comment']['editedAt']='2026-11-12T12:01:00Z'
+    with pytest.raises(ValueError):admission.dispatch(0,message)
