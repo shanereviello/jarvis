@@ -117,3 +117,31 @@ def test_native_probe_is_model_free_and_refuses_unprivileged_invocation():
     if os.geteuid() != 0:
         with pytest.raises(ValueError,match='root'):
             probe.probe({})
+
+
+def test_producer_wires_current_units_and_native_probe(monkeypatch):
+    from types import SimpleNamespace
+    producer = module.local('onboarding_sandbox_producer')
+    expected = {'fixture':'unit-binding'}
+    calls = []
+    class Effective:
+        def __init__(self, _, __):pass
+        def __call__(self, value):calls.append('effective');return value == expected
+    class Units:
+        def __init__(self, _, __, capture):self.capture = capture
+        def __call__(self, request):calls.append('units');return self.capture(expected)
+    def probe(value):calls.append('probe');assert value == expected;return {'fixture':'result'}
+    def write(_, __, value, recheck, native_probe):
+        assert recheck(value) and native_probe(value) == {'fixture':'result'} and recheck(value)
+        return {'models_started':0,'execution_authorized':False}
+    modules = {'onboarding_workspace_effective_units':SimpleNamespace(Verifier=Effective),
+        'onboarding_workspace_unit_evidence':SimpleNamespace(Verifier=Units),
+        'onboarding_native_sandbox_probe':SimpleNamespace(probe=probe),
+        'onboarding_sandbox_proof_writer':SimpleNamespace(create=write)}
+    monkeypatch.setattr(producer, 'local', lambda name:modules[name])
+    monkeypatch.setattr(producer.os, 'getuid', lambda:0)
+    monkeypatch.setattr(producer.os, 'geteuid', lambda:0)
+    config = dict(unit_directory='/unit',native_release='/release',proof_directory='/proof',proof_name='fixture.proof',
+        request=dict(issue_id='fixture',workspace='/work',native_socket='/socket'))
+    assert not producer.produce(config)['execution_authorized']
+    assert calls == ['units','effective','units','effective','probe','units','effective']
