@@ -54,6 +54,8 @@ The temporary systemd fixture also verified explicit recovery and retention of t
 
 The source includes a narrow operator admission broker that accepts only a root-peer verification request, reuses the protected human-decision verification, and restricts history operations to configured scopes and reads. It does not yet expose a hosted socket or supply a live workspace-isolation verifier; these remain necessary before admission can be activated.
 
+Workspace admission can now compare protected installed issue units byte-for-byte with their generated templates and independently inspect selected effective systemd properties, rejecting drop-ins or additional writable workspace paths. It still requires a separately trusted current native sandbox probe bound to those exact units; no unit or model is started by these checks.
+
 A candidate workspace inspector verifies a fixed per-issue directory and socket, native ownership, standalone clean Git checkout, exact baseline and absence of remotes. The Git invocation avoids user/system config and hooks. It requires a separate sandbox-isolation verifier and grants no filesystem permission. Temporary repositories exercise refusal paths; real issue workspace provisioning, service isolation and the locked installation/recheck remain outstanding.
 
 The source also binds a retained decision receipt to its immutable review reference and can independently re-read the native source before admission. If review binding fails after designation, admission remains refused until the same decision is reconciled. This composition has disposable-history tests, but it still needs protected service hosting, native transport, and a resolution for ambiguous user attribution before deployment.
