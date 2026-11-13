@@ -8,6 +8,7 @@ ConditionPathExists=/etc/rras-engineering/onboarding-operator/host-enabled
 Type=simple
 User=rras-onboard-operator
 Group=rras-onboard-operator
+SupplementaryGroups=
 UMask=0077
 Environment=PATH=/usr/bin:/bin HOME=/nonexistent LANG=C.UTF-8
 UnsetEnvironment=OPENAI_API_KEY ANTHROPIC_API_KEY GH_TOKEN GITHUB_TOKEN CODEX_HOME
@@ -24,6 +25,7 @@ AmbientCapabilities=
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectHome=yes
+InaccessiblePaths=-/var/lib/rras-engineering-history -/var/lib/rras-workflow -/var/lib/rras-coding-tasks -/opt/rras-coding-jobs -/srv/hermes -/etc/rras-engineering-history
 ProtectSystem=strict
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -35,6 +37,7 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 MemoryMax=1G
 TasksMax=64
 TimeoutStopSec=75s
+StandardInput=null
 StandardOutput=journal
 StandardError=journal
 
