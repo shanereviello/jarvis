@@ -42,11 +42,16 @@ def run(*, unit, socket_path, peer_uid, peer_gid, policy_path, audit_dir, transi
         raise ValueError('bounded host and independent verifiers required')
     with lock(audit_dir):
         guard = local('codex_cutover_persistent_guard').Guard(unit, audit_dir)
-        # Failure after this point intentionally leaves the runtime mask in place.
-        guard.acquire()
         files = local('codex_cutover_root_files').Files(policy_path, audit_dir)
         broker = local('codex_cutover_fixed_broker').Broker(peer_uid=peer_uid, transition=transition,
             files=files, verify_stopped=guard.verified, verify_journal=verify_journal, verify_evidence=verify_evidence)
+        # Reject a stale or unauthorized transition before interrupting service;
+        # the broker independently repeats these checks after the journal write.
+        if (files.digest() != broker.old or verify_journal(broker.old, None) is not True or
+                verify_evidence(broker.value['plan']) is not True):
+            raise ValueError('current protected transition evidence required')
+        # Failure after this point intentionally leaves the runtime mask in place.
+        guard.acquire()
         server = local('codex_cutover_broker_server')
         with server.listener(socket_path, peer_gid) as listener:
             deadline = time.monotonic() + timeout_seconds

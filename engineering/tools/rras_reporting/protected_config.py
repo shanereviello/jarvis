@@ -9,7 +9,7 @@ def read(path,*,maximum,require_root=False):
     p=Path(path);info=p.lstat();mode=stat.S_IMODE(info.st_mode)
     if (not p.is_absolute() or p.resolve()!=p or not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
             info.st_uid not in (0,os.getuid()) or (require_root and info.st_uid!=0) or
-            mode not in (0o400,0o600,0o440,0o640) or (mode&0o040 and info.st_gid!=os.getgid()) or
+            mode not in (0o400,0o600,0o440,0o640) or (mode&0o040 and info.st_gid!=os.getgid() and os.geteuid()!=0) or
             mode&0o007 or info.st_size>maximum):raise ValueError('protected bounded installed file required')
     owners=(0,) if info.st_uid==0 else (0,os.getuid())
     for parent in (p.parent,*p.parent.parents):

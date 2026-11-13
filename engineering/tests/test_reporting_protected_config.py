@@ -27,6 +27,17 @@ def test_config_symlink_hardlink_and_writable_parent_are_refused(tmp_path):
     with pytest.raises(ValueError):m.decode(path,require_root=False)
 
 
+def test_root_reader_can_read_group_restricted_policy_for_service_group(tmp_path, monkeypatch):
+    folder=tmp_path/'installed';folder.mkdir(mode=0o700)
+    path=folder/'policy';path.write_bytes(b'fixture');path.chmod(0o640)
+    actual_gid=os.getgid()
+    monkeypatch.setattr(m.os, 'getgid', lambda:actual_gid + 1)
+    monkeypatch.setattr(m.os, 'geteuid', lambda:1000)
+    with pytest.raises(ValueError):m.read(path,maximum=32)
+    monkeypatch.setattr(m.os, 'geteuid', lambda:0)
+    assert m.read(path,maximum=32)==b'fixture'
+
+
 def test_native_adapter_registers_only_prose_reporting_tools():
     values=[]
     class Context:

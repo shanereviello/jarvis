@@ -23,15 +23,16 @@ def test_host_only_releases_mask_after_consistent_completion(monkeypatch, succes
             state['released'] = True
     class Files:
         def __init__(self, *_): pass
-        def digest(self): return 'new'
+        def digest(self): return 'new' if state.get('complete') else 'old'
     class Broker:
         def __init__(self, **_):
-            self.stage, self.new, self.plan_sha = 'new', 'new', 'plan'
+            self.stage, self.old, self.new, self.plan_sha, self.value = 'new', 'old', 'new', 'plan', {'plan':{}}
     @contextmanager
     def listener(*_): yield object()
     def serve(_, broker):
         if not success: raise OSError('simulated interrupted connection')
         broker.stage = 'complete'
+        state['complete'] = True
     modules = {'codex_cutover_persistent_guard':SimpleNamespace(Guard=Guard),
         'codex_cutover_root_files':SimpleNamespace(Files=Files),
         'codex_cutover_fixed_broker':SimpleNamespace(Broker=Broker),
@@ -49,3 +50,28 @@ def test_host_only_releases_mask_after_consistent_completion(monkeypatch, succes
     else:
         with pytest.raises(OSError):host.run(**args)
         assert state['acquired'] and not state['released']
+
+
+def test_host_refuses_stale_evidence_before_masking(monkeypatch):
+    state = {'acquired':False}
+    class Guard:
+        def __init__(self, *_): pass
+        def acquire(self): state['acquired'] = True
+        def verified(self): return False
+    class Files:
+        def __init__(self, *_): pass
+        def digest(self): return 'old'
+    class Broker:
+        def __init__(self, **_): self.old, self.value = 'old', {'plan':{}}
+    modules = {'codex_cutover_persistent_guard':SimpleNamespace(Guard=Guard),
+        'codex_cutover_root_files':SimpleNamespace(Files=Files),
+        'codex_cutover_fixed_broker':SimpleNamespace(Broker=Broker)}
+    @contextmanager
+    def lock(_): yield
+    monkeypatch.setattr(host, 'local', lambda name:modules[name])
+    monkeypatch.setattr(host, 'lock', lock)
+    with pytest.raises(ValueError, match='evidence'):
+        host.run(unit='fixture.service', socket_path='/fixture', peer_uid=1, peer_gid=1,
+            policy_path='/policy', audit_dir='/audit', transition={}, verify_journal=lambda *_:True,
+            verify_evidence=lambda _:False)
+    assert not state['acquired']
