@@ -164,3 +164,7 @@ def test_project_scope_comes_only_from_protected_map(monkeypatch):
     resolve=scope.Resolver('/root/protected-scope.json')
     assert resolve(uid(4))==REPO
     with pytest.raises(ValueError,match='not configured'):resolve(uid(5))
+    data['fallback_scope']={'kind':'non_git','id':'jarvis-non-git'}
+    assert resolve(uid(5))==data['fallback_scope'] and resolve(uid(4))==REPO
+    data['fallback_scope']=REPO
+    with pytest.raises(ValueError,match='non-Git'):resolve(uid(5))
