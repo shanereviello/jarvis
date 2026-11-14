@@ -154,16 +154,17 @@ def collect_hermes(spool,*,snapshot,exporter,scope,context,authorization_referen
         staged=staged,excluded_messages=excluded,visible_messages=clean['message_count'],models_started=0)
 
 
-def collect_codex(spool,*,source,session,binary,scope,context,authorization_reference,source_gaps=()):
+def collect_codex(spool,*,source,session,binary,scope,context,authorization_reference,source_gaps=(),source_segment=None):
     authorization(authorization_reference)
     binary=Path(binary);info=binary.lstat()
     if (not binary.is_absolute() or binary.resolve()!=binary or not stat.S_ISREG(info.st_mode) or
             info.st_uid not in (0,os.getuid()) or info.st_mode&0o022 or not info.st_mode&0o111 or
             hashlib.sha256(binary.read_bytes()).hexdigest()!=SPECSTORY_SHA256):
         raise ValueError('reviewed pinned collector executable required')
+    association=dict(namespace='codex',id=session)
+    artifact=local('capture_intake').artifact_identity(scope,association,'specstory',source_segment)
     pilot=local('capture_pilot');raw,rows=pilot.selected_source(source,session)
-    source_sha=hashlib.sha256(raw).hexdigest();association=dict(namespace='codex',id=session)
-    artifact='cap_'+uuid.uuid5(uuid.NAMESPACE_URL,json.dumps([scope,association,'specstory'],sort_keys=True)).hex
+    source_sha=hashlib.sha256(raw).hexdigest()
     gaps=['Collector input relocates only session_meta.cwd into a private temporary Git repository.',
         'Original native source remains under its original owner; only the normalized export is ingested.',
         'Full tool, attachment and media coverage is not independently established.']
@@ -171,12 +172,14 @@ def collect_codex(spool,*,source,session,binary,scope,context,authorization_refe
     if type(source_gaps) not in (list,tuple) or len(source_gaps)>8 or any(type(value) is not str or not 1<=len(value.encode())<=4096 for value in source_gaps):
         raise ValueError('bounded source transport limitations required')
     gaps.extend(source_gaps)
+    if source_segment is not None:gaps.append('This export covers only the selected native session segment '+source_segment+'.')
     with spool.connection() as db:
         latest=db.execute("SELECT request FROM items WHERE kind='artifact' AND artifact=? ORDER BY sequence DESC LIMIT 1",(artifact,)).fetchone()
     if latest:
         old=spool.c.decode(latest[0]);end=old['body']['source_range']['end']
-        if type(end) is str and re.fullmatch('byte:[0-9]+',end):
-            length=int(end.split(':')[1])
+        end_prefix='byte:' if source_segment is None else 'segment:'+source_segment+':byte:'
+        if type(end) is str and end.startswith(end_prefix) and end[len(end_prefix):].isdigit():
+            length=int(end[len(end_prefix):])
             if len(raw)<length or hashlib.sha256(raw[:length]).hexdigest()!=old['body']['source_range']['source_sha256']:
                 gaps.append('Native prefix shortened or changed before the last observed cursor; prior export remains immutable and coverage may have a gap.')
         if old['body']['source_range']['source_sha256']==source_sha and old['context']==context:
@@ -216,12 +219,14 @@ def collect_codex(spool,*,source,session,binary,scope,context,authorization_refe
                         raise ValueError('collector included an explicitly excluded reasoning/analysis channel')
         coverage=pilot.response_coverage(rows,text)
         if coverage['unmatched_visible_or_unknown_messages']:
-            gaps.append('Some visible source messages were not found verbatim after collector normalization/redaction; see coverage counters.')
+            gaps.append(str(coverage['unmatched_visible_or_unknown_messages'])+
+                ' visible or unknown source messages were not found verbatim in the collector output; formatting or redaction may affect this comparison.')
         if not text.strip():gaps.append('Collector exited successfully but produced no readable conversation text.')
-        staged=spool.stage(export,scope=scope,context=context,session=association,collector='specstory',
+        range_prefix='byte:' if source_segment is None else 'segment:'+source_segment+':byte:'
+        staged=spool.stage(export,scope=scope,context=context,session=association,collector='specstory',source_segment=source_segment,
             authorization_reference=authorization_reference,
             collector_version=SPECSTORY_VERSION,source_sha256=source_sha,
-            source_range=dict(start='byte:0',end='byte:'+str(len(raw))),gaps=gaps,
+            source_range=dict(start=range_prefix+'0',end=range_prefix+str(len(raw))),gaps=gaps,
             source_created_at=source_time(rows[0].get('timestamp')),
             source_updated_at=source_time(rows[-1].get('timestamp')))
     return dict(changed=True,source_sha256=source_sha,collection_scope='explicit_session_only',

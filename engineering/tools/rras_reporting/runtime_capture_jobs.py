@@ -25,6 +25,21 @@ def selected(reporter,limit=32):
     fd=os.open(lock,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
     try:
         intake.private(lock);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        def read_cursor(path):
+            intake.private(path)
+            if path.stat().st_size>256:raise ValueError('bounded registry cursor required')
+            position=reporter.c.decode(path.read_bytes())
+            if (type(position) is not dict or set(position)!={'after'} or
+                    type(position['after']) is not str or
+                    not re.fullmatch('[0-9a-f]{64}\\.json',position['after'])):raise ValueError('exact registry cursor required')
+            return position['after']
+        # A process may die after fsyncing the next cursor but before rename.
+        # Under the registry lock, finish that atomic update rather than making
+        # every future pass fail on an unexpected file.
+        temporary=root/'.cursor.next';cursor=root/'.cursor.json'
+        if temporary.exists() or temporary.is_symlink():
+            read_cursor(temporary)
+            os.replace(temporary,cursor);intake.sync(root)
         names=[]
         with os.scandir(root) as entries:
             for entry in entries:
@@ -32,14 +47,9 @@ def selected(reporter,limit=32):
                 if not re.fullmatch('[0-9a-f]{64}\\.json',entry.name):raise ValueError('unexpected capture registry member')
                 names.append(entry.name)
                 if len(names)>4096:raise ValueError('capture registry capacity reached')
-        names.sort();cursor=root/'.cursor.json';after=None
+        names.sort();after=None
         if cursor.exists() or cursor.is_symlink():
-            intake.private(cursor)
-            if cursor.stat().st_size>256:raise ValueError('bounded registry cursor required')
-            position=reporter.c.decode(cursor.read_bytes())
-            if (type(position) is not dict or set(position)!={'after'} or
-                    not re.fullmatch('[0-9a-f]{64}\\.json',position['after'])):raise ValueError('exact registry cursor required')
-            after=position['after']
+            after=read_cursor(cursor)
         ordered=[n for n in names if after is None or n>after]+[n for n in names if after is not None and n<=after]
         jobs=[]
         for name in ordered[:limit]:
@@ -82,12 +92,13 @@ def run_once(reporter,*,limit=32,send=None):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--policy',required=True)
-    parser.add_argument('--reporting-policy',required=True);args=parser.parse_args();runtime=reporting.local('codex_runtime')
+    parser.add_argument('--reporting-policy',required=True);parser.add_argument('--limit',type=int,default=32)
+    args=parser.parse_args();runtime=reporting.local('codex_runtime')
     try:
         protected=reporting.local('protected_config')
         policy=runtime.policy(protected.decode(args.policy))
         reporter=reporting.Reporter(protected.decode(args.reporting_policy),policy)
-        print(json.dumps(run_once(reporter),allow_nan=False))
+        print(json.dumps(run_once(reporter,limit=args.limit),allow_nan=False))
     except (ValueError,OSError,TypeError,KeyError):parser.exit(1,'Registered capture pass refused; retain native sources, registry and pending spool.\n')
 
 

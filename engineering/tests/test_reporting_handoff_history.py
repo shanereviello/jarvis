@@ -74,3 +74,33 @@ def test_invalid_remote_page_records_gap_but_still_delivers_pending_history(tmp_
     result=m.local('handoff_history_http').run_once(job,b'synthetic-not-used',query=lambda _:dict(contract='wrong',events=[]),send=sender(reporting))
     assert result['collection']['gap'] and result['delivery']['pending']==0
     assert source.cursor(spool,value)==1
+
+
+def test_competing_collector_waits_for_shared_lock(tmp_path,projects,reporting):
+    import fcntl
+    import os
+    import threading
+
+    spool,value=selected(tmp_path,projects)
+    job=dict(spool=str(spool.root),selected=value,reader_url='http://unused/webhook/rras-native-handoff-events-prj_'+'1'*32,
+        service_socket=str(tmp_path/'unused.sock'),service_uid=995)
+    fd=os.open(spool.root/'collector.lock',os.O_CREAT|os.O_RDWR,0o600)
+    fcntl.flock(fd,fcntl.LOCK_EX)
+    queried=threading.Event();finished=threading.Event();results=[]
+    def run():
+        try:
+            def query(after):
+                queried.set()
+                return dict(contract='native-handoff-event-page.v1',events=[])
+            results.append(m.local('handoff_history_http').run_once(job,b'synthetic',query=query,send=sender(reporting)))
+        finally:finished.set()
+    worker=threading.Thread(target=run,daemon=True);worker.start()
+    try:
+        assert not finished.wait(.3)
+        assert not queried.is_set()
+    finally:
+        os.close(fd)
+    assert finished.wait(5)
+    worker.join()
+    assert results[0]['collection']['events_staged']==0
+    assert results[0]['delivery']['pending']==0

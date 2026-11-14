@@ -1,6 +1,9 @@
 """Native Jarvis tool staging, source attribution and outage-safe delivery."""
 import copy
+import importlib.util
 import json
+from pathlib import Path
+import threading
 import pytest
 from test_reporting_runtime_reporting import setup,m,projects,reporting,store
 from test_reporting_codex_runtime import uid
@@ -80,3 +83,71 @@ def test_exhausted_handoff_does_not_block_independent_checkpoint_delivery(tmp_pa
     adapter=hermes.Adapter(config,actual=lambda:native,call=call)
     adapter.record('handoff',args('handoff'));adapter.record('checkpoint',args('checkpoint'))
     assert adapter.flush()==dict(delivered=1,pending=1,models_started=0) and posted==['checkpoint']
+
+
+def test_concurrent_recovery_sends_one_frozen_request(tmp_path,projects,reporting):
+    config,native,context,queue=installed(tmp_path,projects)
+    entered=threading.Event();release=threading.Event();posted=[]
+    def call(kind,value):
+        if kind=='context':return dict(context=context,execution_started=False)
+        posted.append(value['id']);entered.set();assert release.wait(5)
+        return dict(staged=True,request_id=value['id'],execution_started=False)
+    adapter=hermes.Adapter(config,actual=lambda:native,call=call)
+    adapter.record('handoff',args('handoff'))
+    results=[]
+    first=threading.Thread(target=lambda:results.append(adapter.flush()))
+    second=threading.Thread(target=lambda:results.append(adapter.flush()))
+    first.start();assert entered.wait(5);second.start();release.set()
+    first.join(5);second.join(5)
+    assert not first.is_alive() and not second.is_alive()
+    assert len(posted)==1 and sum(r['delivered'] for r in results)==1
+
+
+def test_passive_worker_recovers_without_native_run(tmp_path,projects,reporting,monkeypatch):
+    config,native,context,queue=installed(tmp_path,projects)
+    down=hermes.Adapter(config,actual=lambda:native,call=lambda *_:(_ for _ in ()).throw(OSError('offline')))
+    down.record('handoff',args('handoff'));assert down.flush()['pending']==1
+    delivered=threading.Event()
+    def call(kind,value):
+        if kind=='context':return dict(context=context,execution_started=False)
+        delivered.set();return dict(staged=True,request_id=value['id'],execution_started=False)
+    recovered=hermes.Adapter(config,actual=lambda:(_ for _ in ()).throw(AssertionError('no run should start')),call=call)
+    original=hermes.local
+    class Protected:
+        @staticmethod
+        def decode(*_args,**_kwargs):return config
+    monkeypatch.setattr(hermes,'local',lambda name:Protected if name=='protected_config' else original(name))
+    monkeypatch.setattr(hermes,'Adapter',lambda _config:recovered)
+    stop,thread=hermes.start_delivery_worker('/fixture',interval=1)
+    try:assert delivered.wait(5)
+    finally:stop.set();thread.join(5)
+    assert not thread.is_alive() and recovered.flush()['pending']==0
+
+
+def test_plugin_registers_cleanup_for_passive_worker(monkeypatch):
+    wrapper_path=Path(__file__).resolve().parents[1]/'hermes_plugins/engineering-reporting/__init__.py'
+    spec=importlib.util.spec_from_file_location('test_engineering_plugin',wrapper_path)
+    wrapper=importlib.util.module_from_spec(spec);spec.loader.exec_module(wrapper)
+    stop=threading.Event();calls=[]
+    class Protected:
+        @staticmethod
+        def decode(path,**kwargs):calls.append(('decode',str(path)));return {'fixture':True}
+    class Runtime:
+        @staticmethod
+        def local(name):assert name=='protected_config';return Protected
+        @staticmethod
+        def Adapter(config):assert config=={'fixture':True}
+        @staticmethod
+        def register(ctx,path):calls.append(('register',str(path)))
+        @staticmethod
+        def start_delivery_worker(path):return stop,None
+    class Loader:
+        def exec_module(self,module):pass
+    class Spec:loader=Loader()
+    class Context:
+        def on_unload(self,callback):self.cleanup=callback
+    monkeypatch.setattr(wrapper.importlib.util,'spec_from_file_location',lambda *_:Spec())
+    monkeypatch.setattr(wrapper.importlib.util,'module_from_spec',lambda _:Runtime)
+    ctx=Context();wrapper.register(ctx)
+    assert [item[0] for item in calls]==['decode','register']
+    ctx.cleanup();assert stop.is_set()

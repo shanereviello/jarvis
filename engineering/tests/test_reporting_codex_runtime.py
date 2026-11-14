@@ -2,8 +2,13 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
+import signal
+import subprocess
+import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -16,6 +21,38 @@ def module(name):
     value = importlib.util.module_from_spec(spec); spec.loader.exec_module(value); return value
 m = module('codex_runtime')
 def uid(n): return str(uuid.UUID(int=n))
+
+
+def test_sigterm_removes_owned_checkpoint_socket_and_closes_runtime(tmp_path):
+    script = r'''
+import importlib.util,sys,time
+from pathlib import Path
+root=Path(sys.argv[1]);folder=Path(sys.argv[2]);entry=root/'tools/rras_reporting/codex_runtime_http.py'
+s=importlib.util.spec_from_file_location('http_entry',entry);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+u=importlib.util.spec_from_file_location('unix_entry',root/'tools/rras_history/unix.py');unix=importlib.util.module_from_spec(u);u.loader.exec_module(unix)
+broker=unix.Server.__new__(unix.Server);broker.path=folder/'checkpoint.sock';broker.listener=None;broker.identity=None;broker.on_bound=None
+class Http:
+ def serve_forever(self):
+  (folder/'ready').write_text('ready')
+  while True:time.sleep(.1)
+ def server_close(self):(folder/'http-closed').write_text('closed')
+class Runtime:
+ def close(self):(folder/'runtime-closed').write_text('closed')
+m.serve(Http(),broker,Runtime())
+'''
+    child=subprocess.Popen([sys.executable,'-I','-c',script,str(ROOT),str(tmp_path)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    try:
+        deadline=time.monotonic()+10
+        while not (tmp_path/'ready').exists() and child.poll() is None and time.monotonic()<deadline:time.sleep(.05)
+        assert (tmp_path/'ready').exists(),child.stderr.read().decode() if child.poll() is not None else 'child did not become ready'
+        assert (tmp_path/'checkpoint.sock').exists()
+        os.kill(child.pid,signal.SIGTERM)
+        _,error=child.communicate(timeout=10)
+        assert child.returncode==0,error.decode()
+        assert not (tmp_path/'checkpoint.sock').exists()
+        assert (tmp_path/'runtime-closed').exists() and (tmp_path/'http-closed').exists()
+    finally:
+        if child.poll() is None:child.kill();child.communicate()
 
 
 class Client:
@@ -97,6 +134,129 @@ def test_execution_authority_cannot_come_from_webhook(tmp_path,policy):
     value.close()
 
 
+def test_issue_specific_workspaces_are_fixed_by_policy(tmp_path, policy):
+    policy['contract']='codex-runtime-policy.v2'
+    policy['issues'][uid(7)]=copy.deepcopy(policy['issues'][uid(3)])
+    policy['issues'][uid(7)]['work_id']='wrk_'+'5'*32
+    policy['workspaces']={uid(3):str(tmp_path/'issue-a'),uid(7):str(tmp_path/'issue-b')}
+    policy['native_sockets']={issue:str(tmp_path/('coding-'+issue+'.sock')) for issue in policy['issues']}
+    class DistinctThreads(Client):
+        def __init__(self,issue):super().__init__();self.issue=issue
+        def call(self,method,params):
+            if method=='thread/start':
+                self.calls.append((method,params))
+                return dict(thread=dict(id='thread-'+('1' if self.issue==uid(3) else '2')))
+            return super().call(method,params)
+    clients={}
+    def factory(executable,cwd,issue):clients[issue]=DistinctThreads(issue);return clients[issue]
+    value=m.Runtime(tmp_path/'state-v2',policy,create=True,issue_client_factory=factory)
+    try:
+        value.dispatch(request(policy));clients[uid(3)].finish('completed');value.status(uid(4))
+        second=request(policy,number=8,session=9);second['issue_id']=uid(7);second['binding']=copy.deepcopy(policy['issues'][uid(7)])
+        value.dispatch(second)
+        starts=[p for issue in (uid(3),uid(7)) for method,p in clients[issue].calls if method=='thread/start']
+        assert [x['cwd'] for x in starts]==[policy['workspaces'][uid(3)],policy['workspaces'][uid(7)]]
+        assert clients[uid(3)].closed and not clients[uid(7)].closed
+        assert m.issue_workspace(value.policy,uid(7))==policy['workspaces'][uid(7)]
+    finally:value.close()
+
+
+@pytest.mark.parametrize('mode',['missing','extra','same','nested','relative','socket_missing','socket_shared','socket_swapped'])
+def test_issue_workspace_policy_refuses_ambiguous_or_overlapping_paths(tmp_path,policy,mode):
+    policy['contract']='codex-runtime-policy.v2';policy['issues'][uid(7)]=copy.deepcopy(policy['issues'][uid(3)])
+    policy['workspaces']={uid(3):str(tmp_path/'one'),uid(7):str(tmp_path/'two')}
+    policy['native_sockets']={issue:str(tmp_path/('coding-'+issue+'.sock')) for issue in policy['issues']}
+    if mode=='missing':del policy['workspaces'][uid(7)]
+    elif mode=='extra':policy['workspaces'][uid(9)]=str(tmp_path/'three')
+    elif mode=='same':policy['workspaces'][uid(7)]=policy['workspaces'][uid(3)]
+    elif mode=='nested':policy['workspaces'][uid(7)]=str(tmp_path/'one'/'child')
+    elif mode=='relative':policy['workspaces'][uid(7)]='relative'
+    elif mode=='socket_missing':del policy['native_sockets'][uid(7)]
+    elif mode=='socket_shared':policy['native_sockets'][uid(7)]=policy['native_sockets'][uid(3)]
+    else:policy['native_sockets'][uid(3)],policy['native_sockets'][uid(7)]=policy['native_sockets'][uid(7)],policy['native_sockets'][uid(3)]
+    with pytest.raises(ValueError):m.policy(policy)
+
+
+def test_explicit_workspace_migration_preserves_journal_and_never_resumes_legacy_session(tmp_path,policy):
+    migration=module('codex_policy_migration');client=Client();root=tmp_path/'old-state'
+    original=m.Runtime(root,policy,create=True,client_factory=lambda *args:client)
+    first=request(policy);original.dispatch(first)
+    v2=copy.deepcopy(policy);v2['contract']='codex-runtime-policy.v2'
+    v2['workspaces']={uid(3):str(tmp_path/'new-workspace')};v2['native_sockets']={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))}
+    with pytest.raises(ValueError,match='stop the runtime'):migration.plan(root,v2)
+    client.finish('completed');original.status(first['dispatch_id']);original.close()
+    with migration.locked(root) as db:
+        before={table:[tuple(row) for row in db.execute('SELECT * FROM '+table)] for table in ('sessions','turns','events')}
+    plan=migration.plan(root,v2)
+    assert plan['legacy_sessions']==1
+    with pytest.raises(ValueError,match='plan differs'):migration.migrate(root,v2,'0'*64)
+    result=migration.migrate(root,v2,plan['expected_sha256'])
+    assert result['legacy_sessions']==1 and result['models_started']==0
+    replacement=Client();current=m.Runtime(root,v2,issue_client_factory=lambda *args:replacement)
+    try:
+        assert current.dispatch(first)['state']=='completed'
+        with pytest.raises(ValueError,match='legacy session'):
+            current.dispatch(request(v2,number=6,session=5))
+        assert replacement.calls==[]
+        with current.connection() as db:
+            assert {table:[tuple(row) for row in db.execute('SELECT * FROM '+table)] for table in before}==before
+            assert db.execute('SELECT original_cwd FROM legacy_sessions').fetchone()[0]==policy['cwd']
+    finally:current.close()
+
+
+def test_workspace_migration_refuses_unsettled_work_or_changed_pins(tmp_path,policy):
+    migration=module('codex_policy_migration');root=tmp_path/'migration-state';client=Client()
+    value=m.Runtime(root,policy,create=True,client_factory=lambda *args:client)
+    value.dispatch(request(policy));value.close()
+    v2=copy.deepcopy(policy);v2['contract']='codex-runtime-policy.v2';v2['workspaces']={uid(3):str(tmp_path/'workspace')};v2['native_sockets']={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))}
+    with pytest.raises(ValueError,match='active or uncertain'):migration.plan(root,v2)
+    with migration.locked(root) as db:db.execute("UPDATE turns SET state='completed'")
+    v2['issues'][uid(3)]['work_revision_sha256']='9'*64
+    with pytest.raises(ValueError,match='identity or work pins'):migration.plan(root,v2)
+
+
+def test_runtime_checks_policy_after_obtaining_journal_lock(tmp_path,policy,monkeypatch):
+    import sqlite3
+    root=tmp_path/'race-state';original=m.Runtime(root,policy,create=True,client_factory=lambda *a:Client());original.close()
+    changed=copy.deepcopy(policy);changed['execution_authorized']=False
+    real_lock=m.fcntl.flock
+    def lock_then_change(fd,operation):
+        real_lock(fd,operation)
+        with sqlite3.connect(root/'runtime.sqlite3') as db:
+            db.execute('UPDATE policy SET body=?',(m.encoded(changed),))
+    monkeypatch.setattr(m.fcntl,'flock',lock_then_change)
+    with pytest.raises(ValueError,match='policy differs'):
+        m.Runtime(root,policy,client_factory=lambda *a:Client())
+
+
+def test_workspace_authority_is_a_separate_audited_transition(tmp_path,policy):
+    migration=module('codex_policy_migration');policy['execution_authorized']=False
+    root=tmp_path/'authority-state';runtime=m.Runtime(root,policy,create=True);runtime.close()
+    v2=copy.deepcopy(policy);v2.update(contract='codex-runtime-policy.v2',sandbox='workspace-write',
+        workspaces={uid(3):str(tmp_path/'checkout')},native_sockets={uid(3):str(tmp_path/('coding-'+uid(3)+'.sock'))})
+    first=migration.plan(root,v2);migration.migrate(root,v2,first['expected_sha256'])
+    enabled=copy.deepcopy(v2);enabled.update(execution_authorized=True,execution_authority_reference='Synthetic test authority')
+    bad=copy.deepcopy(enabled);bad['workspaces'][uid(3)]=str(tmp_path/'other')
+    with pytest.raises(ValueError,match='workspace or work pins'):migration.authority_plan(root,bad)
+    plan=migration.authority_plan(root,enabled)
+    with pytest.raises(ValueError,match='plan differs'):migration.change_authority(root,enabled,'0'*64)
+    assert migration.change_authority(root,enabled,plan['expected_sha256'])['execution_authorized'] is True
+    reverse=copy.deepcopy(enabled);reverse.update(execution_authorized=False,execution_authority_reference='Synthetic test revocation')
+    client=Client();active=m.Runtime(root,enabled,issue_client_factory=lambda *args:client)
+    active.dispatch(request(enabled))
+    with pytest.raises(ValueError,match='stop the runtime'):migration.authority_plan(root,reverse)
+    active.close()
+    with pytest.raises(ValueError,match='active or uncertain'):migration.authority_plan(root,reverse)
+    with migration.locked(root) as db:db.execute("UPDATE turns SET state='interrupted'")
+    plan=migration.authority_plan(root,reverse)
+    assert migration.change_authority(root,reverse,plan['expected_sha256'])['execution_authorized'] is False
+    with migration.locked(root) as db:
+        assert db.execute('SELECT COUNT(*) FROM policy_authorizations').fetchone()[0]==2
+        import sqlite3
+        with pytest.raises(sqlite3.IntegrityError):db.execute('DELETE FROM policy_authorizations')
+        with pytest.raises(sqlite3.IntegrityError):db.execute('DELETE FROM policy_migrations')
+
+
 def test_http_distinguishes_pre_dispatch_refusal_from_uncertain_execution(tmp_path,policy):
     policy['execution_authorized']=False;client=Client()
     value=m.Runtime(tmp_path/'disarmed-http',policy,create=True,client_factory=lambda *a:client)
@@ -166,6 +326,7 @@ def test_restart_does_not_claim_a_running_turn_finished(runtime,policy):
 
 def test_journal_policy_and_privacy_cannot_be_changed(runtime,policy):
     value,_=runtime
+    value.close()
     changed=copy.deepcopy(policy);changed['app_user_id']=uid(88)
     with pytest.raises(ValueError,match='policy differs'):m.Runtime(value.root,changed)
     value.path.chmod(0o644)

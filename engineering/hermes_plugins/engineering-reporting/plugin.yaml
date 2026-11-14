@@ -1,0 +1,7 @@
+name: engineering-reporting
+version: 0.1.0
+kind: standalone
+description: "Record scoped engineering checkpoints and handoffs for bound Jarvis runs."
+provides_tools:
+  - engineering_checkpoint
+  - engineering_handoff

@@ -6,6 +6,8 @@ from test_engineering_history_local import module,store
 from test_history_projects import projects,P1,REPO
 from test_history_reporting import reporting,request
 from test_history_evidence import evidence,manifest
+from test_history_curated_preview import preview_inputs
+from test_history_managed_link import setup,exporter,j,fixtures
 
 m=module('curated_reporting');catalog=module('curated_publication');c=module('contract')
 
@@ -119,3 +121,37 @@ def test_scoped_reader_does_not_receive_other_repository_profile_counts(profile,
     answer=m.search(preview,c.digest(c.encoded(preview)),'jarvis','')
     assert len(answer['entries'])==1 and answer['coverage']['returned_count']==1
     assert answer['coverage']['eligible_count'] is None
+
+
+def test_profile_preserves_existing_curated_entries_and_withdrawal(profile,reporting,projects,tmp_path,preview_inputs):
+    source,selections=copy.deepcopy(preview_inputs)
+    source[0]['submission']['body']['repository_id']='jarvis'
+    digest=c.digest(c.encoded(source[0]['submission']));source[0]['receipt']['request_sha256']=digest;selections[0]['source_request_sha256']=digest
+    legacy=module('curated_preview').build(source,selections)
+    root=tmp_path/'catalog';catalog.initialize(root,['jarvis'])
+    prior=catalog.publish(root,legacy,c.digest(c.encoded(legacy)),None,'legacy',approve_publication=True)
+    checkpoint(reporting,projects)
+    first=m.publish_profile(root,rows(reporting),profile,sha(profile),prior['generation_sha256'],approve_profile=True)
+    page=catalog.search(root,'jarvis','')
+    assert len(page['entries'])==2 and legacy['entries'][0] in page['entries']
+    assert m.publish_profile(root,rows(reporting),profile,sha(profile),first['generation_sha256'],approve_profile=True)['replayed']
+    old_id=legacy['entries'][0]['entry_id'];new_id=next(x['entry_id'] for x in page['entries'] if x['entry_id']!=old_id)
+    withdrawn=catalog.withdraw(root,[old_id],first['generation_sha256'],'withdraw-legacy',approve_withdrawal=True)
+    assert [x['entry_id'] for x in catalog.search(root,'jarvis','')['entries']]==[new_id]
+    checkpoint(reporting,projects)
+    again=m.publish_profile(root,rows(reporting),profile,sha(profile),withdrawn['generation_sha256'],approve_profile=True)
+    current=catalog.search(root,'jarvis','')
+    assert len(current['entries'])==2 and old_id not in [x['entry_id'] for x in current['entries']]
+    with pytest.raises(ValueError,match='stale catalog'):catalog.search(root,'jarvis','',generation_sha256=first['generation_sha256'])
+    access=module('curated_read_access').Access(root,dict(contract='engineering-curated-read-access.v1',
+        principals=[dict(uid=2001,repositories=['jarvis'])]))
+    assert access.dispatch(2001,dict(method='read',repository_id='jarvis',entry_id=new_id,generation_sha256=again['generation_sha256']))['entry']['entry_id']==new_id
+
+
+def test_composite_refuses_tampered_parts_or_flattened_entries(profile,reporting,projects,preview_inputs):
+    checkpoint(reporting,projects);legacy=module('curated_preview').build(*preview_inputs)
+    modern=m.build(rows(reporting),profile,sha(profile));composite=module('curated_composite')
+    preview=composite.build([legacy,modern]);changed=copy.deepcopy(preview);changed['entries'].pop()
+    with pytest.raises(ValueError):composite.search(changed,c.digest(c.encoded(changed)),'jarvis','')
+    changed=copy.deepcopy(preview);changed['parts'][1]['entries'][0]['details']['observations']=['forged']
+    with pytest.raises(ValueError):composite.search(changed,c.digest(c.encoded(changed)),'jarvis','')

@@ -112,10 +112,10 @@ def create_app(reader,access):
     async def workspace(request):
         try:
             allowed={'scope_kind','scope_id','project_id','work_id','version','left','right','offset','limit','q','state',
-                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version','artifact_id','index','operation'}
+                     'archived','unassigned','snapshot','closeout_sequence','document_id','architecture_version','artifact_id','index','count','operation'}
             q=query(request,allowed)
             selected={'kind':q.pop('scope_kind'),'id':q.pop('scope_id')}
-            for name in ('version','left','right','offset','limit','closeout_sequence','architecture_version','index'):
+            for name in ('version','left','right','offset','limit','closeout_sequence','architecture_version','index','count'):
                 if name in q:q[name]=number(q[name],None)
             for name in ('archived','unassigned'):
                 if name in q:

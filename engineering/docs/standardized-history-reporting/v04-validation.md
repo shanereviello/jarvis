@@ -212,3 +212,153 @@ tests before its first named-UID ACL case failed under the sandbox UID mapping;
 the same temporary-directory ACL test passes with the host UID mapping, and the
 two tests that needed the pinned PyYAML package pass separately (**6 passed**).
 No production host acceptance or activation has occurred.
+
+## Operator-reported Codex runtime staging — November 8
+
+The operator subsequently installed the immutable Codex runtime release at
+`/opt/rras-engineering/releases/standardized-history-9e7954c07fdb`; the reported
+manifest SHA-256 is
+`1e8f48a1b7e22afe2e637d0a26cba7077ce58b0dfacf9384e5ce77479bfd01cf`. The
+offline Python import check succeeded. The installed Codex executable reports
+version `0.159.0` and matches the packaged SHA-256
+`d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f`.
+
+The operator installed the immutable runtime release and reported creation of
+the separate `rras-codex-adapter` (UID 992) and `rras-codex-native` (UID 991)
+identities, plus installation/loading of candidate unit files. The existing
+engineering API key was prepared at
+`/etc/rras-engineering/codex-runtime/openai-api-key` (root-owned, mode 0400);
+the parent config directory is root-owned by the adapter group, mode 0750. The
+credential helper reported zero model starts and API calls and did not print
+the secret. Candidate Codex sockets/timers remained inactive and disabled; no
+Codex service or timer was started.
+
+## Operator-reported schema-v5 history upgrade — November 8
+
+The operator approved one root-private, same-server snapshot for the v3 → v4
+history upgrade. The final quiescent snapshot was schema 3, passed SQLite
+`quick_check`, and had SHA-256
+`085e488b29a3cf42481f40d77dabd08820ac798175bcef250aa5b04cba4452cd`. The
+owner-only reporting migration matched fingerprint
+`a8f9e145bc5c9d7c4c0fc04f8e9be8983ea2a5a9956b034b638e45374605d331` and added
+the reporting metadata stream while preserving 154 legacy records. The
+subsequent schema-v4 evidence plan matched
+`38ea9a4f930be8aee14083e4a06c90e2e640d1797c419f5951159cca69b55b65`.
+
+After separate operator approval, the stopped schema-v4 store was snapshotted
+to `/root/rras-engineering-history-migration-20261108-v5/history.sqlite3`.
+That snapshot is root-private, schema 4, passed `quick_check`, and has SHA-256
+`ba8f480bebb827673eebea9822c7d50ba02933f806ee039d83d5483fbb7d49f9`. The
+explicit v4 → v5 migration succeeded. The operator verified schema 5, SQLite
+`quick_check`, the immutable evidence tables/triggers, and service-owned mode
+0700 evidence directories. No evidence chunks or capture records were seeded.
+
+The history unit now uses the verified `standardized-history-9e7954c07fdb`
+release through a systemd drop-in; the existing unit hardening remains in
+place. The operator added only the `rras-codex-adapter` UID 992 grant for
+`private_read=["jarvis"]` and `write=["jarvis"]`. Existing operator UID 1000
+and dashboard UID 993 grants remain unchanged. The service is active. Read-only
+`workspace_scopes` calls confirmed Codex sees only `jarvis`, while the
+dashboard retains `jarvis` and `jarvis-non-git`; the live socket ACL retains
+both existing readers and includes the adapter. No model starts or provider
+API calls occurred. Codex runtime sockets and timers remain inactive; no
+selected session capture has been enabled.
+
+## Operator-reported Linear/work mapping acceptance — November 8
+
+The operator used the scoped reporting API as `rras-codex-adapter` to append
+one Linear project mapping and eight execution mappings. Each request pins the
+governing architecture document
+`doc_046e9a960b67530c8d00cff938cbf6f5`, version 4, SHA-256
+`4ed76e0a493a5ae45bcc6154cb57fac3f1551644b1e823d5c96b1e2713365329`, plus
+the current work revision and project-assignment digests. All nine submissions
+returned `inserted: true`. A subsequent scoped read returned exactly nine
+mapping records and verified the issue/plan/work relationships and digests.
+
+| Reporting sequence | Linear item | Plan | Work ID |
+|---:|---|---|---|
+| 1 | P-REV-16 | — | — |
+| 2 | REV-46 | SHRR-01 | `wrk_28f080952751501eac0180baeab700f8` |
+| 3 | REV-47 | SHRR-02 | `wrk_c4889e15c1c55bab9ac8a5e0cdcf4f3f` |
+| 4 | REV-48 | SHRR-03 | `wrk_14ff1467bda65b4e9f44580d422d307a` |
+| 5 | REV-49 | SHRR-04 | `wrk_a144e049739e5b489ba3dfb3fe787b90` |
+| 6 | REV-50 | SHRR-05 | `wrk_4cdac1cbb3a65fe4bc716b00d4004b99` |
+| 7 | REV-51 | SHRR-06 | `wrk_d967fd95401b5c68ac7b3ace7354fbaa` |
+| 8 | REV-52 | SHRR-07 | `wrk_a75752070f3b59949cf71c401d15ddef` |
+| 9 | REV-53 | SHRR-08 | `wrk_c4f72ca05fe159c6b3ee4a98a35c14d2` |
+
+These records add private, immutable history relationships; they did not change
+Linear issues or existing work records. Codex runtime sockets/timers remain
+inactive. No session capture, model call or artifact export was started.
+
+## Production reporting and browser check — November 9
+
+The new n8n workflows were activated after the CLI-imported webhook registration
+IDs were fixed and independently tested. All nine protected routes rejected
+unauthenticated requests, and the two scoped history readers and selected Linear
+reader responded successfully. The existing Jarvis workflow's unrelated
+versions were preserved. The first collector timer pass exposed lock contention;
+the collectors were changed to serialize and the simultaneous service test and
+later scheduled passes succeeded. A Linear document exceeded the original 64 KiB
+observation limit; its redacted full snapshot is now retained as chunked evidence
+with a bounded observation referencing it. A subsequent production poll completed
+with no pending deliveries.
+
+The reporting dashboard release `history-web-34e127b311a2` was activated without
+restarting the history service or changing its configuration or policy. The
+operator confirmed that the project Overview and History tabs, Linear mappings,
+reporting records, and the large-document evidence preview worked in the
+authenticated browser. This does not establish the separate live Codex agent,
+curated-publication, automatic session-capture, or project-closeout acceptance.
+No coding model was started in these checks.
+
+## Curated publication and bridge boot persistence — November 9
+
+The operator approved the reviewed project-specific structured-field profile and
+its initial 17 records. The installed catalog reader reported successful actual
+Hermes MCP search and exact entry read; all three pre-existing curated entries
+remained visible. The approved profile excludes transcript bytes and raw Linear
+snapshots. This verifies the initial publication, not automatic publication of
+future checkpoints or a complete archive.
+
+The runtime bridge and its two sockets were active but disabled at boot. A
+root-installed systemd drop-in now orders the bridge after Docker and enables
+it together with the sockets. The existing process remained running and an
+unauthenticated bridge request was denied. The coding execution policy remains
+false; the capture timer remains disabled. Boot enablement is verified through
+systemd state, not a full server reboot test. Actual native mention, delegation,
+follow-up, cancellation and two-way handoff remain separate live acceptance work.
+
+## n8n no-retention execution records — November 9
+
+The deployment idle check treated soft-deleted `running` rows as active and
+refused to restart n8n. A selected authenticated reader returned HTTP 200, yet
+its corresponding execution row remained marked running with `deletedAt` set.
+An isolated n8n 2.28.3 fixture using the same no-retention reader settings
+reproduced that combination. Existing workflows retain their privacy settings;
+the corrected idle check excludes soft-deleted rows while still blocking on
+non-deleted active executions and nonterminal Hermes runs. A separate reader
+endpoint initially returned 404; after the operator-approved backup and n8n
+restart, protected endpoints and selected readers passed their checks. This
+does not establish that every individual old execution succeeded, and no old
+records were manually deleted.
+
+## Unmapped capture browser verification — November 10
+
+The operator reported that the three selected-chat records appeared under Jarvis
+scope details but opening an evidence record failed. The production dashboard's
+transport allowlist omitted the read-only `evidence_read` method. The history
+service itself returned the three matching manifests and previously verified
+their retained bytes. Source commit `73c986edcea8a2571abf9bd2f53fa7896abdb7c8`
+adds the read method to the dashboard guard and exercises that guard in the API
+and browser fixtures; write operations remain denied. Fifty-three dashboard API
+and browser tests passed, including preview and full download of unmapped
+multi-chunk evidence.
+
+The operator installed dashboard release `history-web-afae626808a3`. Its
+deployment reported a successful scoped evidence read, write denial, and
+unauthenticated-origin denial, with configuration and history policy preserved.
+The operator subsequently confirmed that opening, previewing, and downloading
+the unmapped records worked in the authenticated browser. This confirms the
+dashboard path, not complete capture of the original conversation or ongoing
+automatic capture. No model was started for this change.

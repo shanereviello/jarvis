@@ -58,5 +58,6 @@ if(!p||p.contract!=='hermes-runtime-history-page.v1'||!Array.isArray(p.runs)||p.
  throw new Error('Bounded selected native page required');
 return [{json:p}];"""
     for node in result['nodes']:node['id']=str(uuid.uuid5(uuid.NAMESPACE_URL,'rras-hermes-history:'+project+':'+node['name']))
+    webhook['webhookId']=webhook['id']
     result['name']='Selected native Jarvis engineering history '+project+' (inactive)'
     return result

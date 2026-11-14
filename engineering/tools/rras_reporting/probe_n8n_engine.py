@@ -60,13 +60,18 @@ def probe():
         created.append(pg)
         for _ in range(60):
             ready=subprocess.run(['docker','exec',pg,'pg_isready','-U','postgres'],capture_output=True)
-            if ready.returncode==0:break
+            if ready.returncode==0:
+                # The image starts and stops a temporary server during its
+                # initialization. Require a stable socket before provisioning.
+                time.sleep(1)
+                ready=subprocess.run(['docker','exec',pg,'pg_isready','-U','postgres'],capture_output=True)
+                if ready.returncode==0:break
             time.sleep(.25)
         else:raise ValueError('Fixture PostgreSQL did not become ready')
         def sql(query):
             return run(['docker','exec','-i',pg,'psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres'],query)
         sql('CREATE SCHEMA linear_bridge;\n'+(ROOT/'contracts/linear-codex-n8n-v1.sql').read_text())
-        sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text);'
+        sql('CREATE TABLE linear_bridge.agent_sessions(agent_session_id text PRIMARY KEY,organization_id text,issue_id text,hermes_session_id text,latest_hermes_run_id text,created_at timestamptz NOT NULL DEFAULT now());'
             'CREATE TABLE linear_bridge.hermes_runs(hermes_run_id text PRIMARY KEY,agent_session_id text,status text,completed_at timestamptz,delivery_id uuid);'
             +(ROOT/'contracts/linear-native-handoff-v1.sql').read_text())
         sql((ROOT/'contracts/linear-jarvis-engineering-admission-v1.sql').read_text())
@@ -159,6 +164,8 @@ def probe():
         package['workflows']['handoff_history']=hm.local('n8n_handoff_history').render(history_selected,c['credentials']['postgres'],'fixture-handoff-history')
         native_history_selected=dict(history_selected,contract='hermes-runtime-history-source.v1')
         package['workflows']['hermes_history']=hm.local('n8n_hermes_history').render(native_history_selected,c['credentials']['postgres'],'fixture-handoff-history')
+        package['workflows']['hermes_future_sessions']=hm.local('n8n_hermes_capture_sessions').render(
+            c['organization_id'],'2020-01-01T00:00:00Z',c['credentials']['postgres'],'fixture-handoff-history')
         sql("INSERT INTO linear_bridge.codex_apps VALUES('"+c['organization_id']+"','"+c['app_user_id']+"');")
         creds=[dict(id=c['credentials']['postgres'],name='Fixture SQL',type='postgres',data=dict(host='127.0.0.1',port=5432,database='postgres',user='codex_transport',password='synthetic',ssl='disable')),
             dict(id=c['credentials']['edge_header'],name='Fixture edge',type='httpHeaderAuth',data=dict(name='X-RRAS-Codex-Bridge',value='synthetic-edge-bridge')),
@@ -178,6 +185,34 @@ def probe():
             result=json.loads(response['body'])
             assert 'data' in result,result
             return result['data']
+        # Exercise an inactive cloned dispatch and an API cutover/rollback in
+        # the disposable engine without touching any production workflow.
+        patch_spec=importlib.util.spec_from_file_location('origin_clone_patch',ROOT/'tools/rras_reporting/n8n_codex_origin_patch.py')
+        origin_patch=importlib.util.module_from_spec(patch_spec);patch_spec.loader.exec_module(origin_patch)
+        old_source=run(['git','show','f132d7b:engineering/tools/rras_reporting/n8n_native_origin.js'])
+        schedule=dict(id=uuid.uuid4().hex,name='Schedule',type='n8n-nodes-base.scheduleTrigger',typeVersion=1.2,position=[0,0],
+            parameters=dict(rule=dict(interval=[dict(field='minutes',minutesInterval=10)])))
+        def code(name,script):
+            return dict(id=uuid.uuid4().hex,name=name,type='n8n-nodes-base.code',typeVersion=2,position=[200,0],parameters=dict(jsCode=script))
+        orig=api('/rest/workflows',dict(name='Synthetic dispatch cutover',nodes=[schedule,
+            code('Prepare Codex origin read','const query = '+json.dumps(origin_patch.OLD_SESSION+' '+origin_patch.OLD_COMMENT)+'; return [];'),
+            code('Verify native Codex origin',old_source+'\nreturn [];')],connections={},settings=dict(executionOrder='v1')))
+        activated=api('/rest/workflows/'+orig['id']+'/activate',dict(versionId=orig['versionId']))
+        assert activated['active'] is True
+        current=json.loads(request('/rest/workflows/'+orig['id'])['body'])['data']
+        clone=origin_patch.prepare(current,old_source,uuid.uuid4().hex[:16],orig['id'])
+        write('/tmp/fixture-origin-clone.json',[clone])
+        run(['docker','exec','--user','node',n8n,'n8n','import:workflow','--input=/tmp/fixture-origin-clone.json'])
+        staged=json.loads(request('/rest/workflows/'+clone['id'])['body'])['data']
+        assert staged['active'] is False
+        assert json.loads(request('/rest/workflows/'+orig['id'])['body'])['data']['active'] is True
+        api('/rest/workflows/'+orig['id']+'/deactivate',{})
+        api('/rest/workflows/'+clone['id']+'/activate',dict(versionId=staged['versionId']))
+        assert json.loads(request('/rest/workflows/'+clone['id'])['body'])['data']['active'] is True
+        api('/rest/workflows/'+clone['id']+'/deactivate',{})
+        api('/rest/workflows/'+orig['id']+'/activate',dict(versionId=current['versionId']))
+        assert json.loads(request('/rest/workflows/'+orig['id'])['body'])['data']['active'] is True
+        print('Inactive dispatch clone, cutover and rollback verified in fixture.',flush=True)
         credential_refs={}
         for credential in creds:
             old=credential.pop('id')
@@ -188,6 +223,9 @@ def probe():
             ids[name]=uuid.uuid4().hex[:16];w['id']=ids[name]
             # Fixture observability only; schedules are triggered manually below.
             w['settings'].update(saveDataErrorExecution='all',saveDataSuccessExecution='all',saveManualExecutions=True,saveExecutionProgress=True)
+            # Exercise production's no-retention setting on the read-only reader.
+            if name=='handoff_history':
+                w['settings'].update(saveDataErrorExecution='none',saveDataSuccessExecution='none',saveExecutionProgress=False)
             for n in w['nodes']:
                 if n['type']=='n8n-nodes-base.scheduleTrigger':
                     n['type']='n8n-nodes-base.manualTrigger';n['typeVersion']=1;n['parameters']={}
@@ -197,7 +235,13 @@ def probe():
                     n['parameters']['url']='http://127.0.0.1:8899/hermes/v1/runs'
                 for ref in n.get('credentials',{}).values():ref['id']=credential_refs[ref['id']]
             print('Importing fixture '+name,flush=True)
-            workflows[name]=api('/rest/workflows',w)
+            if name=='hermes_future_sessions':
+                write('/tmp/future-sessions.json',[w])
+                run(['docker','exec','--user','node',n8n,'n8n','import:workflow','--input=/tmp/future-sessions.json'])
+                response=request('/rest/workflows/'+ids[name])
+                assert response['status']==200,response
+                workflows[name]=json.loads(response['body'])['data']
+            else:workflows[name]=api('/rest/workflows',w)
         remote=r"""const http=require('node:http');const state={calls:[],activities:[],requests:[],interrupts:[],comments:{},sessions:{},sessionMutations:0,commentMutations:0,active:null,complete:false,uncertain:false,losePublication:false,wrongActor:false};
 const uid=n=>'00000000-0000-0000-0000-'+n.toString(16).padStart(12,'0');
 http.createServer(async(req,res)=>{let raw='';for await(const x of req)raw+=x;let b=raw?JSON.parse(raw):{};
@@ -228,7 +272,7 @@ if(b.query.startsWith('mutation NativeHandoffSession')){const comment=state.comm
  return reply(200,{data:{agentSessionCreateOnComment:{success:true,agentSession:{id:session.id}}}});}
 if(b.query.startsWith('query NativeHandoffReadComment'))return reply(200,{data:{viewer,comment:state.comments[b.variables.id]||null}});
 if(b.query.startsWith('query CodexNativeOrigin'))return reply(200,{data:{viewer:{id:uid(state.wrongActor?20:2),organization:{id:uid(1)}},
- sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,appUser:{id:uid(2)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:null,sourceComment:null}}});
+ sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,sourceMetadata:null,appUser:{id:uid(2)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:b.variables.id===uid(880)?{id:uid(881),isArtificialAgentSessionRoot:true,agentSession:{id:uid(880)},user:null}:null,sourceComment:null}}});
 if(b.query.startsWith('query JarvisNativeOrigin'))return reply(200,{data:{viewer,
  sourceActor:{id:b.variables.actor,app:[uid(2),uid(20)].includes(b.variables.actor)},agentSession:state.sessions[b.variables.id]||{id:b.variables.id,appUser:{id:uid(20)},issue:{id:uid(4)},creator:{id:uid(6),app:false},comment:null,sourceComment:null}}});
 if(b.query.startsWith('query '))return reply(200,{data:{viewer}});
@@ -242,6 +286,23 @@ reply(404,{error:'unknown fixture route'});
 }).listen(8899,'127.0.0.1');"""
         node("require('node:fs').writeFileSync('/tmp/remote.cjs',require('node:fs').readFileSync(0));",remote)
         run(['docker','exec','--user','node','-d',n8n,'node','/tmp/remote.cjs'])
+        # A separate CLI process must use its own broker port and the same
+        # existing OAuth credential, without activating a production webhook.
+        diagnostic_id=uuid.uuid4().hex[:16]
+        diagnostic_nodes=[dict(id=uuid.uuid4().hex,name='Manual',type='n8n-nodes-base.manualTrigger',typeVersion=1,position=[0,0],parameters={}),
+            dict(id=uuid.uuid4().hex,name='Read viewer',type='n8n-nodes-base.httpRequest',typeVersion=4.2,position=[200,0],
+                parameters=dict(authentication='genericCredentialType',genericAuthType='oAuth2Api',method='POST',
+                    url='http://127.0.0.1:8899/graphql',sendBody=True,contentType='raw',rawContentType='application/json',
+                    body=json.dumps(dict(query='query FixtureViewer { viewer { id } }')),options=dict(timeout=15000)),
+                credentials=dict(oAuth2Api=dict(id=credential_refs[c['credentials']['codex_oauth']],name='Fixture OAuth')))]
+        diagnostic=dict(id=diagnostic_id,name='Synthetic read-only CLI diagnostic',nodes=diagnostic_nodes,
+            connections={'Manual':dict(main=[[dict(node='Read viewer',type='main',index=0)]])},
+            settings=dict(executionOrder='v1',saveDataErrorExecution='none',saveDataSuccessExecution='none',saveManualExecutions=False))
+        write('/tmp/cli-diagnostic.json',[diagnostic])
+        run(['docker','exec','--user','node',n8n,'n8n','import:workflow','--input=/tmp/cli-diagnostic.json'])
+        cli_output=run(['docker','exec','--user','node','-e','N8N_RUNNERS_BROKER_PORT=35679',n8n,
+            'n8n','execute','--id='+diagnostic_id,'--rawOutput'],timeout=90)
+        assert str(uuid.UUID(int=2)) in cli_output, 'Fixture read-only CLI credential execution failed'
         api('/rest/workflows/'+ids['inbound']+'/activate',dict(versionId=workflows['inbound']['versionId']))
         path='/webhook/rras-codex-agent-events'
         for _ in range(40):
@@ -485,6 +546,11 @@ reply(404,{error:'unknown fixture route'});
             assert response['status']==200,response
             assert 'UNSELECTED-PROJECT-NARRATIVE' not in response['body']
             return json.loads(response['body'])
+        query_history(0)
+        time.sleep(3)
+        no_retention_running=sql("SELECT count(*) FROM execution_entity WHERE status='running' AND \"deletedAt\" IS NOT NULL AND \"workflowId\"='"+ids['handoff_history']+"';").strip()
+        assert int(no_retention_running)>=1, 'Expected soft-deleted running execution in no-retention fixture'
+        print(json.dumps(dict(fixture_soft_deleted_running_records=int(no_retention_running),fixture_reader_responded=True)),flush=True)
         with tempfile.TemporaryDirectory(prefix='shrr-handoff-history-fixture-') as folder:
             spool=hm.local('capture_intake').Spool(Path(folder)/'spool',create=True)
             observed=history.poll(spool,history_selected,query_history)
@@ -516,6 +582,39 @@ reply(404,{error:'unknown fixture route'});
             assert all(row['context']==history_context for row in native_records)
             native_source.poll(native_spool,native_history_selected,native_history_query)
             with native_spool.connection() as db:assert db.execute('SELECT count(*) FROM items').fetchone()[0]==count
+        api('/rest/workflows/'+ids['hermes_future_sessions']+'/activate',dict(versionId=workflows['hermes_future_sessions']['versionId']))
+        future_path='/webhook/rras-hermes-future-session-metadata'
+        future_cursor=dict(after_time='2020-01-01T00:00:00Z',after_id=str(uuid.UUID(int=0)))
+        for _ in range(30):
+            response=request(future_path,future_cursor,native_headers)
+            if response['status']!=404:break
+            time.sleep(.25)
+        assert response['status']==403,response
+        response=request(future_path,future_cursor,dict(Authorization='Bearer synthetic-handoff-history'))
+        assert response['status']==200,response
+        future_page=json.loads(response['body'])
+        assert future_page['contract']=='hermes-future-session-page.v1' and len(future_page['sessions'])<=4
+        assert all(set(row)=={'organization_id','agent_session_id','issue_id','hermes_session_id','created_at'} for row in future_page['sessions'])
+        fixture_id=str(uuid.UUID(int=9001));fixture_issue=str(uuid.UUID(int=9002));other_id=str(uuid.UUID(int=9003))
+        sql("INSERT INTO linear_bridge.agent_sessions(agent_session_id,organization_id,issue_id,hermes_session_id,created_at) VALUES "
+            "('"+fixture_id+"','"+c['organization_id']+"','"+fixture_issue+"','linear:"+c['organization_id']+":"+fixture_id+"','2091-01-01Z'),"
+            "('"+other_id+"','"+str(uuid.UUID(int=9999))+"','"+fixture_issue+"','linear:"+str(uuid.UUID(int=9999))+":"+other_id+"','2091-01-01Z');")
+        future_cursor['after_time']='2090-01-01T00:00:00Z'
+        response=request(future_path,future_cursor,dict(Authorization='Bearer synthetic-handoff-history'))
+        assert response['status']==200,response
+        selected_rows=json.loads(response['body'])['sessions']
+        assert len(selected_rows)==1 and selected_rows[0]['agent_session_id']==fixture_id
+        delegated_body=dict(body,webhookTimestamp=int(time.time()*1000),agentSession=dict(body['agentSession'],
+            id=str(uuid.UUID(int=880)),commentId=str(uuid.UUID(int=881))))
+        delegated_headers=dict(headers);delegated_headers['Linear-Delivery']=str(uuid.UUID(int=882))
+        delegated_headers['X-RRAS-Codex-Body-Sha256']=hashlib.sha256(json.dumps(delegated_body).encode()).hexdigest()
+        response=request(path,delegated_body,delegated_headers);assert response['status']==200,response
+        delegated_event=json.loads(response['body'])['event_id']
+        before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
+        execute('dispatch')
+        assert sql("SELECT origin_observation->>'actor_basis' FROM linear_bridge.codex_events WHERE id='"+delegated_event+"';").strip()=='native_artificial_root_and_verified_creator'
+        assert len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])==before+1
+        request('/fixture/complete',{},port=8899);execute('reconcile');execute('outbound')
         request('/fixture/deny-execution',{},port=8899)
         before=len(json.loads(request('/fixture/status',port=8899)['body'])['calls'])
         denied=deliver(800,801);execute('dispatch')
@@ -529,6 +628,7 @@ reply(404,{error:'unknown fixture route'});
             jarvis_admission_actual_engine=True,jarvis_correlated_handoff_admitted=True,jarvis_agent_echo_denied=True,jarvis_unselected_run_preserved=True,
             jarvis_exact_native_run_context=True,jarvis_wrong_native_run_context_denied=True,jarvis_scoped_checkpoint_intake=True,
             jarvis_private_history_reader=True,jarvis_producer_private_history_denied=True,jarvis_typed_history_projection=True,
+            future_hermes_metadata_authenticated=True,future_hermes_metadata_bounded=True,
             hermes_execution='synthetic_http_endpoint_only',
             network='isolated container namespace',production_mounts=False,real_credentials=False,paid_model_calls=0)))
     finally:

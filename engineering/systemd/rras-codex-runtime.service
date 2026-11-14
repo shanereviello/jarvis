@@ -1,6 +1,7 @@
 [Unit]
 Description=Private Codex runtime bridge for the selected engineering project
-After=network.target rras-engineering-history.service
+After=network.target docker.service rras-engineering-history.service
+Wants=docker.service
 Requires=rras-codex-coding.socket rras-codex-source.socket
 ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
 
@@ -21,6 +22,7 @@ AmbientCapabilities=
 PrivateTmp=yes
 ProtectHome=yes
 ProtectSystem=strict
+ReadWritePaths=/run/rras-codex-runtime
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -35,3 +37,6 @@ TasksMax=128
 TimeoutStartSec=45s
 StandardOutput=journal
 StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

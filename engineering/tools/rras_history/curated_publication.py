@@ -48,13 +48,16 @@ def validate_preview(preview,repositories):
     # This validates every entry/header before filtering; no source fallback.
     preview_reader(preview).search(preview,sha,repositories[0],'',limit=1)
     if any(entry['repository_id'] not in repositories for entry in preview['entries']):raise ValueError('publication outside repository policy')
-    if preview.get('contract')=='engineering-curated-reporting-preview.v1' and any(
-            p['repository_id'] not in repositories for p in preview['profile']['projects']):raise ValueError('profile outside repository policy')
+    components=preview['parts'] if preview.get('contract')=='engineering-curated-composite-preview.v1' else [preview]
+    if any(part.get('contract')=='engineering-curated-reporting-preview.v1' and any(
+            p['repository_id'] not in repositories for p in part['profile']['projects']) for part in components):raise ValueError('profile outside repository policy')
     return preview
 
 
 def preview_reader(preview):
-    return local('curated_reporting' if preview.get('contract')=='engineering-curated-reporting-preview.v1' else 'curated_preview')
+    kind=preview.get('contract')
+    return local('curated_composite' if kind=='engineering-curated-composite-preview.v1' else
+                 'curated_reporting' if kind=='engineering-curated-reporting-preview.v1' else 'curated_preview')
 
 
 def head(root):
@@ -115,8 +118,11 @@ def commit(root,config,operation,preview,expected_head,client_key,withdrawn):
             base=next((value['preview'] for sha,value in rows if sha==expected_head),None)
             if base is None or not set(withdrawn)<={e['entry_id'] for e in base['entries']}:raise ValueError('withdrawal source unavailable')
             preview=c.decode(c.encoded(base),max_bytes=2*1024*1024)
-            preview['entries']=[e for e in preview['entries'] if e['entry_id'] not in withdrawn]
-            if preview.get('contract')=='engineering-curated-reporting-preview.v1':preview['coverage']['returned_count']=len(preview['entries'])
+            if preview.get('contract')=='engineering-curated-composite-preview.v1':
+                preview=local('curated_composite').without(preview,set(withdrawn))
+            else:
+                preview['entries']=[e for e in preview['entries'] if e['entry_id'] not in withdrawn]
+                if preview.get('contract')=='engineering-curated-reporting-preview.v1':preview['coverage']['returned_count']=len(preview['entries'])
         request={'operation':operation,'client_key':client_key,'expected_head':expected_head,
                  'preview_sha256':c.digest(c.encoded(preview)),'withdrawn_ids':withdrawn}
         for sha,value in rows:

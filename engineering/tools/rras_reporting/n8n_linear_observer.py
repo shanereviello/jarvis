@@ -72,6 +72,7 @@ def render(value):
     def node(name,type_,version,parameters,x,credentials=None):
         result=dict(id=str(uuid.uuid5(uuid.NAMESPACE_URL,'shrr-linear-reader:'+value['project_id']+':'+name)),
             name=name,type='n8n-nodes-base.'+type_,typeVersion=version,position=[x,0],parameters=parameters,retryOnFail=False)
+        if type_=='webhook':result['webhookId']=result['id']
         if credentials:result['credentials']=credentials
         return result
     nodes=[node('Private selected Linear read','webhook',2,dict(httpMethod='POST',

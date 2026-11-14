@@ -1,0 +1,9 @@
+name: engineering-planning
+version: 0.1.0
+kind: standalone
+description: "Prepare architecture drafts and proposed work for verified Jarvis sessions."
+provides_tools:
+  - engineering_draft_project
+  - engineering_draft_work
+  - engineering_draft_issue
+  - engineering_prepare_review

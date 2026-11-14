@@ -39,8 +39,17 @@ def seed():
     profile=dict(contract='engineering-reporting-publication-profile.v1',profile_id='prf_'+'9'*32,version=1,
         projects=[dict(project_id=ctx['project_id'],repository_id='jarvis')],
         fields={'checkpoint.report':['observations','next_step']},authorization_reference='Synthetic profile only')
-    local('curated_publication').initialize(CATALOG,['jarvis'])
-    local('curated_reporting').publish_profile(CATALOG,[dict(submission=request,receipt=receipt)],profile,c.digest(c.encoded(profile)),None,approve_profile=True)
+    publication=local('curated_publication');publication.initialize(CATALOG,['jarvis'])
+    selection=dict(source_request_sha256='a'*64,summary='EXISTING-CURATED-ENTRY',rationale='Fixture legacy context',limitations='No inferred approval')
+    entry=dict(entry_id='cur_'+c.digest(c.encoded(selection)),repository_id='jarvis',work_item_id='wrk_'+'a'*32,
+        summary=selection['summary'],rationale=selection['rationale'],limitations=selection['limitations'],source_operation='work.create',
+        source_provenance='agent_reported',source_request_sha256=selection['source_request_sha256'],source_receipt_id='rcp_'+'b'*32,
+        source_recorded_at='2026-11-07T12:00:00Z',source_occurred_at=None,curation_provenance='agent_reported',
+        source_authenticated=False,release_status='not_inferred')
+    legacy=dict(contract='engineering-curated-preview.v1',audience='jarvis_candidate',visibility='operator_private',
+        publication_authorized=False,authority_granted=False,source_freshness='not_polled',entries=[entry])
+    old=publication.publish(CATALOG,legacy,c.digest(c.encoded(legacy)),None,'synthetic-legacy',approve_publication=True)
+    local('curated_reporting').publish_profile(CATALOG,[dict(submission=request,receipt=receipt)],profile,c.digest(c.encoded(profile)),old['generation_sha256'],approve_profile=True)
 
 
 def serve(granted):
@@ -68,13 +77,13 @@ async def client(role,context):
             if role=='revoked':assert is_error(result);return dict(revoked=True)
             assert not is_error(result);page=json.loads(result.content[0].text)
             if role=='withdrawn':
-                assert page['entries']==[]
+                assert len(page['entries'])==1 and page['entries'][0]['summary']=='EXISTING-CURATED-ENTRY'
                 assert is_error(await session.call_tool('engineering_history_read',dict(repository_id='jarvis',**context)))
                 assert is_error(await session.call_tool('engineering_history_search',dict(repository_id='jarvis',generation_sha256=context['generation_sha256'])))
                 return dict(withdrawal_and_stale_generation_refused=True)
-            assert len(page['entries'])==1 and 'CURATED-ENGINEERING-RESULT' in json.dumps(page)
+            assert len(page['entries'])==2 and 'CURATED-ENGINEERING-RESULT' in json.dumps(page) and 'EXISTING-CURATED-ENTRY' in json.dumps(page)
             assert 'PRIVATE-UNSELECTED-NARRATIVE' not in json.dumps(page)
-            entry=page['entries'][0];context=dict(entry_id=entry['entry_id'],generation_sha256=page['generation_sha256'])
+            entry=next(x for x in page['entries'] if x.get('source_operation')=='checkpoint.report');context=dict(entry_id=entry['entry_id'],generation_sha256=page['generation_sha256'])
             exact=await session.call_tool('engineering_history_read',dict(repository_id='jarvis',**context))
             assert not is_error(exact) and json.loads(exact.content[0].text)['entry']==entry
             assert entry['context']['architecture']['version']==4 and entry['source_authenticated'] is False
@@ -117,7 +126,7 @@ def inside():
     try:
         result=child('revoked',uid=READER);assert result.returncode==0,result.stderr[-2000:]
     finally:stop(server)
-    print(json.dumps(dict(actual_stdio_mcp=True,cross_uid_unix=True,exact_structured_context=True,private_fields_excluded=True,
+    print(json.dumps(dict(actual_stdio_mcp=True,cross_uid_unix=True,exact_structured_context=True,private_fields_excluded=True,prior_curated_entries_preserved=True,
         repository_denial=True,action_tool_denial=True,withdrawal_stale_generation_denial=True,reader_revocation_denial=True,
         real_credentials=False,real_history=False,models_started=0,production_mounts=False)))
 

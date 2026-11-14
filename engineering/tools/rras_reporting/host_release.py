@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import importlib.metadata
+import importlib.machinery
 import json
 import os
 from pathlib import Path,PurePosixPath
@@ -11,17 +12,19 @@ import stat
 import subprocess
 
 CODEX_SHA256='d2752c52353401f7f6efbfcea68796f4f7a3d3e4769f5d1da53fa49d4856b72f'
+SPECSTORY_SHA256='25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4'
 DEPENDENCIES={
- 'annotated-types':'0.8.0','anyio':'4.16.0','attrs':'26.1.0','certifi':'2026.10.23','click':'8.5.1',
+ 'annotated-types':'0.8.0','anyio':'4.16.0','attrs':'26.1.0','certifi':'2026.10.23','cffi':'2.1.1','click':'8.5.1','cryptography':'50.0.2',
  'h11':'0.16.0','httpcore':'1.0.9','httpx':'0.28.1','httpx-sse':'0.4.3','idna':'3.20',
  'jsonschema':'4.26.0','jsonschema-specifications':'2025.9.1','mcp':'1.27.2','pydantic':'2.14.3',
  'pydantic-core':'2.50.4','pydantic-settings':'2.16.2','pyjwt':'2.15.1','python-multipart':'0.0.33',
- 'python-dotenv':'1.2.4','referencing':'0.37.0','rpds-py':'2026.9.1','sse-starlette':'3.6.0',
+ 'python-dotenv':'1.2.4','pycparser':'3.12','referencing':'0.37.0','rpds-py':'2026.9.1','sse-starlette':'3.6.0',
  'starlette':'1.10.0','typing-extensions':'4.16.0','typing-inspection':'0.4.5','uvicorn':'0.54.0'
 }
 IMPORTS=('annotated_types','anyio','attr','attrs','certifi','click','h11','httpcore','httpx','httpx_sse','idna',
  'jsonschema','jsonschema_specifications','mcp','multipart','pydantic','pydantic_core','pydantic_settings',
- 'referencing','rpds','sse_starlette','starlette','typing_extensions','typing_inspection','uvicorn','jwt','dotenv')
+ 'referencing','rpds','sse_starlette','starlette','typing_extensions','typing_inspection','uvicorn','jwt','dotenv',
+ 'cryptography','cffi','pycparser','_cffi_backend')
 
 
 def digest(raw):return hashlib.sha256(raw).hexdigest()
@@ -56,7 +59,7 @@ def site_packages(files):
             member=path/metadata
             if member.is_file():found['vendor/site-packages/'+path.name+'/'+metadata]=regular(member)
     for name in IMPORTS:
-        members=[root/name,root/(name+'.py')]
+        members=[root/name,root/(name+'.py')]+[root/(name+suffix) for suffix in importlib.machinery.EXTENSION_SUFFIXES]
         available=[member for member in members if member.exists()]
         if not available:raise ValueError('runtime import package unavailable: '+name)
         for source in available:
@@ -74,6 +77,17 @@ def source_files(root):
     for folder in ('engineering/tools/rras_reporting','engineering/tools/rras_history'):
         for path in sorted((root/folder).glob('*.py')):
             rel=path.relative_to(root).as_posix();files[rel]=regular(path)
+    for path in sorted((root/'engineering/tools/rras_reporting').glob('*.js')):
+        rel=path.relative_to(root).as_posix();files[rel]=regular(path)
+    # The separate operator/browser entries reuse only the existing signed
+    # Access verifier and hardened server options, not the dashboard itself.
+    for name in ('access.py','entry.py'):
+        path=root/'engineering/tools/rras_history_web'/name
+        rel=path.relative_to(root).as_posix();files[rel]=regular(path)
+    for plugin in ('engineering-reporting','engineering-planning'):
+        for name in ('__init__.py','plugin.yaml'):
+            path=root/'engineering/hermes_plugins'/plugin/name
+            rel=path.relative_to(root).as_posix();files[rel]=regular(path)
     for folder in ('engineering/contracts',):
         for path in sorted((root/folder).glob('*.json')):
             rel=path.relative_to(root).as_posix();files[rel]=regular(path)
@@ -85,7 +99,7 @@ def source_files(root):
     return files
 
 
-def binaries(binary):
+def binaries(binary,specstory=None):
     path=Path(binary).resolve(strict=True)
     if digest(regular(path))!=CODEX_SHA256:raise ValueError('reviewed Codex 0.159.0 executable required')
     base=path.parent;root=base.parent
@@ -99,6 +113,11 @@ def binaries(binary):
         data=regular(source)
         if not os.access(source,os.X_OK):raise ValueError('reviewed executable resource required')
         result[name]=data
+    if specstory is not None:
+        source=Path(specstory).resolve(strict=True);data=regular(source)
+        if digest(data)!=SPECSTORY_SHA256 or not os.access(source,os.X_OK):
+            raise ValueError('reviewed SpecStory 2.17.0 executable required')
+        result['runtime/bin/specstory']=data
     return result
 
 
@@ -154,6 +173,8 @@ def verify(candidate,expected_manifest_sha256):
     if observed!=set(files)|{'manifest.json'}:raise ValueError('unexpected or missing release member')
     if manifest['codex_binary_sha256']!=CODEX_SHA256 or digest(files.get('runtime/bin/codex',b''))!=CODEX_SHA256:
         raise ValueError('pinned Codex executable differs')
+    if 'runtime/bin/specstory' in files and digest(files['runtime/bin/specstory'])!=SPECSTORY_SHA256:
+        raise ValueError('pinned SpecStory executable differs')
     expected_pth=(release+'/vendor/site-packages\n').encode()
     if files.get('runtime/rras-vendor-site-packages.pth')!=expected_pth:raise ValueError('vendor environment binding differs')
     source_files={}
@@ -177,7 +198,7 @@ def _unique_object(pairs):
     return result
 
 
-def build(source,binary,site,destination,commit):
+def build(source,binary,site,destination,commit,specstory=None):
     source=Path(source).resolve(strict=True);destination=Path(destination)
     if (destination.exists() or destination.is_symlink() or not destination.is_absolute() or
             not re.fullmatch('[0-9a-f]{40}',commit)):
@@ -185,7 +206,7 @@ def build(source,binary,site,destination,commit):
     head=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],timeout=10).decode().strip()
     changed=subprocess.check_output(['git','-C',str(source),'status','--porcelain','--untracked-files=all'],timeout=10)
     if head!=commit or changed:raise ValueError('clean exact source commit required')
-    files=source_files(source);files.update(site_packages(site));binary_files=binaries(binary);files.update(binary_files)
+    files=source_files(source);files.update(site_packages(site));binary_files=binaries(binary,specstory);files.update(binary_files)
     if len(files)>2048 or sum(map(len,files.values()))>1024*1024*1024:raise ValueError('bounded immutable release required')
     content_sha,_=release_digest(files);release='/opt/rras-engineering/releases/standardized-history-'+content_sha[:12]
     rendered=render_release(files,release)
@@ -208,8 +229,9 @@ def build(source,binary,site,destination,commit):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     for name in ('source','binary','site-packages','destination','source-commit'):parser.add_argument('--'+name,required=True)
+    parser.add_argument('--specstory',help='optional pinned SpecStory candidate; does not enable collection')
     args=parser.parse_args()
-    try:print(json.dumps(build(args.source,args.binary,args.site_packages,args.destination,args.source_commit),sort_keys=True))
+    try:print(json.dumps(build(args.source,args.binary,args.site_packages,args.destination,args.source_commit,args.specstory),sort_keys=True))
     except Exception:parser.exit(1,'Inactive Codex runtime packaging refused; preserve existing releases and state.\n')
 
 

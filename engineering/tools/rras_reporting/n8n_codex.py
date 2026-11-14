@@ -73,6 +73,7 @@ def render(value):
             type='n8n-nodes-base.'+kind,typeVersion={'webhook':2.1,'respondToWebhook':1.4,
             'postgres':2.6,'httpRequest':4.2,'code':2,'scheduleTrigger':1.2,'if':2.2}[kind],
             position=[0,0],parameters=parameters)
+        if kind=='webhook':value['webhookId']=value['id']
         if credential:
             value['credentials']={credential[0]:dict(id=credentials[credential[1]],name='Codex '+credential[1])}
         return value
@@ -127,8 +128,8 @@ def render(value):
  AND h.issue_id=(e.envelope->>'issue_id')::uuid AND (h.comment_id::text=e.envelope->>'origin_comment_id'
  OR h.target_session_id=e.session_id) ORDER BY h.created_at DESC LIMIT 1) AS correlated_handoff"""
     origin_query=('query CodexNativeOrigin($id:String!,$actor:String!){viewer{id organization{id}} '
-        'sourceActor:user(id:$actor){id app} agentSession(id:$id){id appUser{id} issue{id} creator{id app} '
-        'comment{id user{id app}} sourceComment{id user{id app}}}}')
+        'sourceActor:user(id:$actor){id app} agentSession(id:$id){id sourceMetadata appUser{id} issue{id} creator{id app} '
+        'comment{id isArtificialAgentSessionRoot agentSession{id} user{id app}} sourceComment{id user{id app}}}}')
     origin_prepare="""const row=$input.first().json;if(!row.id)return [];
 return [{json:{...row,origin_request:{query:QUERY,variables:{id:row.session_id,
 actor:row.envelope.source_actor_id||row.envelope.responsible_human_id||APP}}}}];""".replace('QUERY',json.dumps(origin_query)).replace('APP',json.dumps(app))
@@ -171,7 +172,7 @@ if(result.state==='interrupt_requested')result={...result,state:'running'};
 return [{json:{event_id:source.event_id,runtime_result:result}}];"""
     finish=f"""WITH updated AS (
  UPDATE linear_bridge.codex_events SET state=$2::jsonb->>'state',runtime_result=$2::jsonb,updated_at=now()
- WHERE {select} AND id=$1::uuid RETURNING *)
+ WHERE {select} AND id=$1::uuid AND state IN ('dispatching','running','uncertain') RETURNING *)
  INSERT INTO linear_bridge.codex_outbox(organization_id,app_user_id,session_id,source_key,content)
  SELECT organization_id,app_user_id,session_id,'result:'||id::text||':'||state,
  jsonb_build_object('type',CASE WHEN state='completed' THEN 'response' WHEN state='uncertain' THEN 'thought' ELSE 'error' END,'body',

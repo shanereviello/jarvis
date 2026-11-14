@@ -24,16 +24,31 @@ def project_reader(projects):
         private_read=['jarvis'], write=[], category_read=['jarvis-non-git'], category_write=[])]}
     service = module('access').Access(projects.store, policy)
     calls = []
-    def call(message):
+    def dispatch(message):
         calls.append(message)
         # The real Unix transport sorts JSON keys in both directions. Preserve
         # that boundary here so browser/API fixtures consume actual wire order.
         contract = module('contract')
         request = contract.decode(contract.encoded(message))
         return contract.decode(contract.encoded(service.dispatch(1000, request)), max_bytes=2 * 1024 * 1024)
+    class Transport:
+        @staticmethod
+        def call(socket,uid,message):
+            return dispatch(message)
+    def call(message):
+        return web('entry').read_call(Transport,{'history_socket':'fixture','history_uid':995},message)
     reader = web('history').Reader(['jarvis'], call, ['jarvis-non-git'])
     reader.calls = calls
     return reader
+
+
+def test_dashboard_transport_refuses_writes():
+    class Transport:
+        @staticmethod
+        def call(socket,uid,message):
+            raise AssertionError('write reached transport')
+    with pytest.raises(ValueError,match='reads only'):
+        web('entry').read_call(Transport,{'history_socket':'fixture','history_uid':995},{'method':'reporting_submit'})
 
 
 def url(view, **query):
@@ -69,6 +84,9 @@ def test_reporting_snapshots_and_private_artifact_chunks(project_reader,projects
     assert client_call(app,key,url('works',project_id=P1,snapshot=token)).status_code==200
     got=client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,snapshot=token))
     assert got.status_code==200 and got.json()['chunk']['sha256']==value['body']['content_sha256']
+    batch=client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,count=1,snapshot=token))
+    assert batch.status_code==200 and batch.json()['chunks'][0]['sha256']==value['body']['content_sha256']
+    assert client_call(app,key,url('artifact',artifact_id=value['body']['artifact_id'],version=1,index=0,count=9,snapshot=token)).status_code==503
     assert any(call['method']=='evidence_read' for call in project_reader.calls)
     wrong=client_call(app,key,url('artifact',artifact_id='cap_'+'9'*32,version=1,index=0,snapshot=token))
     assert wrong.status_code==503 and 'plain private evidence' not in wrong.text

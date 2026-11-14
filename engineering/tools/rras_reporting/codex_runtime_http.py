@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import signal
 import threading
 
 
@@ -81,6 +82,29 @@ def server(runtime, token, address=('127.0.0.1', 8766)):
     return ThreadingHTTPServer(address, Handler)
 
 
+def serve(http, broker_context, runtime):
+    """Release the owned checkpoint socket and journal during service stop."""
+    stopped=threading.Event()
+    previous=signal.getsignal(signal.SIGTERM)
+    def terminate(_signum,_frame):
+        # Repeated service-stop signals must not interrupt cleanup.
+        signal.signal(signal.SIGTERM,signal.SIG_IGN)
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM,terminate)
+    try:
+        with broker_context as broker:
+            def serve_checkpoints():
+                while not stopped.is_set():broker.serve_once()
+            thread=threading.Thread(target=serve_checkpoints,daemon=True);thread.start()
+            try:http.serve_forever()
+            finally:stopped.set();thread.join(timeout=3)
+    finally:
+        try:
+            try:http.server_close()
+            finally:runtime.close()
+        finally:signal.signal(signal.SIGTERM,previous)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--policy', type=Path, required=True)
@@ -110,7 +134,9 @@ def main():
     selected=protected.decode(args.policy)
     if args.initialize:
         # Initialization creates no native process, HTTP listener or model turn.
-        runtime=m.Runtime(args.state,selected,create=True)
+        def no_native_during_initialization(*_):
+            raise ValueError('native execution is unavailable during initialization')
+        runtime=m.Runtime(args.state,selected,create=True,issue_client_factory=no_native_during_initialization)
         runtime.close()
         print(json.dumps(dict(initialized=True,models_started=0,listener_started=False)))
         return
@@ -130,24 +156,18 @@ def main():
     if set(reporter.task_contexts)!=set(selected['issues']) or reporter.configuration['capture'] is None:
         raise ValueError('exact retained task contracts and selected capture installation required')
     if (not {'source_socket','source_peer_uid'}<=set(reporter.configuration['capture']) or
-            str(args.native_socket)==reporter.configuration['capture']['source_socket']):
+            str(args.native_socket)==reporter.configuration['capture']['source_socket'] or
+            (selected['contract']=='codex-runtime-policy.v2' and reporter.configuration['capture']['source_socket'] in selected['native_sockets'].values())):
         raise ValueError('separate credential-free native source reader required')
     runtime = m.Runtime(args.state, selected,reporter=reporter,checkpoint_tool=checkpoint,
-        client_factory=lambda executable,cwd:m.SocketAppServer(args.native_socket,args.native_peer_uid))
+        client_factory=lambda executable,cwd:m.SocketAppServer(args.native_socket,args.native_peer_uid),
+        issue_client_factory=lambda executable,cwd,issue:m.SocketAppServer(selected['native_sockets'][issue],args.native_peer_uid))
     http = server(runtime, token, (args.bind, args.port))
     spec=importlib.util.spec_from_file_location('private_runtime_checkpoint_broker',Path(__file__).with_name('runtime_checkpoint_broker.py'))
     broker_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(broker_module)
-    stopped=threading.Event()
     os.environ.clear();os.environ.update(PATH='/usr/bin:/bin',HOME='/nonexistent',LANG='C.UTF-8')
-    try:
-        with broker_module.Server(args.checkpoint_socket,runtime,reporter.configuration,args.native_uid,
-                on_bound=lambda path:broker_module.acl_on_bound(path,args.native_uid)) as broker:
-            def serve_checkpoints():
-                while not stopped.is_set():broker.serve_once()
-            thread=threading.Thread(target=serve_checkpoints,daemon=True);thread.start()
-            try:http.serve_forever()
-            finally:stopped.set();thread.join(timeout=3)
-    finally:http.server_close();runtime.close()
+    serve(http,broker_module.Server(args.checkpoint_socket,runtime,reporter.configuration,args.native_uid,
+        on_bound=lambda path:broker_module.acl_on_bound(path,args.native_uid)),runtime)
 
 
 if __name__ == '__main__':

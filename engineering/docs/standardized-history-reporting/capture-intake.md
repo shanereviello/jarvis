@@ -15,6 +15,12 @@ has `id`, exact canonical `source` and `binary` paths, native `session` UUID,
 `authorization_reference`. No source discovery, wildcard directory, environment
 credential, or repository-to-project inference is supported. A reference records
 the selection basis; it is not independent authentication of human consent.
+A v2 job configuration additionally requires an explicit `source_segment` for
+each selected source. Segments sharing a native session are separate artifacts
+with independent byte ranges and revision chains; the native session identity is
+preserved. A repeated segment identity is rejected. The existing v1 format and
+its artifact identities remain unchanged. Segment identifiers do not establish
+that every native file was selected or that a segment belongs to a work item.
 
 The Codex adapter pins SpecStory 2.17.0 executable SHA-256
 `25b8a1b7c13b6cccd514845608785057b980ad3d55029d75527a0d9aaf0603c4`.
@@ -84,3 +90,183 @@ corrupt exports, wrong/lost receipts, restart and outage recovery. Actual Hermes
 session collection and scheduled collector activation still need their selected
 source authorization and deployment acceptance. Prior real-session permission
 applies only to the explicitly approved chat pilot.
+
+## Selected Hermes session pilot — November 10, 2026
+
+The operator selected REV-34 for a private, model-free Hermes export pilot.
+One retained Linear-to-Hermes session mapping matched that issue. The pinned
+read-only reader opened that exact session and its native compression lineage;
+the pinned native exporter and owned intake redactor staged one private export.
+The result contained 17 visible messages, and its 29,370 bytes matched SHA-256
+`a89b807bb4eff2e06ddb4e8bbf983d150f7c8402971336cb0b2dbd51988e7626`.
+The export was not delivered to production history or assigned to a project.
+This test does not establish complete capture, arbitrary-secret removal, or
+authorization to collect other Hermes sessions automatically.
+
+The operator subsequently selected future Linear-linked Jarvis sessions only,
+with `jarvis-non-git` as the destination when no repository is known. Source
+components now validate a fixed rollout cutoff, exact organization and native
+session identities, and strictly ordered bounded metadata pages before opening
+any session. An inactive n8n workflow template exposes only those identifiers
+and timestamps. A model-free isolated Hermes fixture verified the pinned reader,
+cutoff refusal, redacted staging and unchanged-session replay. A separate worker
+and coordinator prototype do not themselves install a service or grant access.
+An attempted new container with a read-only native database directory failed
+because SQLite WAL shared-memory coordination was unavailable. The prototype
+instead invokes the pinned reader inside the existing Hermes container as its
+existing UID, with a cleared environment and a fixed entry point. This succeeded
+against a synthetic database in a disposable network-isolated Hermes container;
+the production container's normal network namespace was not changed. A protected
+host wrapper must pin the container, code and inputs before this can be deployed;
+the reporting user must not receive general Docker access.
+An authenticated metadata route, a confined native-reader deployment, durable
+cursor integration, scoped delivery, restart tests and live acceptance remain
+required. No future Hermes session collection has been activated by this source.
+
+## Future Hermes capture production check — November 10, 2026
+
+The operator installed release `standardized-history-a38d08615a5b`, approved
+future Linear-linked Jarvis sessions and selected `jarvis-non-git` when no
+repository is known. Staging fixed the cutoff at `2026-11-10T20:19:27.108667Z`,
+retained eight explicit Jarvis issue mappings, and created an inactive metadata
+reader. After the operator published the reader through the running n8n interface,
+an unauthenticated request returned 403. The operator enabled the five-minute
+capture timer following a successful zero-session pass.
+
+A new REV-37 Jarvis session was created after the cutoff. A scheduled pass
+processed one session and delivered three queued records with no failed or
+pending delivery and no model started by the collector. A scoped history read
+found one unassigned `hermes_native_export` artifact in `jarvis-non-git`;
+its sole chunk and complete 18,334-byte export matched SHA-256
+`40283d5eecec1fb613db878139c82d2dddf05fce92bd2dc075f01184e02293a9`.
+This verifies storage and bytes, not complete conversation coverage or removal
+of arbitrary sensitive content. The operator confirmed that the authenticated
+dashboard preview and download both work for this artifact. The timer remained
+enabled and active, with no failed or pending delivery in the checked pass.
+
+## Selected chat intake — November 10, 2026
+
+The operator separately authorized one private intake of this chat. The installed
+v2 collector retained its three explicitly selected native files as separate
+unassigned artifacts and received all chunk and reporting receipts. No scheduled
+capture or model execution was enabled. The artifacts have partial coverage:
+full-text comparisons to the redacted exports left 30 visible source messages
+unmatched in the November 6 file and 22 in the November 8 file; normalization
+may also prevent verbatim matches. No visible source message was unmatched in
+the November 4 file under that comparison. Reasoning is excluded, and complete
+tool/media coverage is not established.
+
+Each chunk upload and artifact manifest received matching custody receipts.
+An initial single-chunk readback was stopped after several minutes. After the
+bounded batch-read deployment, a full scoped readback verified all 171 chunks and
+the exact full-artifact digests in 33.4 seconds. This validates retained bytes,
+not the completeness of the collector's source coverage. The records are
+unassigned because the chat covers multiple efforts; its artifacts do not assert
+a single work membership.
+
+## Automatic capture recovery checks — November 10, 2026
+
+A registered-runtime capture pass could be interrupted after fsyncing its next
+rotation cursor but before renaming it. The leftover private `.cursor.next`
+then caused every later pass to reject the registry. The runner now validates
+and completes that pending atomic cursor update under the registry lock. A
+malformed or unsafe temporary cursor remains in place and stops the pass for
+inspection. These changes do not add source discovery or start a timer.
+
+Model-free tests exercised the pinned SpecStory binary with a synthetic registered
+session: a history outage left its export pending, a later pass delivered it,
+growing the source created version 2, and an unchanged pass created no duplicate.
+The approved chat's already-retained segments were also compared without printing
+conversation content. Of 30 and 22 non-exact visible/unknown messages in the two
+longer segments, respectively, 20 and 16 had matching beginnings and endings
+after redaction/whitespace normalization; 10 and 6 did not. This is a coarse
+diagnostic, not proof that the remaining text is absent or present. All three
+artifacts remain marked partial. More work is required to establish real-surface
+coverage, desktop session registration, rotation and other selection criteria
+before claiming automatic capture is production-ready.
+
+The current registration is tied to the Linear Codex runtime and its explicit
+issue context; it does not automatically register desktop sessions. OpenAI's
+[plugin documentation](https://developers.openai.com/plugins/build/plugins)
+describes lifecycle hooks for supported Codex clients, subject to hook trust and
+the script being present in the execution environment. The local Codex CLI
+reports version 0.159.0 and the `hooks` feature as enabled. Those facts do not
+establish that a hook fires for this desktop session, supplies the right source
+on resume or rotation, or has authority to assign a project. A bounded,
+model-free compatibility test is still needed before relying on that interface.
+
+## Desktop registration prototype — November 10, 2026
+
+`desktop_capture.py` is a passive, uninstalled source prototype. A lifecycle
+event may register an exact native file only when its current working directory
+is an explicit operator-configured workspace or a directory beneath it. An isolated scheduled pass
+reuses the existing collector and durable spool. Its configured repository scope
+is explicit; the resulting records have no project or work association. Exact
+source paths produce distinct segment identities. Removing a workspace from the
+policy skips its existing registrations without deleting them. The registry and
+spool are caller-owned private directories. Hook events are not retained, and no
+prompt or conversation content is printed by registration.
+
+The installed Codex CLI 0.159.0 was run in an isolated temporary HOME with a
+synthetic hook, a dummy credential and an unreachable localhost-only provider.
+The fixture observed one `SessionStart` event with a transcript path and the
+expected synthetic working directory. No real provider or paid model was used.
+This confirms that CLI fixture only: the actual desktop client, existing chat,
+hook trust flow, source rotation and production deployment are still unverified.
+[OpenAI's hook documentation](https://learn.chatgpt.com/docs/hooks) describes
+the transcript path as a convenience and cautions that transcript format can
+change. The prototype therefore still checks the selected file's exact session
+identity, preserves source-coverage gaps, and does not treat hook data as authority
+to assign work.
+
+The operator subsequently selected all sessions using the shared
+`/home/shanereviello/Documents/Codex` working directory for the initial Jarvis
+scope. This is explicit scope authorization, not a project/work assignment or
+permission to assign a transcript based on its directory. The desktop adapter
+leaves those relationships unmapped. New and resumed sessions require a trusted
+hook event; the adapter does not recursively scan historical sessions. The
+prepared timer runs as the existing user, in a private network namespace, with
+a bounded number of sources per pass. Installation and actual desktop hook
+delivery remain to be verified.
+
+## Desktop capture production check — November 10, 2026
+
+The operator installed immutable release `standardized-history-43ae65bac66b`
+and the initially disabled desktop capture service and timer. The reviewed
+user hook was installed and the operator reported trusting its four lifecycle
+handlers. This desktop session then appeared in the private registry. A manual
+service pass captured its selected source and delivered all four queued items
+without failures or model execution; its artifact manifest and local full export
+digest were verified against the scoped history service.
+
+The operator enabled the timer. A scheduled pass ran successfully, processed two
+registered sources, and reported no failed or pending deliveries. Subsequent
+checks matched all three retained artifact receipts in private history; one
+artifact had versions 1 and 2 and the other had version 1. All were unmapped and
+marked partial. This verifies an actual hook event and one scheduled pass, not
+every desktop lifecycle event, history completeness, or cross-project work
+attribution. The timer's next trigger was visible on the monotonic schedule.
+Collection does not recursively import historical sessions; source discovery
+depends on trusted future lifecycle events. No paid model was started.
+
+## Linear Codex capture production check — November 10, 2026
+
+The operator authorized the three registered Linear Codex sources and future
+sources registered for configured Jarvis work. The first capture pass reported
+a gap on all three; no capture timer was enabled. Diagnostics showed that the
+root-controlled systemd listener presented UID 0 as its Unix peer while the
+configuration incorrectly expected the native worker UID 991. The socket itself
+remained adapter-owned mode 0600, and the accepted filesystem reader service
+remained separately confined as UID 991. The reviewed unit definitions were
+checked, and the approved sources passed a private probe before the protected
+configuration was corrected; its previous bytes were retained in a root-private
+journal.
+
+The bounded collector was activated from release `standardized-history-f602e6d949cc`
+with at most four sources per pass. Its first pass checked all three sources with
+no capture gaps or pending deliveries. A subsequent scheduled pass reported all
+three unchanged and no failures. Scoped history reads confirmed three
+work-associated SpecStory records, each marked partial. The separate Codex
+execution policy remained disabled, and no model was started. This confirms the
+selected registered sources and scheduled replay, not arbitrary historical
+sessions, complete transcript coverage, or a new live coding turn.

@@ -36,3 +36,13 @@ chunk rejection, private-display clearing and unmapped evidence discovery. The
 existing project architecture/diff/closeout/browser failure tests also pass.
 These tests use signed synthetic authentication and temporary databases; they
 are not an authenticated production browser acceptance or deployment receipt.
+
+### Bounded evidence read batches
+
+The history service supports an optional contiguous range of up to eight chunks
+under one verified, scope-bound snapshot. The previous single-chunk request and
+response remain supported. The dashboard validates every returned chunk and the
+full artifact digest before download; preview remains limited to four chunks.
+The API refuses invalid ranges and ungranted scopes. This reduces repeated
+history-boundary verification for larger private exports without caching access
+or removing any per-request authorization checks.

@@ -1,0 +1,13 @@
+[Unit]
+Description=Deliver retained Codex handoffs without starting work
+ConditionPathExists=/etc/rras-engineering/codex-runtime/host-runtime-enabled
+ConditionPathExists=/var/lib/rras-codex-adapter/handoff-delivery.json
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=rras-codex-handoff-delivery.service
+
+[Install]
+WantedBy=timers.target

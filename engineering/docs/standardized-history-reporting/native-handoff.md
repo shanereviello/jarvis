@@ -91,6 +91,14 @@ admission, not a Linear mutation or a coding turn. Publication still waits for
 source quiescence. A Codex-to-Jarvis request for assistant context does not itself
 delegate engineering ownership.
 
+`rras-codex-handoff-delivery.service` and its separate timer are inactive host
+candidates for that passive pass. They run as the private adapter account, require
+an installed owner-only delivery job and the explicit runtime marker, and limit
+network traffic to the existing n8n bridge subnet. A missing or unreachable
+admission endpoint leaves the original handoff pending; it never launches a model.
+If the configured n8n container address changes, update and verify the private
+delivery job before resuming delivery rather than redirecting queued requests.
+
 Authenticated n8n origin/binding checks supply incoming handoff metadata to the
 coder adapter. It records Jarvis as coordinator only for such an incoming
 handoff. Human follow-ups within that same native session preserve the chain;

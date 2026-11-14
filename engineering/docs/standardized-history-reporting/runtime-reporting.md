@@ -41,6 +41,12 @@ architecture and active attempt. Callers cannot choose work or grant approval.
 Text is redacted before staging. Exact replay is safe; changed text under an
 existing key is refused. A terminal or unknown session cannot append an active
 checkpoint. No private history, execution or Linear credential is exposed.
+The runtime explicitly sets the Codex tool approval mode to `approve` for
+`engineering_checkpoint` only, allowing this scoped passive recorder to run
+without an interactive prompt. The separate handoff tool and all unrelated tools
+retain their own approval behavior. The broker still validates the native UID,
+active session and dispatch, installed work binding and checkpoint schema. The
+adapter continues to refuse server-initiated approval requests it cannot handle.
 
 The runtime applies the recorder's MCP configuration and checkpoint guidance on
 both thread start and resume. Before generation, it inspects the actual thread's
@@ -81,12 +87,13 @@ immutable, private selected-file jobs under the installed source root. This
 registration does not open/export the file or scan other sessions.
 `runtime_capture_jobs.py` validates registrations against the installed work,
 exporter, authorization and Unix transport policy. It visits up to 32 sources
-per pass, rotates fairly through at most 4,096 retained registrations and flushes
+per pass by default (the operator may select a lower bounded pass limit), rotates fairly through at most 4,096 retained registrations and flushes
 the shared queue even before a native source becomes available. Invalid entries,
 changed policy, lock contention and capacity stop the pass with retained sources
 and pending data. No native source, history item or registration is automatically
-deleted. An incomplete cursor temporary file is a stop/report condition for an
-operator to inspect. Collection and delivery run independently of coding.
+deleted. A complete interrupted cursor update is recovered under the registry
+lock; an invalid temporary cursor remains for inspection. Collection and delivery
+run independently of coding.
 
 Source fixtures cover start-before-generation, terminal states, outage replay,
 capacity gaps, exact attribution, redaction, MCP SDK stdio discovery/call/refusal,

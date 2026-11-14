@@ -18,7 +18,7 @@ def test_release_vendor_is_exact_and_imports_without_global_site_packages(tmp_pa
     vendor=tmp_path/'vendor/site-packages'
     for name,raw in files.items():
         path=tmp_path/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
-    program="import sys;sys.path.insert(0,sys.argv[1]);import mcp.server.fastmcp,jsonschema;print(mcp.__version__ if hasattr(mcp,'__version__') else 'mcp-ok',jsonschema.__version__)"
+    program="import sys;sys.path.insert(0,sys.argv[1]);import mcp.server.fastmcp,jsonschema,jwt;from cryptography.hazmat.primitives.asymmetric import rsa;k=rsa.generate_private_key(public_exponent=65537,key_size=2048);t=jwt.encode({'ok':True},k,algorithm='RS256');assert jwt.decode(t,k.public_key(),algorithms=['RS256'])['ok'];print(mcp.__version__ if hasattr(mcp,'__version__') else 'mcp-ok',jsonschema.__version__)"
     result=subprocess.run([sys.executable,'-I','-c',program,str(vendor)],capture_output=True,text=True,check=True,timeout=30)
     assert 'mcp-ok' in result.stdout and '4.26.0' in result.stdout
 
@@ -33,7 +33,7 @@ def test_isolated_venv_reads_only_the_release_vendor_path(tmp_path):
     site=venv/'lib/python3.13/site-packages';site.mkdir(parents=True,exist_ok=True)
     (site/'rras-vendor.pth').write_text(str(vendor)+'\n')
     result=subprocess.run([str(venv/'bin/python'),'-I','-c',
-        'import mcp.server.fastmcp,jsonschema;print(jsonschema.__version__)'],
+        "import mcp.server.fastmcp,jsonschema,jwt;from cryptography.hazmat.primitives.asymmetric import rsa;k=rsa.generate_private_key(public_exponent=65537,key_size=2048);t=jwt.encode({'ok':True},k,algorithm='RS256');assert jwt.decode(t,k.public_key(),algorithms=['RS256'])['ok'];print(jsonschema.__version__)"],
         capture_output=True,text=True,check=True,timeout=30)
     assert result.stdout.strip()=='4.26.0'
 
@@ -50,8 +50,21 @@ def test_release_inputs_and_digest_are_canonical():
     assert first==release.release_digest({'b':b'two','a':b'one'})
 
 
+def test_optional_collector_is_pinned_and_requires_an_executable(tmp_path,monkeypatch):
+    candidate=tmp_path/'specstory';candidate.write_bytes(b'synthetic collector')
+    candidate.chmod(0o755)
+    monkeypatch.setattr(release,'SPECSTORY_SHA256',release.digest(candidate.read_bytes()))
+    assert release.binaries(BINARY,candidate)['runtime/bin/specstory']==b'synthetic collector'
+    candidate.write_bytes(b'changed collector')
+    try:release.binaries(BINARY,candidate)
+    except ValueError:pass
+    else:raise AssertionError('changed collector accepted')
+
+
 def test_release_renders_every_systemd_path_and_python_vendor_binding():
     files=release.source_files(ROOT.parent)
+    assert 'engineering/hermes_plugins/engineering-planning/__init__.py' in files
+    assert 'engineering/hermes_plugins/engineering-planning/plugin.yaml' in files
     target='/opt/rras-engineering/releases/standardized-history-a1b2c3d4e5f6'
     rendered=release.render_release(files,target)
     assert rendered['runtime/rras-vendor-site-packages.pth']==(target+'/vendor/site-packages\n').encode()
@@ -60,3 +73,32 @@ def test_release_renders_every_systemd_path_and_python_vendor_binding():
             assert b'standardized-history-runtime' not in raw
             if b'/opt/rras-engineering/releases/standardized-history-' in files[name]:
                 assert target.encode() in raw
+
+
+def test_packaged_source_can_render_both_n8n_integrations(tmp_path):
+    from test_reporting_n8n_handoff import configuration
+    from test_reporting_n8n_codex import config
+
+    for name, raw in release.source_files(ROOT.parent).items():
+        target=tmp_path/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    folder=tmp_path/'engineering/tools/rras_reporting'
+    def renderer(name):
+        spec=importlib.util.spec_from_file_location('packaged_'+name,folder/(name+'.py'))
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+    assert len(renderer('n8n_handoff').render(configuration())['workflows'])==8
+    assert len(renderer('n8n_codex').render(config.__wrapped__())['workflows'])==4
+
+
+def test_packaged_operator_and_planning_dependencies_are_present(tmp_path):
+    from test_reporting_n8n_codex import config,uid
+    for name,raw in release.source_files(ROOT.parent).items():
+        target=tmp_path/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    folder=tmp_path/'engineering/tools/rras_reporting'
+    def load(name):
+        spec=importlib.util.spec_from_file_location('packaged_v05_'+name,folder/(name+'.py'))
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+    scope=dict(kind='non_git',id='jarvis-non-git');value=config.__wrapped__()
+    assert not load('n8n_planning_reader').render(value,'separate-reader',[uid(30)],[scope],{},scope)['active']
+    assert not load('n8n_operator_comment_reader').render(value,'operator-reader',[uid(30)],[uid(31)])['active']
+    assert load('onboarding_operator_entry').web('access').AccessConfig
+    assert load('onboarding_attestation_web_entry').web('entry').server_options

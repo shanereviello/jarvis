@@ -1,0 +1,42 @@
+[Unit]
+Description=Private Jarvis engineering planning bridge
+After=network.target docker.service rras-engineering-history.service
+Wants=docker.service
+ConditionPathExists=/etc/rras-engineering/hermes-planning/host-enabled
+
+[Service]
+Type=simple
+User=rras-jarvis-planner
+Group=rras-jarvis-planner
+UMask=0077
+Environment=PATH=/usr/bin:/bin HOME=/nonexistent LANG=C.UTF-8
+UnsetEnvironment=OPENAI_API_KEY ANTHROPIC_API_KEY GH_TOKEN GITHUB_TOKEN CODEX_HOME
+ExecStart=/opt/rras-engineering/releases/standardized-history-runtime/venv/bin/python -I -B /opt/rras-engineering/releases/standardized-history-runtime/engineering/tools/rras_reporting/hermes_planning_entry.py --config /etc/rras-engineering/hermes-planning/service.json --scopes /etc/rras-engineering/hermes-planning/scopes.json --reader-token /etc/rras-engineering/hermes-planning/reader-token --bridge-token /etc/rras-engineering/hermes-planning/bridge-token --state /var/lib/rras-jarvis-planner/issues --creator-token /etc/rras-engineering/hermes-planning/creator-token
+Restart=on-failure
+RestartSec=3s
+StateDirectory=rras-jarvis-planner
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost 172.19.0.0/16
+MemoryMax=1G
+TasksMax=64
+TimeoutStopSec=15s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

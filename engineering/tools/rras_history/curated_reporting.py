@@ -168,7 +168,14 @@ def publish_profile(root,rows,profile,profile_sha256,expected_head,*,approve_pro
     if current!=expected_head:raise ValueError('stale publication generation')
     withdrawn={entry for _,value in chain for entry in value['request']['withdrawn_ids']}
     preview['entries']=[x for x in preview['entries'] if x['entry_id'] not in withdrawn]
-    preview['coverage']['returned_count']=len(preview['entries']);sha=c.digest(c.encoded(preview))
+    preview['coverage']['returned_count']=len(preview['entries'])
+    if chain:
+        current_preview=chain[0][1]['preview']
+        parts=current_preview['parts'] if current_preview.get('contract')=='engineering-curated-composite-preview.v1' else [current_preview]
+        retained=[part for part in parts if not (part.get('contract')=='engineering-curated-reporting-preview.v1' and
+            part['profile']['profile_id']==profile['profile_id'])]
+        if retained:preview=local('curated_composite').build(retained+[preview])
+    sha=c.digest(c.encoded(preview))
     if chain and c.encoded(chain[0][1]['preview'])==c.encoded(preview):
         return dict(chain[0][1]['receipt'],generation_sha256=current,replayed=True)
     key='profile-'+c.digest(c.encoded(dict(profile=profile_sha256,preview=sha,head=expected_head)))

@@ -23,6 +23,9 @@ include the actual run, operation and stable key. Passive delivery resolves the
 retained context and submits either a typed checkpoint to n8n or a prepared Jarvis
 handoff to the existing native transport. Missing context or acknowledgments
 leave the original request pending. Retries do not launch another assistant run.
+The opt-in plugin starts a passive retry thread, and a private queue lock
+serializes retries across Hermes processes and immediate tool calls. The thread
+stops with its host process; pending entries remain for the next process.
 The native account holds no Linear OAuth credential or owned-history grant.
 
 The additional SQL tables retain engineering admissions, run bindings and

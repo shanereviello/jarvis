@@ -29,6 +29,34 @@ assert.equal(verifyOrigin(e,r,policy).permitted,true);
 assert.equal(verifyOrigin(e,r,policy).observation.human_approval_inferred,false);
 const unknown=structuredClone(r);unknown.body.data.agentSession.creator=null;
 assert.equal(verifyOrigin(e,unknown,policy).permitted,false);
+// A verified Linear-generated root is not the initiating comment's author.
+// Require its exact session link and the same native/signed human identity.
+const delegated=structuredClone(r),de=structuredClone(e);
+de.origin_comment_id='linear-root';de.responsible_human_id=uidHuman();
+delegated.body.data.sourceActor={id:uidHuman(),app:false};
+delegated.body.data.agentSession.creator={id:uidHuman(),app:false};
+delegated.body.data.agentSession.sourceMetadata=null;
+delegated.body.data.agentSession.comment={id:'linear-root',isArtificialAgentSessionRoot:true,
+ agentSession:{id:e.session_id},user:null};
+assert.equal(verifyOrigin(de,delegated,policy).permitted,true);
+assert.equal(verifyOrigin(de,delegated,policy).observation.actor_basis,'native_artificial_root_and_verified_creator');
+assert.equal(verifyOrigin(de,delegated,policy).observation.source_actor_id,null);
+assert.equal(verifyOrigin(de,delegated,policy).observation.responsible_human_id,uidHuman());
+assert.equal(verifyOrigin(de,delegated,policy).observation.source_comment_id,null);
+assert.equal(verifyOrigin(de,delegated,policy).observation.session_thread_comment_id,'linear-root');
+function uidHuman(){return '00000000-0000-0000-0000-000000000006';}
+for(const mutate of [x=>x.r.body.data.agentSession.comment.isArtificialAgentSessionRoot=false,
+ x=>x.r.body.data.agentSession.comment.agentSession.id='other-session',
+ x=>x.r.body.data.agentSession.comment.user={id:'agent',app:true},
+ x=>x.r.body.data.agentSession.creator.id='other-human',x=>x.r.body.data.sourceActor.app=true,
+ x=>x.e.responsible_human_id=null,x=>x.e.origin_comment_id=null,
+ x=>x.r.body.data.agentSession.sourceMetadata={external:'unknown'},
+ x=>delete x.r.body.data.agentSession.sourceMetadata,
+ x=>x.r.body.data.agentSession.sourceComment={id:'foreign',user:null},
+ x=>delete x.r.body.data.agentSession.sourceComment]){
+ const x=structuredClone({e:de,r:delegated});mutate(x);assert.equal(verifyOrigin(x.e,x.r,policy).permitted,false);
+}
+assert.equal(verifyOrigin(de,delegated,policy,h).permitted,false);
 const agent=structuredClone(r);agent.body.data.agentSession.sourceComment={id:h.comment_id,user:{id:h.body.sender_app_user_id,app:true}};
 // A human creator does not turn an agent's source comment into a human request.
 assert.equal(verifyOrigin(e,agent,policy).permitted,false);

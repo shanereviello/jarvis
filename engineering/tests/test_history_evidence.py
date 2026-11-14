@@ -113,6 +113,10 @@ def test_manifest_requires_scoped_uploaded_bytes_and_total_digest(evidence,repor
     with pytest.raises(ValueError,match='boundary'):evidence.read(REPO,query(projects,value,snapshot=old))
     got=evidence.read(REPO,query(projects,value,1))
     assert base64.b64decode(got['chunk']['data_base64'])==b'B'
+    batch=evidence.read(REPO,dict(query(projects,value,0),count=2))
+    assert b''.join(base64.b64decode(c['data_base64']) for c in batch['chunks'])==raw
+    for overrides in (dict(count=0),dict(count=9),dict(count=True),dict(index=1,count=2)):
+        with pytest.raises(ValueError):evidence.read(REPO,dict(query(projects,value,0),**overrides))
     assert got['manifest_sha256']==saved['receipt']['request_sha256']
     other=manifest(projects,raw,context=False);other['scope']=dict(kind='repository',id='other')
     other['body']['artifact_id']='cap_'+'9'*32

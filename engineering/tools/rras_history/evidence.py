@@ -153,7 +153,7 @@ class Evidence:
         principal=os.getuid() if peer_uid is None else -peer_uid
         with self.store.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('PRAGMA user_version').fetchone()[0]!=5:raise ValueError('explicit evidence upgrade required')
+            if db.execute('PRAGMA user_version').fetchone()[0] not in (5,6):raise ValueError('explicit evidence upgrade required')
             prior=db.execute('SELECT request_sha256,receipt FROM evidence_uploads WHERE principal=? AND client_key=?',
                 (principal,value['client_event_key'])).fetchone()
             if prior:
@@ -194,7 +194,7 @@ class Evidence:
         self.store.sync();return dict(inserted=True,receipt=receipt)
 
     def verify_manifest(self,db,selected,body):
-        if db.execute('PRAGMA user_version').fetchone()[0]!=5:raise ValueError('private evidence byte intake upgrade required')
+        if db.execute('PRAGMA user_version').fetchone()[0] not in (5,6):raise ValueError('private evidence byte intake upgrade required')
         digest=hashlib.sha256()
         for chunk in body['chunks']:
             row=db.execute('SELECT byte_length FROM evidence_chunks WHERE scope_kind=? AND scope_id=? AND chunk_sha256=?',
@@ -205,7 +205,8 @@ class Evidence:
 
     def read(self,selected,query):
         if type(query) is not dict or set(query) not in (
-                {'artifact_id','version','snapshot'},{'artifact_id','version','snapshot','index'}):
+                {'artifact_id','version','snapshot'},{'artifact_id','version','snapshot','index'},
+                {'artifact_id','version','snapshot','index','count'}):
             raise ValueError('exact signed artifact query required')
         if (type(query['artifact_id']) is not str or not re.fullmatch('cap_[0-9a-f]{32}',query['artifact_id']) or
                 type(query['version']) is not int or query['version']<1):raise ValueError('exact artifact revision required')
@@ -225,8 +226,14 @@ class Evidence:
         result['association']=dict(submission=association[0],receipt=association[1]) if association else None
         result['effective_context']=association[0]['context'] if association else request['context']
         if 'index' in query:
-            index=query['index']
-            if type(index) is not int or not 0<=index<len(body['chunks']):raise ValueError('bounded artifact chunk required')
-            chunk=body['chunks'][index];raw=self.read_blob(chunk['sha256'],chunk['byte_length'])
-            result['chunk']=dict(chunk,data_base64=base64.b64encode(raw).decode())
+            index=query['index'];count=query.get('count',1)
+            if (type(index) is not int or type(count) is not int or not 1<=count<=8 or
+                    not 0<=index<len(body['chunks']) or index+count>len(body['chunks'])):
+                raise ValueError('bounded artifact chunk range required')
+            chunks=[]
+            for chunk in body['chunks'][index:index+count]:
+                raw=self.read_blob(chunk['sha256'],chunk['byte_length'])
+                chunks.append(dict(chunk,data_base64=base64.b64encode(raw).decode()))
+            if 'count' in query:result['chunks']=chunks
+            else:result['chunk']=chunks[0]
         return result

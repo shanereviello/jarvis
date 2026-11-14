@@ -61,11 +61,15 @@ def identity(value,status_path='/proc/self/status'):
         if name not in status or int(status[name].strip(),16)!=0:raise ValueError('zero capabilities required')
 
 
+def read_call(transport,value,message):
+    if type(message) is not dict or message.get('method') not in ('history','document','workspace_scopes','project_read','evidence_read'):raise ValueError('reads only')
+    return transport.call(value['history_socket'],value['history_uid'],message)
+
+
 def application(value):
     history=local('history');transport=history.local('unix')
     def call(message):
-        if type(message) is not dict or message.get('method') not in ('history','document','workspace_scopes','project_read'):raise ValueError('reads only')
-        return transport.call(value['history_socket'],value['history_uid'],message)
+        return read_call(transport,value,message)
     reader=history.Reader(value['repositories'],call,value.get('categories',()))
     config=local('access').AccessConfig(value['issuer'],value['audience'],value['email'],value['origin'])
     return local('app').create_app(reader,local('access').Access(config))

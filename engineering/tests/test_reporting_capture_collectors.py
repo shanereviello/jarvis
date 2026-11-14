@@ -58,6 +58,9 @@ def test_actual_pinned_collector_reads_only_selected_synthetic_source(tmp_path,b
     assert 'EXCLUDED-PRIVATE-ANALYSIS-FIXTURE-CONTENT-DO-NOT-EXPORT' not in export
     if style=='response-only':assert fixtures.PROMPT not in export and fixtures.ANSWER not in export
     else:assert fixtures.PROMPT in export and fixtures.ANSWER in export
+    if style=='response-only':
+        saved=spool.c.decode(item['request'])
+        assert any('source messages were not found verbatim' in gap for gap in saved['body']['gaps'])
     assert m.collect_codex(spool,**args)['changed'] is False
     shutil.rmtree(worktree)
     assert (spool.exports/item['export_sha256']).exists()
@@ -119,3 +122,30 @@ def test_hermes_native_redaction_then_owned_redaction_and_dedup(tmp_path,monkeyp
     assert 'Visible request' in text and 'Visible result' in text and 'synthetic-sensitive-header' not in text
     assert m.collect_hermes(spool,**args)['changed'] is False
     assert calls==['native_redact','render']
+
+
+def test_multiple_native_segments_keep_separate_artifacts_and_session_identity(tmp_path,binary):
+    spool=intake.Spool(tmp_path/'spool',create=True);worktree=tmp_path/'worker';worktree.mkdir()
+    source=tmp_path/'selected.jsonl';rows=fixtures.events(worktree,'legacy')
+    source.write_text(''.join(json.dumps(row)+'\n' for row in rows));source.chmod(0o600)
+    args=dict(source=str(source),session=fixtures.SESSION,binary=binary,scope=dict(kind='repository',id='jarvis'),
+        context=None,authorization_reference='synthetic fixture only')
+    for segment in ('first','second'):
+        assert m.collect_codex(spool,source_segment=segment,**args)['changed']
+        assert not m.collect_codex(spool,source_segment=segment,**args)['changed']
+    with spool.connection() as db:
+        items=db.execute("SELECT request,artifact FROM items WHERE kind='artifact' ORDER BY sequence").fetchall()
+    assert len(items)==2 and len({item['artifact'] for item in items})==2
+    records=[spool.c.decode(item['request']) for item in items]
+    assert records[0]['body']['session']==records[1]['body']['session']
+    assert [r['body']['source_range']['start'] for r in records]==['segment:first:byte:0','segment:second:byte:0']
+    assert all(r['body']['version']==1 for r in records)
+    with source.open('a') as stream:
+        stream.write(json.dumps(dict(type='event_msg',timestamp='2026-11-07T12:00:05Z',
+            payload=dict(type='user_message',message='A synthetic appended exchange'))) + '\n')
+    assert m.collect_codex(spool,source_segment='first',**args)['changed']
+    with spool.connection() as db:
+        item=db.execute("SELECT request,artifact FROM items WHERE kind='artifact' ORDER BY sequence DESC LIMIT 1").fetchone()
+    latest=spool.c.decode(item['request'])
+    assert item['artifact']==items[0]['artifact'] and latest['body']['version']==2
+    assert not any('prefix shortened' in gap for gap in latest['body']['gaps'])
